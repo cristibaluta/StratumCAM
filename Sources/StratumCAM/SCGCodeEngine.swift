@@ -13,6 +13,7 @@ public struct SCGCodeEngine {
     
     /// Converts generated toolpaths into standard CNC G-code instructions.
     public func generateGCode(from toolpaths: [SC.OutputToolpath], settings: SC.MachineSettings) -> String {
+        
         var lines: [String] = []
         
         // Header
@@ -44,24 +45,28 @@ public struct SCGCodeEngine {
     }
     
     private func formatWaypoint(_ wp: SC.Waypoint) -> String {
+
         let x = String(format: "%.3f", wp.position.x)
         let y = String(format: "%.3f", wp.position.y)
         let z = String(format: "%.3f", wp.position.z)
         let f = String(format: "%.1f", wp.feedRate)
         
         switch wp.motion {
-        case .rapid:
-            return "G00 X\(x) Y\(y) Z\(z)"
-        case .linear:
-            return "G01 X\(x) Y\(y) Z\(z) F\(f)"
-        case .arcCW(let center):
-            let i = String(format: "%.3f", center.x - wp.position.x)
-            let j = String(format: "%.3f", center.y - wp.position.y)
-            return "G02 X\(x) Y\(y) Z\(z) I\(i) J\(j) F\(f)"
-        case .arcCCW(let center):
-            let i = String(format: "%.3f", center.x - wp.position.x)
-            let j = String(format: "%.3f", center.y - wp.position.y)
-            return "G03 X\(x) Y\(y) Z\(z) I\(i) J\(j) F\(f)"
+            case .rapid:
+                return "G00 X\(x) Y\(y) Z\(z)"
+
+            case .linear:
+                return "G01 X\(x) Y\(y) Z\(z) F\(f)"
+
+            case .arcCW(let center):
+                let i = String(format: "%.3f", center.x - wp.position.x)
+                let j = String(format: "%.3f", center.y - wp.position.y)
+                return "G02 X\(x) Y\(y) Z\(z) I\(i) J\(j) F\(f)"
+
+            case .arcCCW(let center):
+                let i = String(format: "%.3f", center.x - wp.position.x)
+                let j = String(format: "%.3f", center.y - wp.position.y)
+                return "G03 X\(x) Y\(y) Z\(z) I\(i) J\(j) F\(f)"
         }
     }
 }

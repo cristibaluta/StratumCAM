@@ -14,7 +14,7 @@ final class SCEngine {
     init() {}
 
     /// Generates engraving toolpaths following the input contours exactly
-    func generateEngraving(from contours: [SC.Contour], tool: SC.ToolParams, settings: SC.MachineSettings) -> [SC.OutputToolpath] {
+    func generateToolpaths(from contours: [SC.Contour], tool: SC.ToolParams, settings: SC.MachineSettings) -> [SC.OutputToolpath] {
 
         var results: [SC.OutputToolpath] = []
 
