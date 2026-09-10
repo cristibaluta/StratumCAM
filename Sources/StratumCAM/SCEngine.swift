@@ -13,8 +13,10 @@ public final class SCEngine {
 
     public init() {}
 
-    /// Generates engraving toolpaths following the input contours exactly
-    public func generateToolpaths(from contours: [SC.Contour], tool: SC.ToolParams, settings: SC.MachineSettings) -> [SC.OutputToolpath] {
+    /// Generates toolpaths following the input contours, optionally offset by the tool
+    /// radius for an inside/outside profile cut. `side` defaults to `.onContour`, which
+    /// traces the geometry exactly (engraving / center-line cutting).
+    public func generateToolpaths(from contours: [SC.Contour], tool: SC.ToolParams, settings: SC.MachineSettings, side: SC.Side = .onContour) -> [SC.OutputToolpath] {
 
         var results: [SC.OutputToolpath] = []
 
@@ -25,6 +27,9 @@ public final class SCEngine {
                 continue
             }
 
+            // 1b. Apply tool-radius compensation for inside/outside profile cuts
+            let toolpathSegments = offsetContour(baseSegments, side: side, toolRadius: tool.diameter / 2.0, isClosed: contour.isClosed)
+
             // 2. Calculate Z depth passes based on tool stepdown
             let zDepths = calculateZPasses(targetDepth: settings.targetDepth, stepdown: tool.stepdown)
 
@@ -32,13 +37,15 @@ public final class SCEngine {
             var passes: [SC.ToolpathPass] = []
             var i = 0
             for z in zDepths {
-                let waypoints = buildWaypoints(for: baseSegments, atZ: z, settings: settings)
+                let waypoints = buildWaypoints(for: toolpathSegments, atZ: z, settings: settings)
                 passes.append(
                     SC.ToolpathPass(passIndex: i, depthZ: z, waypoints: waypoints)
                 )
                 i += 1
             }
 
+            // TODO: tag the output with .profile(side: side, ...) once strategy dispatch
+            // (ramping/lead-in/tabs) exists -- .engrave is a placeholder for now.
             results.append(
                 SC.OutputToolpath(strategy: .engrave, tool: tool, settings: settings, passes: passes)
             )
@@ -56,7 +63,7 @@ public final class SCEngine {
             let extracted = convert(entity: chained.entity, reversed: chained.reversed)
             segments.append(contentsOf: extracted)
         }
-
+        
         return segments
     }
 
@@ -264,7 +271,7 @@ public final class SCEngine {
 
         var passes: [Double] = []
         var currentDepth = step
-
+        
         // TODO: because of Double additions the final value is not our absoluteTarget
         // For target -1 and 0.1 steps it results in 11 steps instead 10
         // We need to make sure we don't waste passes like this
@@ -274,10 +281,10 @@ public final class SCEngine {
             currentDepth += step
         }
         passes.append(-absoluteTarget)
-
+        
         return passes
     }
-
+    
     private func buildWaypoints(for segments: [SC.Segment], atZ z: Double, settings: SC.MachineSettings) -> [SC.Waypoint] {
         var waypoints: [SC.Waypoint] = []
 
@@ -285,7 +292,7 @@ public final class SCEngine {
             return []
         }
         let startPoint = startPointOf(segment: first)
-
+        
         // 1. Rapid move above start point at Safe Z
         waypoints.append(SC.Waypoint(position: SIMD3(startPoint.x, startPoint.y, settings.safeZ),
                                      motion: .rapid,

@@ -58,7 +58,7 @@ public enum SC {
 
     // MARK: - 2. Tooling Configuration
 
-    public enum ToolType: String, Sendable, Codable {
+    public enum ToolType: String, Sendable, Codable, Equatable {
         case flatEndMill
         case ballEndMill
         case vBit
@@ -142,13 +142,13 @@ public enum SC {
 
     // MARK: - 4. Machining Operations & Strategies
 
-    public enum Side: String, Sendable, Codable {
+    public enum Side: String, Sendable, Codable, Equatable {
         case inside
         case outside
         case onContour
     }
 
-    public enum CutDirection: String, Sendable, Codable {
+    public enum CutDirection: String, Sendable, Codable, Equatable {
         case climb                          // Standard for CNC mills
         case conventional
     }
@@ -193,12 +193,12 @@ public enum SC {
         }
     }
 
-    public enum AdaptiveType: String, Sendable, Codable {
+    public enum AdaptiveType: String, Sendable, Codable, Equatable {
         case clearing2D           // Adaptive pocket / dynamic roughing
         case adaptiveContour      // High-speed profile adaptive clearing
     }
 
-    public enum PocketType: String, Sendable, Codable {
+    public enum PocketType: String, Sendable, Codable, Equatable {
         case offsetPattern               // Concentric inner-to-outer shapes
         case raster                      // Parallel scanlines
     }
