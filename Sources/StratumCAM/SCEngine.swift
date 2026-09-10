@@ -9,12 +9,12 @@ import Foundation
 import simd
 import SwiftDXF
 
-final class SCEngine {
+public final class SCEngine {
 
-    init() {}
+    public init() {}
 
     /// Generates engraving toolpaths following the input contours exactly
-    func generateToolpaths(from contours: [SC.Contour], tool: SC.ToolParams, settings: SC.MachineSettings) -> [SC.OutputToolpath] {
+    public func generateToolpaths(from contours: [SC.Contour], tool: SC.ToolParams, settings: SC.MachineSettings) -> [SC.OutputToolpath] {
 
         var results: [SC.OutputToolpath] = []
 
@@ -56,7 +56,7 @@ final class SCEngine {
             let extracted = convert(entity: chained.entity, reversed: chained.reversed)
             segments.append(contentsOf: extracted)
         }
-        
+
         return segments
     }
 
@@ -264,7 +264,7 @@ final class SCEngine {
 
         var passes: [Double] = []
         var currentDepth = step
-        
+
         // TODO: because of Double additions the final value is not our absoluteTarget
         // For target -1 and 0.1 steps it results in 11 steps instead 10
         // We need to make sure we don't waste passes like this
@@ -274,10 +274,10 @@ final class SCEngine {
             currentDepth += step
         }
         passes.append(-absoluteTarget)
-        
+
         return passes
     }
-    
+
     private func buildWaypoints(for segments: [SC.Segment], atZ z: Double, settings: SC.MachineSettings) -> [SC.Waypoint] {
         var waypoints: [SC.Waypoint] = []
 
@@ -285,7 +285,7 @@ final class SCEngine {
             return []
         }
         let startPoint = startPointOf(segment: first)
-        
+
         // 1. Rapid move above start point at Safe Z
         waypoints.append(SC.Waypoint(position: SIMD3(startPoint.x, startPoint.y, settings.safeZ),
                                      motion: .rapid,
