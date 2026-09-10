@@ -39,20 +39,10 @@ public enum SC {
         public struct Chained: Sendable {
             public var entity: DXF.Entity
             public var reversed: Bool
-
-            public init(entity: DXF.Entity, reversed: Bool) {
-                self.entity = entity
-                self.reversed = reversed
-            }
         }
 
         public var entities: [Chained]
         public var isClosed: Bool
-
-        public init(entities: [Chained], isClosed: Bool) {
-            self.entities = entities
-            self.isClosed = isClosed
-        }
     }
 
     // MARK: - 2. Tooling Configuration
@@ -72,6 +62,8 @@ public enum SC {
         public var stepdown: Double         // Max depth per Z-pass
         public var stepoverPercentage: Double // 0.1 to 0.95 (10% to 95% of tool diameter)
         public var vAngle: Double?          // Included angle in degrees for V-bits (e.g., 60.0, 90.0)
+        public var fluteLength: Double      // Total cutting edge length (allows deep Z adaptive passes)
+        public var maxOptimalLoad: Double   // Maximum radial stepover allowance for adaptive motion (mm)
 
         public init(
             id: UUID = UUID(),
@@ -80,7 +72,9 @@ public enum SC {
             diameter: Double = 6.35,
             stepdown: Double = 1.5,
             stepoverPercentage: Double = 0.4,
-            vAngle: Double? = nil
+            vAngle: Double? = nil,
+            fluteLength: Double = 12,
+            maxOptimalLoad: Double = 0.0
         ) {
             self.id = id
             self.name = name
@@ -89,6 +83,8 @@ public enum SC {
             self.stepdown = stepdown
             self.stepoverPercentage = stepoverPercentage
             self.vAngle = vAngle
+            self.fluteLength = fluteLength
+            self.maxOptimalLoad = maxOptimalLoad
         }
     }
 
@@ -165,6 +161,16 @@ public enum SC {
         case profile(side: Side, direction: CutDirection, tabs: [HoldingTab])
         case pocket(direction: CutDirection, pocketType: PocketType)
         case drilling(peckDepth: Double?)
+        case adaptiveClearing(type: AdaptiveType,
+                              direction: CutDirection,
+                              optimalLoad: Double,      // Target radial engagement / stepover distance (mm)
+                              helixRadius: Double       // Radius for helical entry into solid stock
+        )
+
+        public enum AdaptiveType: String, Sendable, Codable {
+            case d2Clearing           // Adaptive pocket / dynamic roughing
+            case adaptiveContour      // High-speed profile adaptive clearing
+        }
 
         public enum PocketType: String, Sendable, Codable {
             case offsetPattern               // Concentric inner-to-outer shapes
