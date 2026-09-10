@@ -156,26 +156,67 @@ public enum SC {
         }
     }
 
+    public enum EntryStrategy: Sendable, Equatable {
+        /// Direct vertical plunge into pre-drilled holes or soft material.
+        case plunge
+
+        /// Zig-zag back and forth at a shallow angle to reach pass depth.
+        case ramp(angleDegrees: Double)
+
+        /// Spiral down into the material in a circular motion (ideal for pockets/adaptive).
+        case helix(radius: Double, rampAngleDegrees: Double)
+    }
+
+    public struct LeadInOut: Sendable, Equatable {
+        public enum Style: Sendable, Equatable {
+            case linear(length: Double)
+            case arc(radius: Double, sweepAngleDegrees: Double)
+        }
+
+        public var style: Style
+        public var feedRate: Double
+
+        public init(style: Style, feedRate: Double) {
+            self.style = style
+            self.feedRate = feedRate
+        }
+    }
+
+    public enum AdaptiveType: String, Sendable, Codable {
+        case clearing2D           // Adaptive pocket / dynamic roughing
+        case adaptiveContour      // High-speed profile adaptive clearing
+    }
+
+    public enum PocketType: String, Sendable, Codable {
+        case offsetPattern               // Concentric inner-to-outer shapes
+        case raster                      // Parallel scanlines
+    }
+
     public enum CAMStrategy: Sendable, Equatable {
         case engrave
-        case profile(side: Side, direction: CutDirection, tabs: [HoldingTab])
-        case pocket(direction: CutDirection, pocketType: PocketType)
+
+        case profile(
+            side: Side,
+            direction: CutDirection,
+            entry: EntryStrategy,           // 💡 Ramping/Plunge strategy
+            leadIn: LeadInOut?,             // Smooth tool entry onto profile wall
+            leadOut: LeadInOut?,            // Smooth tool departure
+            tabs: [HoldingTab]
+        )
+
+        case pocket(
+            direction: CutDirection,
+            pocketType: PocketType,
+            entry: EntryStrategy            // 💡 Ramp or Helical entry into solid pocket stock
+        )
+
         case drilling(peckDepth: Double?)
+
         case adaptiveClearing(type: AdaptiveType,
                               direction: CutDirection,
                               optimalLoad: Double,      // Target radial engagement / stepover distance (mm)
-                              helixRadius: Double       // Radius for helical entry into solid stock
+                              entry: EntryStrategy      // Usually .helix
         )
-
-        public enum AdaptiveType: String, Sendable, Codable {
-            case d2Clearing           // Adaptive pocket / dynamic roughing
-            case adaptiveContour      // High-speed profile adaptive clearing
-        }
-
-        public enum PocketType: String, Sendable, Codable {
-            case offsetPattern               // Concentric inner-to-outer shapes
-            case raster                      // Parallel scanlines
-        }
     }
 
     // MARK: - 5. Toolpath Waypoints & Output Generation
