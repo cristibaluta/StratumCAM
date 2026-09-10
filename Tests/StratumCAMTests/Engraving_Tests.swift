@@ -15,20 +15,23 @@ import simd
 struct Engraving_Tests {
 
     @Test func testEngravingLine() {
-        let engine = CAMEngine()
+        let engine = SCEngine()
 
         // 1. Setup Test Parameters
-        let tool = ToolParams(diameter: 3.175, stepdown: 0.1)
-        let settings = MachineSettings(feedRate: 1000.0,
-                                       plungeRate: 300.0,
-                                       targetDepth: -0.1, // Should create 1 Z-passes
-                                       safeZ: 5.0)
+        let tool = SC.ToolParams(diameter: 3.175, stepdown: 0.1)
+        let settings = SC.MachineSettings(feedRate: 1000.0,
+                                          plungeRate: 300.0,
+                                          safeZ: 5.0,
+                                          targetDepth: -0.1)
 
-        let lineEntity = DXF.Entity.line(a: DXF.Point(0, 0), b: DXF.Point(10, 0), layer: "0", color: 7)
+        let lineEntity = DXF.Entity.line(a: DXF.Point(0, 0),
+                                         b: DXF.Point(10, 0),
+                                         layer: "0",
+                                         color: 7)
 
-        let contour = Contour(
+        let contour = SC.Contour(
             entities: [
-                Contour.Chained(entity: lineEntity, reversed: false)
+                SC.Contour.Chained(entity: lineEntity, reversed: false)
             ],
             isClosed: false
         )
@@ -86,14 +89,14 @@ struct Engraving_Tests {
     }
 
     @Test func testEngravingArc() {
-        let engine = CAMEngine()
+        let engine = SCEngine()
 
         // 1. Setup Test Parameters
-        let tool = ToolParams(diameter: 3.175, stepdown: 0.1)
-        let settings = MachineSettings(feedRate: 1000.0,
-                                       plungeRate: 300.0,
-                                       targetDepth: -0.1, // Should create 1 Z-passes
-                                       safeZ: 5.0)
+        let tool = SC.ToolParams(diameter: 3.175, stepdown: 0.1)
+        let settings = SC.MachineSettings(feedRate: 1000.0,
+                                          plungeRate: 300.0,
+                                          safeZ: 5.0,
+                                          targetDepth: -0.1)
 
         let arcEntity = DXF.Entity.arc(
             center: DXF.Point(10, 5),
@@ -104,9 +107,9 @@ struct Engraving_Tests {
             color: 7
         )
 
-        let contour = Contour(
+        let contour = SC.Contour(
             entities: [
-                Contour.Chained(entity: arcEntity, reversed: false)
+                SC.Contour.Chained(entity: arcEntity, reversed: false)
             ],
             isClosed: false
         )
@@ -164,20 +167,20 @@ struct Engraving_Tests {
     }
 
     @Test func testMultiplePasses() {
-        let engine = CAMEngine()
+        let engine = SCEngine()
 
         // 1. Setup Test Parameters
-        let tool = ToolParams(diameter: 3.175, stepdown: 0.1)
-        let settings = MachineSettings(feedRate: 1000.0,
-                                       plungeRate: 300.0,
-                                       targetDepth: -1.0, // Should create 10 Z-passes
-                                       safeZ: 5.0)
+        let tool = SC.ToolParams(diameter: 3.175, stepdown: 0.1)
+        let settings = SC.MachineSettings(feedRate: 1000.0,
+                                          plungeRate: 300.0,
+                                          safeZ: 5.0,
+                                          targetDepth: -1.0)
 
         let lineEntity = DXF.Entity.line(a: DXF.Point(0, 0), b: DXF.Point(10, 0), layer: "0", color: 7)
 
-        let contour = Contour(
+        let contour = SC.Contour(
             entities: [
-                Contour.Chained(entity: lineEntity, reversed: false)
+                SC.Contour.Chained(entity: lineEntity, reversed: false)
             ],
             isClosed: false
         )

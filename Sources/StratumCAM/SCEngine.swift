@@ -30,12 +30,18 @@ final class SCEngine {
 
             // 3. Build waypoints per pass
             var passes: [SC.ToolpathPass] = []
+            var i = 0
             for z in zDepths {
                 let waypoints = buildWaypoints(for: baseSegments, atZ: z, settings: settings)
-                passes.append(SC.ToolpathPass(depthZ: z, waypoints: waypoints))
+                passes.append(
+                    SC.ToolpathPass(passIndex: i, depthZ: z, waypoints: waypoints)
+                )
+                i += 1
             }
 
-            results.append(SC.OutputToolpath(sourceContourID: UUID(), passes: passes))
+            results.append(
+                SC.OutputToolpath(strategy: .engrave, tool: tool, settings: settings, passes: passes)
+            )
         }
 
         return results
