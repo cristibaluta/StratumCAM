@@ -9,14 +9,14 @@ import Foundation
 import simd
 import SwiftDXF
 
-final class CAMEngine {
+final class SCEngine {
 
     init() {}
 
     /// Generates engraving toolpaths following the input contours exactly
-    func generateEngraving(from contours: [Contour], tool: ToolParams, settings: MachineSettings) -> [OutputToolpath] {
+    func generateEngraving(from contours: [SC.Contour], tool: SC.ToolParams, settings: SC.MachineSettings) -> [SC.OutputToolpath] {
 
-        var results: [OutputToolpath] = []
+        var results: [SC.OutputToolpath] = []
 
         for contour in contours {
             // 1. Normalize DXF Entities into linear/arc segments (handling reversed flag)
@@ -29,13 +29,13 @@ final class CAMEngine {
             let zDepths = calculateZPasses(targetDepth: settings.targetDepth, stepdown: tool.stepdown)
 
             // 3. Build waypoints per pass
-            var passes: [ToolpathPass] = []
+            var passes: [SC.ToolpathPass] = []
             for z in zDepths {
                 let waypoints = buildWaypoints(for: baseSegments, atZ: z, settings: settings)
-                passes.append(ToolpathPass(depthZ: z, waypoints: waypoints))
+                passes.append(SC.ToolpathPass(depthZ: z, waypoints: waypoints))
             }
 
-            results.append(OutputToolpath(sourceContourID: UUID(), passes: passes))
+            results.append(SC.OutputToolpath(sourceContourID: UUID(), passes: passes))
         }
 
         return results
@@ -43,9 +43,9 @@ final class CAMEngine {
 
     // MARK: - Internal Helper Steps
 
-    private func linearize(contour: Contour) -> [Segment] {
-        var segments: [Segment] = []
-        
+    private func linearize(contour: SC.Contour) -> [SC.Segment] {
+        var segments: [SC.Segment] = []
+
         for chained in contour.entities {
             let extracted = convert(entity: chained.entity, reversed: chained.reversed)
             segments.append(contentsOf: extracted)
@@ -59,7 +59,7 @@ final class CAMEngine {
     ///   - entity: The source DXF entity from the contour chain.
     ///   - reversed: `true` if EntityChainer is walking the entity backwards.
     /// - Returns: An array of linear and circular arc segments representing the cutter motion.
-    public func convert(entity: DXF.Entity, reversed: Bool) -> [Segment] {
+    public func convert(entity: DXF.Entity, reversed: Bool) -> [SC.Segment] {
 
         switch entity {
             case let .line(a, b, _, _):
@@ -122,9 +122,9 @@ final class CAMEngine {
 
     // MARK: - Polyline Helpers
 
-    private func segmentsFromPolyline(vertices: [DXF.PolyVertex], closed: Bool) -> [Segment] {
+    private func segmentsFromPolyline(vertices: [DXF.PolyVertex], closed: Bool) -> [SC.Segment] {
         guard vertices.count >= 2 else { return [] }
-        var segments: [Segment] = []
+        var segments: [SC.Segment] = []
 
         let segmentCount = closed ? vertices.count : (vertices.count - 1)
         for i in 0..<segmentCount {
@@ -145,7 +145,7 @@ final class CAMEngine {
     }
 
     /// Converts a polyline bulge value into a CCW/CW arc segment.
-    private func createBulgeArc(from a: CGPoint, to b: CGPoint, bulge: Double) -> Segment? {
+    private func createBulgeArc(from a: CGPoint, to b: CGPoint, bulge: Double) -> SC.Segment? {
         let dx = b.x - a.x
         let dy = b.y - a.y
         let chord = hypot(dx, dy)
@@ -186,8 +186,11 @@ final class CAMEngine {
 
     /// Reverses polyline vertex order and flips bulge signs for backward walking.
     private func reversedPolylineVertices(_ vertices: [DXF.PolyVertex], closed: Bool) -> [DXF.PolyVertex] {
+
         let n = vertices.count
-        guard n > 1 else { return vertices }
+        guard n > 1 else {
+            return vertices
+        }
 
         return (0..<n).map { i in
             let originalIndex = n - 1 - i
@@ -208,14 +211,13 @@ final class CAMEngine {
 
     // MARK: - Ellipse Helpers
 
-    private func segmentsFromEllipse(
-        center: CGPoint,
-        majorAxis: CGPoint,
-        ratio: Double,
-        startParam: Double,
-        endParam: Double,
-        reversed: Bool
-    ) -> [Segment] {
+    private func segmentsFromEllipse(center: CGPoint,
+                                     majorAxis: CGPoint,
+                                     ratio: Double,
+                                     startParam: Double,
+                                     endParam: Double,
+                                     reversed: Bool) -> [SC.Segment] {
+
         let majorRadius = hypot(majorAxis.x, majorAxis.y)
         let minorRadius = majorRadius * ratio
         let rotation = atan2(majorAxis.y, majorAxis.x)
@@ -239,7 +241,7 @@ final class CAMEngine {
             points.reverse()
         }
 
-        var segments: [Segment] = []
+        var segments: [SC.Segment] = []
         for i in 0..<(points.count - 1) {
             segments.append(.line(start: points[i], end: points[i + 1]))
         }
@@ -270,55 +272,55 @@ final class CAMEngine {
         return passes
     }
     
-    private func buildWaypoints(for segments: [Segment], atZ z: Double, settings: MachineSettings) -> [Waypoint] {
-        var waypoints: [Waypoint] = []
-        
+    private func buildWaypoints(for segments: [SC.Segment], atZ z: Double, settings: SC.MachineSettings) -> [SC.Waypoint] {
+        var waypoints: [SC.Waypoint] = []
+
         guard let first = segments.first else {
             return []
         }
         let startPoint = startPointOf(segment: first)
         
         // 1. Rapid move above start point at Safe Z
-        waypoints.append(Waypoint(position: SIMD3(startPoint.x, startPoint.y, settings.safeZ),
-                                  motion: .rapid,
-                                  feedRate: settings.feedRate))
-        
+        waypoints.append(SC.Waypoint(position: SIMD3(startPoint.x, startPoint.y, settings.safeZ),
+                                     motion: .rapid,
+                                     feedRate: settings.feedRate))
+
         // 2. Plunge down to target Z
-        waypoints.append(Waypoint(position: SIMD3(startPoint.x, startPoint.y, z),
-                                  motion: .linear,
-                                  feedRate: settings.plungeRate))
+        waypoints.append(SC.Waypoint(position: SIMD3(startPoint.x, startPoint.y, z),
+                                     motion: .linear,
+                                     feedRate: settings.plungeRate))
 
         // 3. Trace segments along XY plane
         for segment in segments {
             switch segment {
                 case .line(_, let end):
-                    waypoints.append(Waypoint(position: SIMD3(end.x, end.y, z),
-                                              motion: .linear,
-                                              feedRate: settings.feedRate))
+                    waypoints.append(SC.Waypoint(position: SIMD3(end.x, end.y, z),
+                                                 motion: .linear,
+                                                 feedRate: settings.feedRate))
 
                 case .arc(let center, let radius, _, let endAngle, let isCCW):
                     // Compute end position using radius and radian end angle
                     let endX = center.x + radius * cos(endAngle)
                     let endY = center.y + radius * sin(endAngle)
-                    let motion: MotionType = isCCW ? .arcCCW(center: center) : .arcCW(center: center)
+                    let motion: SC.MotionType = isCCW ? .arcCCW(center: center) : .arcCW(center: center)
 
-                    waypoints.append(Waypoint(position: SIMD3(endX, endY, z),
-                                              motion: motion,
-                                              feedRate: settings.feedRate))
+                    waypoints.append(SC.Waypoint(position: SIMD3(endX, endY, z),
+                                                 motion: motion,
+                                                 feedRate: settings.feedRate))
             }
         }
-        
+
         // 4. Retract back to Safe Z after contour completion
         if let lastPoint = waypoints.last?.position {
-            waypoints.append(Waypoint(position: SIMD3(lastPoint.x, lastPoint.y, settings.safeZ),
-                                      motion: .rapid,
-                                      feedRate: settings.feedRate))
+            waypoints.append(SC.Waypoint(position: SIMD3(lastPoint.x, lastPoint.y, settings.safeZ),
+                                         motion: .rapid,
+                                         feedRate: settings.feedRate))
         }
 
         return waypoints
     }
 
-    private func startPointOf(segment: Segment) -> CGPoint {
+    private func startPointOf(segment: SC.Segment) -> CGPoint {
         switch segment {
         case .line(let start, _):
             return start
