@@ -13,57 +13,121 @@ public final class SCEngine {
 
     public init() {}
 
-    /// Generates toolpaths following the input contours, optionally offset by the tool
-    /// radius for an inside/outside profile cut. `side` defaults to `.onContour`, which
-    /// traces the geometry exactly (engraving / center-line cutting).
-    public func generateToolpaths(from contours: [SC.Contour], tool: SC.ToolParams, settings: SC.MachineSettings, side: SC.Side = .onContour) -> [SC.OutputToolpath] {
+    /// Generates toolpaths for the given strategy. Each contour becomes zero or one
+    /// `OutputToolpath` depending on whether the strategy has anything machinable to say
+    /// about it (e.g. `.drilling` on a non-point contour currently yields nothing).
+    ///
+    /// `strategy` defaults to `.engrave`, which traces the geometry exactly at cutter-center
+    /// (no tool-radius compensation) -- the classic engraving / center-line cutting case.
+    public func generateToolpaths(from contours: [SC.Contour], tool: SC.ToolParams, settings: SC.MachineSettings, strategy: SC.CAMStrategy = .engrave) -> [SC.OutputToolpath] {
 
         var results: [SC.OutputToolpath] = []
 
         for contour in contours {
-            // 1. Normalize DXF Entities into linear/arc segments (handling reversed flag)
-            let baseSegments = linearize(contour: contour)
-            guard !baseSegments.isEmpty else {
-                continue
+            if let toolpath = buildToolpath(for: contour, tool: tool, settings: settings, strategy: strategy) {
+                results.append(toolpath)
             }
-
-            // 1b. Apply tool-radius compensation for inside/outside profile cuts
-            let toolpathSegments = offsetContour(baseSegments, side: side, toolRadius: tool.diameter / 2.0, isClosed: contour.isClosed)
-
-            // 2. Calculate Z depth passes based on tool stepdown
-            let zDepths = calculateZPasses(targetDepth: settings.targetDepth, stepdown: tool.stepdown)
-
-            // 3. Build waypoints per pass
-            var passes: [SC.ToolpathPass] = []
-            var i = 0
-            for z in zDepths {
-                let waypoints = buildWaypoints(for: toolpathSegments, atZ: z, settings: settings)
-                passes.append(
-                    SC.ToolpathPass(passIndex: i, depthZ: z, waypoints: waypoints)
-                )
-                i += 1
-            }
-
-            // TODO: tag the output with .profile(side: side, ...) once strategy dispatch
-            // (ramping/lead-in/tabs) exists -- .engrave is a placeholder for now.
-            results.append(
-                SC.OutputToolpath(strategy: .engrave, tool: tool, settings: settings, passes: passes)
-            )
         }
 
         return results
     }
 
+    // MARK: - Strategy dispatch
+
+    /// Routes a single contour to the builder for its strategy. Returns `nil` when the
+    /// contour has nothing machinable (e.g. an empty/degenerate contour) or -- for now --
+    /// when the strategy's real geometry isn't implemented yet (see TODOs below).
+    private func buildToolpath(for contour: SC.Contour, tool: SC.ToolParams, settings: SC.MachineSettings, strategy: SC.CAMStrategy) -> SC.OutputToolpath? {
+        switch strategy {
+        case .engrave:
+            return buildContourTracingToolpath(for: contour, tool: tool, settings: settings, side: .onContour, strategy: strategy)
+
+        case .profile(let side, _, _, _, _, _):
+            // TODO(Phase 1): honor `direction`, `entry` (ramp/helix), `leadIn`/`leadOut`,
+            // and `tabs`. For now this is tool-radius-compensated contour tracing with a
+            // straight vertical plunge -- i.e. the same pipeline as `.engrave`, just offset.
+            return buildContourTracingToolpath(for: contour, tool: tool, settings: settings, side: side, strategy: strategy)
+
+        case .chamfer(let params):
+            return buildChamferToolpath(for: contour, tool: tool, settings: settings, params: params, strategy: strategy)
+
+        case .drilling:
+            // TODO(Phase 2): peck-cycle drilling from point/hole contours.
+            return nil
+
+        case .pocket:
+            // TODO(Phase 3): offsetPattern / raster pocket clearing.
+            return nil
+
+        case .adaptiveClearing:
+            // TODO(Phase 4): constant-engagement adaptive clearing.
+            return nil
+        }
+    }
+
+    /// Shared pipeline behind `.engrave` and (for now) `.profile`: linearize the contour,
+    /// optionally apply tool-radius compensation, step down through Z, and trace the
+    /// resulting segments once per pass. The `strategy` passed in is the one actually
+    /// requested by the caller, so the output is tagged accurately instead of hardcoded.
+    private func buildContourTracingToolpath(for contour: SC.Contour, tool: SC.ToolParams, settings: SC.MachineSettings, side: SC.Side, strategy: SC.CAMStrategy) -> SC.OutputToolpath? {
+        // 1. Normalize DXF Entities into linear/arc segments (handling reversed flag)
+        let baseSegments = linearize(contour: contour)
+        guard !baseSegments.isEmpty else {
+            return nil
+        }
+
+        // 1b. Apply tool-radius compensation for inside/outside profile cuts
+        let toolpathSegments = offsetContour(baseSegments, side: side, toolRadius: tool.diameter / 2.0, isClosed: contour.isClosed)
+
+        // 2. Calculate Z depth passes based on tool stepdown
+        let zDepths = calculateZPasses(targetDepth: settings.targetDepth, stepdown: tool.stepdown)
+
+        // 3. Build waypoints per pass
+        var passes: [SC.ToolpathPass] = []
+        for (i, z) in zDepths.enumerated() {
+            let waypoints = buildWaypoints(for: toolpathSegments, atZ: z, settings: settings)
+            passes.append(SC.ToolpathPass(passIndex: i, depthZ: z, waypoints: waypoints))
+        }
+
+        return SC.OutputToolpath(strategy: strategy, tool: tool, settings: settings, passes: passes)
+    }
+
+    /// Chamfering always machines in a single pass at a depth derived from the desired
+    /// bevel width and the tool's V-bit angle (unless an explicit depth is given) --
+    /// stepping down in multiple passes would just keep widening the bevel and gouge the part.
+    private func buildChamferToolpath(for contour: SC.Contour, tool: SC.ToolParams, settings: SC.MachineSettings, params: SC.ChamferParams, strategy: SC.CAMStrategy) -> SC.OutputToolpath? {
+        guard let z = params.resolvedDepth(for: tool) else {
+            // Misconfigured tool (not a V-bit, or missing vAngle with no explicit depth) --
+            // bail out rather than cut at a made-up depth.
+            return nil
+        }
+
+        let baseSegments = linearize(contour: contour)
+        guard !baseSegments.isEmpty else {
+            return nil
+        }
+
+        // The bevel's horizontal reach at the resolved depth is what we offset the
+        // centerline path by, same corner-fillet/trim machinery as a profile cut.
+        let horizontalReach = abs(z) * tan((tool.vAngle ?? 0) / 2.0 * .pi / 180.0)
+        let toolpathSegments = offsetContour(baseSegments, side: params.side, toolRadius: horizontalReach, isClosed: contour.isClosed)
+
+        let waypoints = buildWaypoints(for: toolpathSegments, atZ: z, settings: settings)
+        let pass = SC.ToolpathPass(passIndex: 0, depthZ: z, waypoints: waypoints)
+
+        return SC.OutputToolpath(strategy: strategy, tool: tool, settings: settings, passes: [pass])
+    }
+
     // MARK: - Internal Helper Steps
 
-    private func linearize(contour: SC.Contour) -> [SC.Segment] {
+    func linearize(contour: SC.Contour) -> [SC.Segment] {
         var segments: [SC.Segment] = []
 
         for chained in contour.entities {
             let extracted = convert(entity: chained.entity, reversed: chained.reversed)
             segments.append(contentsOf: extracted)
         }
-        
+
         return segments
     }
 
@@ -262,7 +326,7 @@ public final class SCEngine {
     }
 
     /// Gives a list of passes
-    private func calculateZPasses(targetDepth: Double, stepdown: Double) -> [Double] {
+    func calculateZPasses(targetDepth: Double, stepdown: Double) -> [Double] {
         let absoluteTarget = abs(targetDepth)
         let step = abs(stepdown)
         guard step > 0 else {
@@ -271,7 +335,7 @@ public final class SCEngine {
 
         var passes: [Double] = []
         var currentDepth = step
-        
+
         // TODO: because of Double additions the final value is not our absoluteTarget
         // For target -1 and 0.1 steps it results in 11 steps instead 10
         // We need to make sure we don't waste passes like this
@@ -281,18 +345,18 @@ public final class SCEngine {
             currentDepth += step
         }
         passes.append(-absoluteTarget)
-        
+
         return passes
     }
-    
-    private func buildWaypoints(for segments: [SC.Segment], atZ z: Double, settings: SC.MachineSettings) -> [SC.Waypoint] {
+
+    func buildWaypoints(for segments: [SC.Segment], atZ z: Double, settings: SC.MachineSettings) -> [SC.Waypoint] {
         var waypoints: [SC.Waypoint] = []
 
         guard let first = segments.first else {
             return []
         }
         let startPoint = startPointOf(segment: first)
-        
+
         // 1. Rapid move above start point at Safe Z
         waypoints.append(SC.Waypoint(position: SIMD3(startPoint.x, startPoint.y, settings.safeZ),
                                      motion: .rapid,
@@ -333,7 +397,7 @@ public final class SCEngine {
         return waypoints
     }
 
-    private func startPointOf(segment: SC.Segment) -> CGPoint {
+    func startPointOf(segment: SC.Segment) -> CGPoint {
         switch segment {
         case .line(let start, _):
             return start
