@@ -63,6 +63,17 @@ extension SC.Segment {
             return .arc(center: center, radius: radius, startAngle: startAngle, endAngle: angle, isCCW: isCCW)
         }
     }
+
+    /// The same physical geometry, travelled in the opposite direction -- used to flip a
+    /// whole contour chain between climb and conventional milling.
+    var reversed: SC.Segment {
+        switch self {
+        case .line(let start, let end):
+            return .line(start: end, end: start)
+        case .arc(let center, let radius, let startAngle, let endAngle, let isCCW):
+            return .arc(center: center, radius: radius, startAngle: endAngle, endAngle: startAngle, isCCW: !isCCW)
+        }
+    }
 }
 
 extension SCEngine {
@@ -107,7 +118,7 @@ extension SCEngine {
 
     /// Approximates the signed area of a closed contour (sampling arcs) to determine
     /// winding direction. Positive area = counter-clockwise.
-    private func isCCWWinding(_ segments: [SC.Segment]) -> Bool {
+    func isCCWWinding(_ segments: [SC.Segment]) -> Bool {
         var points: [CGPoint] = []
         for segment in segments {
             switch segment {
@@ -196,7 +207,7 @@ extension SCEngine {
     }
 
     /// Unit tangent direction of travel at the start or end of a segment.
-    private func direction(of segment: SC.Segment, atEnd: Bool) -> CGPoint {
+    func direction(of segment: SC.Segment, atEnd: Bool) -> CGPoint {
         switch segment {
         case .line(let start, let end):
             let dx = end.x - start.x, dy = end.y - start.y

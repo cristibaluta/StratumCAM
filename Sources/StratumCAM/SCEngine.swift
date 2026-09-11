@@ -42,11 +42,19 @@ public final class SCEngine {
         case .engrave:
             return buildContourTracingToolpath(for: contour, tool: tool, settings: settings, side: .onContour, strategy: strategy)
 
-        case .profile(let side, _, _, _, _, _):
-            // TODO(Phase 1): honor `direction`, `entry` (ramp/helix), `leadIn`/`leadOut`,
-            // and `tabs`. For now this is tool-radius-compensated contour tracing with a
-            // straight vertical plunge -- i.e. the same pipeline as `.engrave`, just offset.
-            return buildContourTracingToolpath(for: contour, tool: tool, settings: settings, side: side, strategy: strategy)
+        case .profile(let side, let direction, let entry, let leadIn, let leadOut, let tabs):
+            return buildProfileToolpath(
+                for: contour,
+                tool: tool,
+                settings: settings,
+                side: side,
+                direction: direction,
+                entry: entry,
+                leadIn: leadIn,
+                leadOut: leadOut,
+                tabs: tabs,
+                strategy: strategy
+            )
 
         case .chamfer(let params):
             return buildChamferToolpath(for: contour, tool: tool, settings: settings, params: params, strategy: strategy)
