@@ -95,9 +95,16 @@ public final class SCEngine {
                                              peckDepth: peckDepth,
                                              strategy: strategy)
 
-            case .pocket:
-                // TODO(Phase 3): offsetPattern / raster pocket clearing.
-                return nil
+            case .pocket(let direction, let pocketType, let entry):
+                return buildPocketToolpath(
+                    for: contour,
+                    tool: tool,
+                    settings: settings,
+                    direction: direction,
+                    pocketType: pocketType,
+                    entry: entry,
+                    strategy: strategy
+                )
 
             case .adaptiveClearing:
                 // TODO(Phase 4): constant-engagement adaptive clearing.
