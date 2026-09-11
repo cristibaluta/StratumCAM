@@ -48,14 +48,13 @@ extension SC {
         public var settings: MachineSettings
         public var passes: [ToolpathPass]
 
-        public init(
-            id: UUID = UUID(),
-            name: String = "Toolpath Operation",
-            strategy: Strategy,
-            tool: ToolParams,
-            settings: MachineSettings,
-            passes: [ToolpathPass]
-        ) {
+        public init(id: UUID = UUID(),
+                    name: String = "Toolpath Operation",
+                    strategy: Strategy,
+                    tool: ToolParams,
+                    settings: MachineSettings,
+                    passes: [ToolpathPass]) {
+
             self.id = id
             self.name = name
             self.strategy = strategy
