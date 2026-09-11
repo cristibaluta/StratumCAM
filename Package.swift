@@ -3,10 +3,18 @@ import PackageDescription
 
 let package = Package(
     name: "StratumCAM",
+    platforms: [
+        .macOS(.v11),
+        .iOS(.v15)
+    ],
     products: [
         .library(
             name: "StratumCAM",
             targets: ["StratumCAM"]
+        ),
+        .executable(
+            name: "StratumCAMDemo",
+            targets: ["StratumCAMDemo"]
         )
     ],
     dependencies: [
@@ -16,6 +24,13 @@ let package = Package(
         .target(
             name: "StratumCAM",
             dependencies: [
+                .product(name: "SwiftDXF", package: "SwiftDXF")
+            ]
+        ),
+        .executableTarget(
+            name: "StratumCAMDemo",
+            dependencies: [
+                "StratumCAM",
                 .product(name: "SwiftDXF", package: "SwiftDXF")
             ]
         ),
