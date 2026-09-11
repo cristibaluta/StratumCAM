@@ -277,4 +277,240 @@ struct Drilling_Tests {
         #expect(waypoints.count == 3, "Test Failed: a non-positive peck depth should behave like a plain drill cycle")
         #expect(waypoints[1].position.z == -8.0, "Test Failed: plunge should still reach full target depth")
     }
+
+    // MARK: - Multiple drill points / mixed operations (Step 1.4)
+
+    @Test("Multiple drill point contours produce one toolpath per hole")
+    func testMultipleDrillPointsProduceOneToolpathPerContour() {
+        let engine = SCEngine()
+        let tool = SC.ToolParams(type: .drill, diameter: 3.0, stepdown: 1.0)
+        let settings = SC.MachineSettings(
+            feedRate: 1000.0,
+            plungeRate: 200.0,
+            safeZ: 5.0,
+            targetDepth: 8.0
+        )
+
+        let points = [
+            (10.0, 20.0),
+            (30.0, 20.0),
+            (30.0, 40.0),
+            (10.0, 40.0)
+        ]
+
+        let contours = points.map { x, y in
+            SC.Contour(
+                entities: [
+                    .init(
+                        entity: .point(
+                            at: DXF.Point(x, y),
+                            layer: "0",
+                            color: 7
+                        ),
+                        reversed: false
+                    )
+                ],
+                isClosed: false
+            )
+        }
+
+        let toolpaths = engine.generateToolpaths(
+            from: contours,
+            tool: tool,
+            settings: settings,
+            strategy: .drilling(peckDepth: nil)
+        )
+
+        #expect(
+            toolpaths.count == 4,
+            "Test Failed: expected one drilling toolpath per point contour"
+        )
+
+        for (toolpath, expected) in zip(toolpaths, points) {
+            #expect(
+                toolpath.strategy == .drilling(peckDepth: nil),
+                "Test Failed: strategy should remain drilling without pecking"
+            )
+
+            let waypoints = toolpath.passes[0].waypoints
+
+            #expect(
+                waypoints.count == 3,
+                "Test Failed: each plain hole should contain rapid-plunge-retract"
+            )
+
+            #expect(
+                abs(waypoints[1].position.x - expected.0) < 1e-9 &&
+                abs(waypoints[1].position.y - expected.1) < 1e-9,
+                "Test Failed: toolpath was assigned to the wrong hole"
+            )
+
+            #expect(
+                waypoints[1].position.z == -8.0,
+                "Test Failed: every hole should reach target depth"
+            )
+        }
+    }
+
+    @Test("A mixed batch supports peck and non-peck drilling with different tools")
+    func testMixedPeckAndNonPeckDrillingInOneCall() {
+        let engine = SCEngine()
+
+        let plainTool = SC.ToolParams(
+            type: .drill,
+            diameter: 3.0,
+            stepdown: 1.0
+        )
+
+        let peckTool = SC.ToolParams(
+            type: .drill,
+            diameter: 6.0,
+            stepdown: 1.0
+        )
+
+        let plainSettings = SC.MachineSettings(
+            feedRate: 1000.0,
+            plungeRate: 200.0,
+            safeZ: 5.0,
+            retractZ: 1.0,
+            targetDepth: 6.0
+        )
+
+        let peckSettings = SC.MachineSettings(
+            feedRate: 800.0,
+            plungeRate: 150.0,
+            safeZ: 7.0,
+            retractZ: 1.5,
+            targetDepth: 10.0
+        )
+
+        func pointContour(_ x: Double, _ y: Double) -> SC.Contour {
+            SC.Contour(
+                entities: [
+                    .init(
+                        entity: .point(
+                            at: DXF.Point(x, y),
+                            layer: "0",
+                            color: 7
+                        ),
+                        reversed: false
+                    )
+                ],
+                isClosed: false
+            )
+        }
+
+        let operations = [
+            SC.DrillingOperation(
+                contour: pointContour(10, 10),
+                tool: plainTool,
+                settings: plainSettings,
+                peckDepth: nil
+            ),
+
+            SC.DrillingOperation(
+                contour: pointContour(20, 10),
+                tool: peckTool,
+                settings: peckSettings,
+                peckDepth: 4.0
+            ),
+
+            SC.DrillingOperation(
+                contour: pointContour(20, 20),
+                tool: plainTool,
+                settings: plainSettings,
+                peckDepth: nil
+            ),
+
+            SC.DrillingOperation(
+                contour: pointContour(10, 20),
+                tool: peckTool,
+                settings: peckSettings,
+                peckDepth: 4.0
+            )
+        ]
+
+        let toolpaths = engine.generateToolpaths(from: operations)
+
+        #expect(
+            toolpaths.count == 4,
+            "Test Failed: expected one output toolpath per drilling operation"
+        )
+
+        // First operation: plain drill = rapid + plunge + retract.
+        #expect(
+            toolpaths[0].tool == plainTool,
+            "Test Failed: first operation should use the plain-drill tool"
+        )
+
+        #expect(
+            toolpaths[0].passes[0].waypoints.count == 3,
+            "Test Failed: non-peck hole should have 3 waypoints"
+        )
+
+        #expect(
+            toolpaths[0].passes[0].waypoints[1].position.z == -6.0,
+            "Test Failed: plain hole depth mismatch"
+        )
+
+        // Second operation: peck 4 -> 8 -> 10,
+        // with retractZ between pecks.
+        #expect(
+            toolpaths[1].tool == peckTool,
+            "Test Failed: second operation should use the peck-drill tool"
+        )
+
+        let second = toolpaths[1].passes[0].waypoints
+
+        #expect(
+            second.count == 7,
+            "Test Failed: 10 mm depth at 4 mm peck should produce 3 pecks"
+        )
+
+        #expect(
+            second[1].position.z == -4.0 &&
+            second[3].position.z == -8.0 &&
+            second[5].position.z == -10.0,
+            "Test Failed: second hole peck depths are incorrect"
+        )
+
+        #expect(
+            second[2].position.z == 1.5 &&
+            second[4].position.z == 1.5,
+            "Test Failed: intermediate pecks should retract to retractZ"
+        )
+
+        #expect(
+            second[6].position.z == 7.0,
+            "Test Failed: final peck should retract to Safe Z"
+        )
+
+        for waypoint in second {
+            #expect(
+                abs(waypoint.position.x - 20.0) < 1e-9 &&
+                abs(waypoint.position.y - 10.0) < 1e-9,
+                "Test Failed: second hole peck cycle moved away from its hole center"
+            )
+        }
+
+        // Third and fourth operations repeat the modes to ensure no state
+        // leaks between holes.
+        #expect(
+            toolpaths[2].tool == plainTool &&
+            toolpaths[2].passes[0].waypoints.count == 3,
+            "Test Failed: third operation should be an independent plain drill"
+        )
+
+        #expect(
+            toolpaths[3].tool == peckTool &&
+            toolpaths[3].passes[0].waypoints.count == 7,
+            "Test Failed: fourth operation should be an independent peck drill"
+        )
+
+        #expect(
+            abs(toolpaths[3].passes[0].waypoints[1].position.x - 10.0) < 1e-9 &&
+            abs(toolpaths[3].passes[0].waypoints[1].position.y - 20.0) < 1e-9,
+            "Test Failed: fourth hole location mismatch"
+        )
+    }
 }

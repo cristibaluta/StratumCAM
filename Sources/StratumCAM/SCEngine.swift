@@ -35,6 +35,21 @@ public final class SCEngine {
         return results
     }
 
+    /// Generates a batch of drilling toolpaths where each hole may use its own
+    /// drill tool, machine settings, and peck strategy. This is intentionally a
+    /// drilling-specific overload so the existing single-tool API remains stable
+    /// for engraving, profiling, chamfering, and future strategies.
+    public func generateToolpaths(from operations: [SC.DrillingOperation]) -> [SC.OutputToolpath] {
+        operations.compactMap { operation in
+            buildToolpath(
+                for: operation.contour,
+                tool: operation.tool,
+                settings: operation.settings,
+                strategy: .drilling(peckDepth: operation.peckDepth)
+            )
+        }
+    }
+
     // MARK: - Strategy dispatch
 
     /// Routes a single contour to the builder for its strategy. Returns `nil` when the

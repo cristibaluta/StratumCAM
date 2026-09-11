@@ -61,7 +61,7 @@ Drilling is the smallest remaining strategy — good next feature after the Trac
   peck deeper than the last until `targetDepth`. This is genuinely its own step — pecking
   has its own edge cases (last peck depth, dwell) worth isolating from the plain-plunge case.
 
-- **1.4 — Multiple drill points / contours in one call**
+- DONE **1.4 — Multiple drill points / contours in one call**
   Confirm `generateToolpaths` already handles a list of point-contours correctly (it should,
   since it's one-toolpath-per-contour already) — add a test with 3+ holes and mixed
   peck/non-peck tools to lock in the behavior.
