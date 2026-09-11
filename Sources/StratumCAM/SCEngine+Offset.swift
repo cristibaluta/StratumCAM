@@ -84,7 +84,7 @@ extension SCEngine {
     /// Known limitation: if the tool radius is bigger than the offset can support
     /// (self-intersecting loops in tight inside corners / small features), this does
     /// not clean up the resulting loops -- it returns the raw offset path as-is.
-    public func offsetContour(_ segments: [SC.Segment], side: SC.Side, toolRadius: Double, isClosed: Bool) -> [SC.Segment] {
+    public func offsetContour(_ segments: [SC.Segment], side: SC.CutSide, toolRadius: Double, isClosed: Bool) -> [SC.Segment] {
         guard side != .onContour, toolRadius > 0, !segments.isEmpty else {
             return segments
         }
@@ -103,7 +103,7 @@ extension SCEngine {
 
     /// Resolves `.inside` / `.outside` into a signed offset distance (positive = left of
     /// travel direction), based on the contour's winding direction.
-    func offsetDistance(for side: SC.Side, toolRadius: Double, segments: [SC.Segment]) -> Double {
+    func offsetDistance(for side: SC.CutSide, toolRadius: Double, segments: [SC.Segment]) -> Double {
         switch side {
         case .onContour:
             return 0

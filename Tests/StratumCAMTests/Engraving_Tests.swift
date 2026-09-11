@@ -10,7 +10,7 @@ import SwiftDXF
 import simd
 @testable import StratumCAM
 
-// When engraving we usually do a single pass, so we are gonna test that
+// When engraving we usually do a single pass, so we are gonna test that a single pass will start and end in the right place
 
 struct Engraving_Tests {
 

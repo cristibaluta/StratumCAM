@@ -1,0 +1,46 @@
+//
+//  SCEngine+Chamfering.swift
+//  StratumCAM
+//
+//  Created by Cristian Baluta on 11.09.2026.
+//
+
+import Foundation
+import CoreGraphics
+
+extension SCEngine {
+
+    /// Chamfering always machines in a single pass at a depth derived from the desired
+    /// bevel width and the tool's V-bit angle (unless an explicit depth is given) --
+    /// stepping down in multiple passes would just keep widening the bevel and gouge the part.
+    func buildChamferToolpath(for contour: SC.Contour,
+                              tool: SC.ToolParams,
+                              settings: SC.MachineSettings,
+                              params: SC.ChamferParams,
+                              strategy: SC.Strategy) -> SC.OutputToolpath? {
+
+        guard let z = params.resolvedDepth(for: tool) else {
+            // Misconfigured tool (not a V-bit, or missing vAngle with no explicit depth) --
+            // bail out rather than cut at a made-up depth.
+            return nil
+        }
+
+        let baseSegments = linearize(contour: contour)
+        guard !baseSegments.isEmpty else {
+            return nil
+        }
+
+        // The bevel's horizontal reach at the resolved depth is what we offset the
+        // centerline path by, same corner-fillet/trim machinery as a profile cut.
+        let horizontalReach = abs(z) * tan((tool.vAngle ?? 0) / 2.0 * .pi / 180.0)
+        let toolpathSegments = offsetContour(baseSegments,
+                                             side: params.side,
+                                             toolRadius: horizontalReach,
+                                             isClosed: contour.isClosed)
+
+        let waypoints = buildWaypoints(for: toolpathSegments, atZ: z, settings: settings)
+        let pass = SC.ToolpathPass(passIndex: 0, depthZ: z, waypoints: waypoints)
+
+        return SC.OutputToolpath(strategy: strategy, tool: tool, settings: settings, passes: [pass])
+    }
+}
