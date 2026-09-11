@@ -15,8 +15,16 @@ class Demo {
 
     let device = MTLCreateSystemDefaultDevice()!
     let engine = SCEngine()
+    let gcodeEngine = SCGCodeEngine()
 
-    func getBatches(contour: SC.Contour, tool: SC.ToolParams, settings: SC.MachineSettings, strategy: SC.Strategy) -> [RenderBatch] {
+    /// Everything a demo button needs to update the UI: the 3D preview batches
+    /// and the G-code text for the same toolpath.
+    struct DemoResult {
+        let batches: [RenderBatch]
+        let gcode: String
+    }
+
+    func run(contour: SC.Contour, tool: SC.ToolParams, settings: SC.MachineSettings, strategy: SC.Strategy) -> DemoResult {
 
         // 1. Convert Contour to 3D simd points
         let segments = engine.linearize(contour: contour)
@@ -59,7 +67,10 @@ class Demo {
                                         vertexCount: toolpathVertices.count,
                                         primitiveType: .lineStrip)
 
-        return [baseBatch, toolpathBatch]
+        // 5. Generate G-code for the same toolpaths
+        let gcode = gcodeEngine.generateGCode(from: toolpaths, settings: settings)
+
+        return DemoResult(batches: [baseBatch, toolpathBatch], gcode: gcode)
     }
 
     /// `buildWaypoints`/toolpath passes only carry the *endpoints* of each move (plus a

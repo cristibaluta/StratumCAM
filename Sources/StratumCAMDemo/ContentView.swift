@@ -13,6 +13,7 @@ import SwiftDXF
 
 struct ContentView: View {
     @State private var renderBatches: [RenderBatch] = []
+    @State private var gcodeText: String = ""
 
     var body: some View {
         NavigationSplitView {
@@ -21,19 +22,32 @@ struct ContentView: View {
                 Section("Test Scenarios") {
                     Button("Clear Canvas") {
                         renderBatches = []
+                        gcodeText = ""
                     }
                     Button("Engrave Line") {
-                        renderBatches = DemoEngraving().demoLine()
+                        show(DemoEngraving().demoLine())
                     }
                     Button("Square Profile") {
-                        renderBatches = DemoEngraving().demoLineMultiplePasses()
+                        show(DemoEngraving().demoLineMultiplePasses())
                     }
                     Button("Engrave Letter S") {
-                        renderBatches = DemoEngraving().demoLetterS()
+                        show(DemoEngraving().demoLetterS())
                     }
                 }
             }
             .navigationTitle("StratumCAM Demo")
+        } content: {
+            // G-code for the shape currently on the canvas
+            ScrollView {
+                Text(gcodeText.isEmpty ? "No G-code yet. Run a demo from the sidebar." : gcodeText)
+                    .font(.system(.caption, design: .monospaced))
+                    .foregroundStyle(gcodeText.isEmpty ? .secondary : .primary)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(8)
+            }
+            .navigationTitle("G-Code")
+            .frame(minWidth: 260, idealWidth: 320)
         } detail: {
             // Interactive 3D Metal Canvas
             MetalCanvasView(batches: $renderBatches)
@@ -47,7 +61,12 @@ struct ContentView: View {
                 }
         }
         .onAppear {
-            renderBatches = DemoEngraving().demoLetterS()
+            show(DemoEngraving().demoLine())
         }
+    }
+
+    private func show(_ result: Demo.DemoResult) {
+        renderBatches = result.batches
+        gcodeText = result.gcode
     }
 }

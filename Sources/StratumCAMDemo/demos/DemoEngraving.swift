@@ -12,7 +12,7 @@ import SwiftDXF
 class DemoEngraving: Demo {
 
     /// This will engravea line with one single pass
-    func demoLine() -> [RenderBatch] {
+    func demoLine() -> Demo.DemoResult {
         let tool = SC.ToolParams(diameter: 3.175, stepdown: 0.1)
 
         let settings = SC.MachineSettings(feedRate: 1000.0,
@@ -31,10 +31,10 @@ class DemoEngraving: Demo {
             isClosed: false
         )
 
-        return self.getBatches(contour: contour, tool: tool, settings: settings, strategy: .engrave)
+        return self.run(contour: contour, tool: tool, settings: settings, strategy: .engrave)
     }
 
-    func demoLineMultiplePasses() -> [RenderBatch] {
+    func demoLineMultiplePasses() -> Demo.DemoResult {
         let tool = SC.ToolParams(diameter: 3.175, stepdown: 0.1)
 
         let settings = SC.MachineSettings(feedRate: 1000.0,
@@ -53,19 +53,19 @@ class DemoEngraving: Demo {
             isClosed: false
         )
 
-        return self.getBatches(contour: contour, tool: tool, settings: settings, strategy: .engrave)
+        return self.run(contour: contour, tool: tool, settings: settings, strategy: .engrave)
     }
 
     /// Engraves the character "S" as a single continuous pass, built from two
     /// chained arcs of equal radius curving in opposite directions (the same
     /// construction a stroke font uses for the letter's two humps).
-    func demoLetterS() -> [RenderBatch] {
+    func demoLetterS() -> Demo.DemoResult {
         let tool = SC.ToolParams(diameter: 3.175, stepdown: 0.1)
 
         let settings = SC.MachineSettings(feedRate: 1000.0,
                                           plungeRate: 300.0,
                                           safeZ: 5.0,
-                                          targetDepth: 0.1)
+                                          targetDepth: 1.0)
 
         let radius = 5.0
 
@@ -95,6 +95,6 @@ class DemoEngraving: Demo {
             isClosed: false
         )
 
-        return self.getBatches(contour: contour, tool: tool, settings: settings, strategy: .engrave)
+        return self.run(contour: contour, tool: tool, settings: settings, strategy: .engrave)
     }
 }
