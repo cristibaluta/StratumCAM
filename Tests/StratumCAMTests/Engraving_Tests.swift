@@ -14,7 +14,8 @@ import simd
 
 struct Engraving_Tests {
 
-    @Test func testEngravingLine() {
+    @Test("Engrave a single line")
+    func testEngravingLine() {
         let engine = SCEngine()
 
         // 1. Setup Test Parameters
@@ -76,7 +77,7 @@ struct Engraving_Tests {
         #expect(abs(wp2.position.x - 10.0) < 1e-5, "Test Failed: Arc end X mismatch")
         #expect(abs(wp2.position.y - 0.0) < 1e-5, "Test Failed: Arc end Y mismatch")
         if case .linear = wp2.motion {
-//            #expect(center.x == 10.0 && center.y == 5.0, "Test Failed: Arc center mismatch")
+            // All good
         } else {
             Issue.record("Test Failed: Expected Linear motion")
         }
@@ -88,7 +89,8 @@ struct Engraving_Tests {
         #expect(wp4.position.z == 5.0, "Test Failed: Final retract Z mismatch")
     }
 
-    @Test func testEngravingArc() {
+    @Test("Engrave a single arc")
+    func testEngravingArc() {
         let engine = SCEngine()
 
         // 1. Setup Test Parameters
@@ -166,7 +168,8 @@ struct Engraving_Tests {
         #expect(wp3.position.z == 5.0, "Test Failed: Final retract Z mismatch")
     }
 
-    @Test func testMultiplePasses() {
+    @Test("Test that we can generate multiple passes for a deep targetDepth")
+    func testMultiplePasses() {
         let engine = SCEngine()
 
         // 1. Setup Test Parameters
