@@ -19,14 +19,9 @@ class Demo {
     func getBatches(contour: SC.Contour, tool: SC.ToolParams, settings: SC.MachineSettings, strategy: SC.Strategy) -> [RenderBatch] {
 
         // 1. Convert Contour to 3D simd points
-        var rawPoints: [SIMD3<Float>] = []
         let segments = engine.linearize(contour: contour)
         let waypoints = engine.buildWaypoints(for: segments, atZ: 0, settings: settings)
-        for p in waypoints {
-            rawPoints.append(
-                SIMD3<Float>(Float(p.position.x), Float(p.position.y), Float(p.position.z))
-            )
-        }
+        let rawPoints = tessellateForRender(waypoints)
 
         // 2. Convert Contour to toolpaths then to 3d simd points
         let toolpaths: [SC.OutputToolpath] = engine.generateToolpaths(from: [contour],
@@ -36,11 +31,7 @@ class Demo {
         var toolpathPoints: [SIMD3<Float>] = []
         for toolpath in toolpaths {
             for pass in toolpath.passes {
-                for p in pass.waypoints {
-                    toolpathPoints.append(
-                        SIMD3<Float>(Float(p.position.x), Float(p.position.y), Float(p.position.z))
-                    )
-                }
+                toolpathPoints.append(contentsOf: tessellateForRender(pass.waypoints))
             }
         }
 
@@ -69,6 +60,59 @@ class Demo {
                                         primitiveType: .lineStrip)
 
         return [baseBatch, toolpathBatch]
+    }
+
+    /// `buildWaypoints`/toolpath passes only carry the *endpoints* of each move (plus a
+    /// center + direction for arcs) since that's all a real controller needs for `G02`/`G03`.
+    /// For the on-screen preview we need actual curvature, so this walks the waypoints and,
+    /// for any `arcCW`/`arcCCW` motion, inserts interpolated points along the true arc between
+    /// the previous waypoint and this one instead of drawing a straight chord between them.
+    private func tessellateForRender(_ waypoints: [SC.Waypoint], segmentsPerArc: Int = 32) -> [SIMD3<Float>] {
+        var points: [SIMD3<Float>] = []
+        var previous: SC.Waypoint?
+
+        for wp in waypoints {
+            switch wp.motion {
+                case .rapid, .linear:
+                    points.append(SIMD3<Float>(Float(wp.position.x), Float(wp.position.y), Float(wp.position.z)))
+
+                case .arcCW(let center), .arcCCW(let center):
+                    guard let prev = previous else {
+                        points.append(SIMD3<Float>(Float(wp.position.x), Float(wp.position.y), Float(wp.position.z)))
+                        break
+                    }
+
+                    let isCCW: Bool
+                    if case .arcCCW = wp.motion { isCCW = true } else { isCCW = false }
+
+                    let cx = Double(center.x)
+                    let cy = Double(center.y)
+                    let radius = hypot(prev.position.x - cx, prev.position.y - cy)
+                    let startAngle = atan2(prev.position.y - cy, prev.position.x - cx)
+                    var endAngle = atan2(wp.position.y - cy, wp.position.x - cx)
+
+                    // Walk from startAngle to endAngle in the requested direction, wrapping
+                    // around as needed so a full sweep is taken rather than the short way.
+                    if isCCW {
+                        while endAngle <= startAngle { endAngle += 2 * .pi }
+                    } else {
+                        while endAngle >= startAngle { endAngle -= 2 * .pi }
+                    }
+
+                    let steps = max(2, segmentsPerArc)
+                    for i in 1...steps {
+                        let t = Double(i) / Double(steps)
+                        let angle = startAngle + (endAngle - startAngle) * t
+                        let x = cx + radius * cos(angle)
+                        let y = cy + radius * sin(angle)
+                        let z = prev.position.z + (wp.position.z - prev.position.z) * t
+                        points.append(SIMD3<Float>(Float(x), Float(y), Float(z)))
+                    }
+            }
+            previous = wp
+        }
+
+        return points
     }
 
     // Helper to build RenderVertex array with computed path distances

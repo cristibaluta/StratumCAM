@@ -28,6 +28,9 @@ struct ContentView: View {
                     Button("Square Profile") {
                         renderBatches = DemoEngraving().demoLineMultiplePasses()
                     }
+                    Button("Engrave Letter S") {
+                        renderBatches = DemoEngraving().demoLetterS()
+                    }
                 }
             }
             .navigationTitle("StratumCAM Demo")
@@ -44,7 +47,7 @@ struct ContentView: View {
                 }
         }
         .onAppear {
-            renderBatches = DemoEngraving().demoLine()
+            renderBatches = DemoEngraving().demoLetterS()
         }
     }
 }
