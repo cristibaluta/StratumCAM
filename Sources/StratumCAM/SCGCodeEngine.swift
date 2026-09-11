@@ -12,10 +12,7 @@ public struct SCGCodeEngine {
     public init() {}
 
     /// Converts generated toolpaths into standard CNC G-code instructions.
-    public func generateGCode(
-        from toolpaths: [SC.OutputToolpath],
-        settings: SC.MachineSettings
-    ) -> String {
+    public func generateGCode(from toolpaths: [SC.OutputToolpath], settings: SC.MachineSettings) -> String {
 
         var lines: [String] = []
 

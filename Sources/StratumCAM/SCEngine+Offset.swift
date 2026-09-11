@@ -10,72 +10,6 @@
 import Foundation
 import CoreGraphics
 
-extension SC.Segment {
-
-    /// Offsets this segment perpendicular to its direction of travel.
-    /// `distance > 0` shifts left of travel direction, `distance < 0` shifts right.
-    /// Returns `nil` if the offset collapses the segment (e.g. the tool radius
-    /// is larger than an arc it would have to shrink).
-    func offset(by distance: Double) -> SC.Segment? {
-        guard abs(distance) > 1e-9 else { return self }
-
-        switch self {
-        case .line(let start, let end):
-            let dx = end.x - start.x
-            let dy = end.y - start.y
-            let length = hypot(dx, dy)
-            guard length > 1e-9 else { return nil }
-            // Left-hand normal of the direction of travel
-            let nx = -dy / length
-            let ny = dx / length
-            return .line(
-                start: CGPoint(x: start.x + nx * distance, y: start.y + ny * distance),
-                end: CGPoint(x: end.x + nx * distance, y: end.y + ny * distance)
-            )
-
-        case .arc(let center, let radius, let startAngle, let endAngle, let isCCW):
-            // Offsetting left shrinks a CCW arc and grows a CW arc (and vice versa) --
-            // a CCW arc curves toward its center on the left of travel direction.
-            let newRadius = isCCW ? radius - distance : radius + distance
-            guard newRadius > 1e-6 else { return nil } // tool doesn't fit inside this arc
-            return .arc(center: center, radius: newRadius, startAngle: startAngle, endAngle: endAngle, isCCW: isCCW)
-        }
-    }
-
-    /// Rebuilds this segment with a new start point (used when trimming a concave corner).
-    func withStart(_ point: CGPoint) -> SC.Segment {
-        switch self {
-        case .line(_, let end):
-            return .line(start: point, end: end)
-        case .arc(let center, let radius, _, let endAngle, let isCCW):
-            let angle = atan2(point.y - center.y, point.x - center.x)
-            return .arc(center: center, radius: radius, startAngle: angle, endAngle: endAngle, isCCW: isCCW)
-        }
-    }
-
-    /// Rebuilds this segment with a new end point (used when trimming a concave corner).
-    func withEnd(_ point: CGPoint) -> SC.Segment {
-        switch self {
-        case .line(let start, _):
-            return .line(start: start, end: point)
-        case .arc(let center, let radius, let startAngle, _, let isCCW):
-            let angle = atan2(point.y - center.y, point.x - center.x)
-            return .arc(center: center, radius: radius, startAngle: startAngle, endAngle: angle, isCCW: isCCW)
-        }
-    }
-
-    /// The same physical geometry, travelled in the opposite direction -- used to flip a
-    /// whole contour chain between climb and conventional milling.
-    var reversed: SC.Segment {
-        switch self {
-        case .line(let start, let end):
-            return .line(start: end, end: start)
-        case .arc(let center, let radius, let startAngle, let endAngle, let isCCW):
-            return .arc(center: center, radius: radius, startAngle: endAngle, endAngle: startAngle, isCCW: !isCCW)
-        }
-    }
-}
-
 extension SCEngine {
 
     /// Offsets a linearized contour by the tool radius, producing the true toolpath
@@ -122,19 +56,25 @@ extension SCEngine {
         var points: [CGPoint] = []
         for segment in segments {
             switch segment {
-            case .line(let start, _):
-                points.append(start)
-            case .arc(let center, let radius, let startAngle, let endAngle, let isCCW):
-                let sweep = isCCW ? (endAngle - startAngle) : (startAngle - endAngle)
-                let steps = max(1, Int(abs(sweep) / (.pi / 18))) // ~10 deg per sample
-                for s in 0..<steps {
-                    let t = Double(s) / Double(steps)
-                    let angle = startAngle + (isCCW ? sweep : -sweep) * t
-                    points.append(CGPoint(x: center.x + radius * cos(angle), y: center.y + radius * sin(angle)))
-                }
+                case .line(let start, _):
+                    points.append(start)
+
+                case .arc(let center, let radius, let startAngle, let endAngle, let isCCW):
+                    let sweep = isCCW ? (endAngle - startAngle) : (startAngle - endAngle)
+                    let steps = max(1, Int(abs(sweep) / (.pi / 18))) // ~10 deg per sample
+                    for s in 0..<steps {
+                        let t = Double(s) / Double(steps)
+                        let angle = startAngle + (isCCW ? sweep : -sweep) * t
+                        points.append(
+                            CGPoint(x: center.x + radius * cos(angle),
+                                    y: center.y + radius * sin(angle))
+                        )
+                    }
             }
         }
-        guard points.count >= 3 else { return true }
+        guard points.count >= 3 else {
+            return true
+        }
 
         var area = 0.0
         for i in 0..<points.count {
@@ -151,7 +91,10 @@ extension SCEngine {
     /// with an arc of the tool radius, and trims concave corners back to their true
     /// intersection point.
     private func joinOffsetChain(original: [SC.Segment], offset: [SC.Segment], distance: Double, isClosed: Bool) -> [SC.Segment] {
-        guard offset.count > 1 else { return offset }
+
+        guard offset.count > 1 else {
+            return offset
+        }
 
         var working = offset
         var fillets: [Int: SC.Segment] = [:]
@@ -166,7 +109,9 @@ extension SCEngine {
 
             let gapStart = curr.endPoint
             let gapEnd = next.startPoint
-            guard hypot(gapEnd.x - gapStart.x, gapEnd.y - gapStart.y) > 1e-6 else { continue }
+            guard hypot(gapEnd.x - gapStart.x, gapEnd.y - gapStart.y) > 1e-6 else {
+                continue
+            }
 
             let vertex = original[i].endPoint
             let inDir = direction(of: original[i], atEnd: true)
@@ -209,16 +154,20 @@ extension SCEngine {
     /// Unit tangent direction of travel at the start or end of a segment.
     func direction(of segment: SC.Segment, atEnd: Bool) -> CGPoint {
         switch segment {
-        case .line(let start, let end):
-            let dx = end.x - start.x, dy = end.y - start.y
-            let len = hypot(dx, dy)
-            guard len > 1e-9 else { return CGPoint(x: 0, y: 0) }
-            return CGPoint(x: dx / len, y: dy / len)
-        case .arc(_, _, let startAngle, let endAngle, let isCCW):
-            let angle = atEnd ? endAngle : startAngle
-            let radialX = cos(angle), radialY = sin(angle)
-            // Tangent is the radial vector rotated +-90 deg depending on sweep direction.
-            return isCCW ? CGPoint(x: -radialY, y: radialX) : CGPoint(x: radialY, y: -radialX)
+            case .line(let start, let end):
+                let dx = end.x - start.x, dy = end.y - start.y
+                let len = hypot(dx, dy)
+                guard len > 1e-9 else {
+                    return CGPoint(x: 0, y: 0)
+                }
+
+                return CGPoint(x: dx / len, y: dy / len)
+
+            case .arc(_, _, let startAngle, let endAngle, let isCCW):
+                let angle = atEnd ? endAngle : startAngle
+                let radialX = cos(angle), radialY = sin(angle)
+                // Tangent is the radial vector rotated +-90 deg depending on sweep direction.
+                return isCCW ? CGPoint(x: -radialY, y: radialX) : CGPoint(x: radialY, y: -radialX)
         }
     }
 
@@ -228,14 +177,14 @@ extension SCEngine {
     /// and arcs as full circles (since we only need the point nearest the original vertex).
     private func intersectionCandidates(_ a: SC.Segment, _ b: SC.Segment) -> [CGPoint] {
         switch (a, b) {
-        case let (.line(p1, p2), .line(p3, p4)):
-            return lineLineIntersection(p1, p2, p3, p4)
-        case let (.line(p1, p2), .arc(center, radius, _, _, _)):
-            return circleLineIntersections(center: center, radius: radius, p1: p1, p2: p2)
-        case let (.arc(center, radius, _, _, _), .line(p1, p2)):
-            return circleLineIntersections(center: center, radius: radius, p1: p1, p2: p2)
-        case let (.arc(c1, r1, _, _, _), .arc(c2, r2, _, _, _)):
-            return circleCircleIntersections(c1: c1, r1: r1, c2: c2, r2: r2)
+            case let (.line(p1, p2), .line(p3, p4)):
+                return lineLineIntersection(p1, p2, p3, p4)
+            case let (.line(p1, p2), .arc(center, radius, _, _, _)):
+                return circleLineIntersections(center: center, radius: radius, p1: p1, p2: p2)
+            case let (.arc(center, radius, _, _, _), .line(p1, p2)):
+                return circleLineIntersections(center: center, radius: radius, p1: p1, p2: p2)
+            case let (.arc(c1, r1, _, _, _), .arc(c2, r2, _, _, _)):
+                return circleCircleIntersections(c1: c1, r1: r1, c2: c2, r2: r2)
         }
     }
 
@@ -243,8 +192,11 @@ extension SCEngine {
         let d1x = p2.x - p1.x, d1y = p2.y - p1.y
         let d2x = p4.x - p3.x, d2y = p4.y - p3.y
         let denom = d1x * d2y - d1y * d2x
-        guard abs(denom) > 1e-9 else { return [] } // parallel
+        guard abs(denom) > 1e-9 else {
+            return [] // parallel
+        }
         let t = ((p3.x - p1.x) * d2y - (p3.y - p1.y) * d2x) / denom
+
         return [CGPoint(x: p1.x + t * d1x, y: p1.y + t * d1y)]
     }
 
@@ -252,14 +204,19 @@ extension SCEngine {
         let dx = p2.x - p1.x, dy = p2.y - p1.y
         let fx = p1.x - center.x, fy = p1.y - center.y
         let a = dx * dx + dy * dy
-        guard a > 1e-12 else { return [] }
+        guard a > 1e-12 else {
+            return []
+        }
         let b = 2 * (fx * dx + fy * dy)
         let c = fx * fx + fy * fy - radius * radius
         let discriminant = b * b - 4 * a * c
-        guard discriminant >= 0 else { return [] }
+        guard discriminant >= 0 else {
+            return []
+        }
         let sq = discriminant.squareRoot()
         let t1 = (-b - sq) / (2 * a)
         let t2 = (-b + sq) / (2 * a)
+        
         return [
             CGPoint(x: p1.x + t1 * dx, y: p1.y + t1 * dy),
             CGPoint(x: p1.x + t2 * dx, y: p1.y + t2 * dy)
@@ -269,11 +226,14 @@ extension SCEngine {
     private func circleCircleIntersections(c1: CGPoint, r1: Double, c2: CGPoint, r2: Double) -> [CGPoint] {
         let dx = c2.x - c1.x, dy = c2.y - c1.y
         let d = hypot(dx, dy)
-        guard d > 1e-9, d <= r1 + r2 + 1e-6, d >= abs(r1 - r2) - 1e-6 else { return [] }
+        guard d > 1e-9, d <= r1 + r2 + 1e-6, d >= abs(r1 - r2) - 1e-6 else {
+            return []
+        }
         let a = (r1 * r1 - r2 * r2 + d * d) / (2 * d)
         let h = max(0, r1 * r1 - a * a).squareRoot()
         let xm = c1.x + a * dx / d
         let ym = c1.y + a * dy / d
+
         return [
             CGPoint(x: xm + h * dy / d, y: ym - h * dx / d),
             CGPoint(x: xm - h * dy / d, y: ym + h * dx / d)
