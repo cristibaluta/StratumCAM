@@ -19,11 +19,7 @@ struct ContentView: View {
         NavigationSplitView {
             // Sidebar Controls & Test Cases
             List {
-                Section("Test Scenarios") {
-                    Button("Clear Canvas") {
-                        renderBatches = []
-                        gcodeText = ""
-                    }
+                Section("Engraving") {
                     Button("Engrave Line") {
                         show(DemoEngraving().demoLine())
                     }
@@ -32,6 +28,9 @@ struct ContentView: View {
                     }
                     Button("Engrave Letter S") {
                         show(DemoEngraving().demoLetterS())
+                    }
+                    Button("Engrave Word STRATUM") {
+                        show(DemoEngraving().demoWordSTRATUM())
                     }
                 }
                 Section("Profile") {
@@ -89,7 +88,7 @@ struct ContentView: View {
                 }
         }
         .onAppear {
-            show(DemoEngraving().demoLine())
+            show(DemoEngraving().demoWordSTRATUM())
         }
     }
 
