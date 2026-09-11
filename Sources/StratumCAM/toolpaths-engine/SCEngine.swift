@@ -114,7 +114,7 @@ public final class SCEngine {
 
     // MARK: - Internal Helper Steps
 
-    func linearize(contour: SC.Contour) -> [SC.Segment] {
+    public func linearize(contour: SC.Contour) -> [SC.Segment] {
         var segments: [SC.Segment] = []
 
         for chained in contour.entities {
@@ -348,7 +348,7 @@ public final class SCEngine {
         }
     }
 
-    func buildWaypoints(for segments: [SC.Segment], atZ z: Double, settings: SC.MachineSettings) -> [SC.Waypoint] {
+    public func buildWaypoints(for segments: [SC.Segment], atZ z: Double, settings: SC.MachineSettings) -> [SC.Waypoint] {
         var waypoints: [SC.Waypoint] = []
 
         guard let first = segments.first else {
