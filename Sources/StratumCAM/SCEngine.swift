@@ -73,9 +73,12 @@ public final class SCEngine {
                                             params: params,
                                             strategy: strategy)
 
-            case .drilling:
-                // TODO(Phase 2): peck-cycle drilling from point/hole contours.
-                return nil
+            case .drilling(let peckDepth):
+                return buildDrillingToolpath(for: contour,
+                                             tool: tool,
+                                             settings: settings,
+                                             peckDepth: peckDepth,
+                                             strategy: strategy)
 
             case .pocket:
                 // TODO(Phase 3): offsetPattern / raster pocket clearing.

@@ -50,7 +50,7 @@ Drilling is the smallest remaining strategy — good next feature after the Trac
   common "drill here" markers in DXF — optionally treat a single closed `.circle` contour's
   center as a drill point too. Keep it to extraction only, no toolpath yet.
 
-- **1.2 — Basic drill cycle (no pecking)**
+- DONE **1.2 — Basic drill cycle (no pecking)**
   `buildDrillingToolpath`: rapid to XY at safeZ, plunge straight to `targetDepth` at
   `plungeRate`, retract to safeZ. One `ToolpathPass`. Wire into `SCEngine.buildToolpath`
   switch, replacing the `nil` stub for the non-peck case.

@@ -8,6 +8,7 @@
 import Foundation
 import CoreGraphics
 import SwiftDXF
+import simd
 
 extension SCEngine {
 
@@ -40,5 +41,39 @@ extension SCEngine {
             default:
                 return nil
         }
+    }
+
+    /// Builds a basic drill cycle: rapid to the hole's XY at Safe Z, plunge straight to
+    /// target depth, retract to Safe Z. One `ToolpathPass`, since a plain drill doesn't
+    /// step down in the sense profile/pocket passes do -- it's a single continuous plunge.
+    ///
+    /// Peck drilling (`peckDepth != nil`) isn't implemented yet (see Step 1.3) --
+    /// returning `nil` here rather than silently drilling a plain hole when pecking was
+    /// actually requested, since that's a real behavioral difference a caller is relying on.
+    func buildDrillingToolpath(for contour: SC.Contour,
+                               tool: SC.ToolParams,
+                               settings: SC.MachineSettings,
+                               peckDepth: Double?,
+                               strategy: SC.Strategy) -> SC.OutputToolpath? {
+
+        guard let point = drillPoint(for: contour) else {
+            return nil
+        }
+
+        guard peckDepth == nil else {
+            // TODO(Step 1.3): peck-cycle drilling.
+            return nil
+        }
+
+        let z = -abs(settings.targetDepth)
+
+        let waypoints: [SC.Waypoint] = [
+            SC.Waypoint(position: SIMD3(point.x, point.y, settings.safeZ), motion: .rapid, feedRate: settings.feedRate),
+            SC.Waypoint(position: SIMD3(point.x, point.y, z), motion: .linear, feedRate: settings.plungeRate),
+            SC.Waypoint(position: SIMD3(point.x, point.y, settings.safeZ), motion: .rapid, feedRate: settings.feedRate)
+        ]
+
+        let pass = SC.ToolpathPass(passIndex: 0, depthZ: z, waypoints: waypoints)
+        return SC.OutputToolpath(strategy: strategy, tool: tool, settings: settings, passes: [pass])
     }
 }
