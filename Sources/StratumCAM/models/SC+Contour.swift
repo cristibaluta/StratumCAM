@@ -10,6 +10,7 @@ import SwiftDXF
 extension SC {
 
     public struct Contour: Sendable {
+        
         public struct Chained: Sendable {
             public var entity: DXF.Entity
             public var reversed: Bool
