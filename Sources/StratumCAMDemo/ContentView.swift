@@ -94,14 +94,13 @@ struct ContentView: View {
 
     private func loadEngravingTest() {
         guard let device = MTLCreateSystemDefaultDevice() else { return }
-        let halfSize: Float = 25.0
 
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 3.175, stepdown: 0.1)
         let settings = SC.MachineSettings(feedRate: 1000.0,
                                           plungeRate: 300.0,
                                           safeZ: 5.0,
-                                          targetDepth: -2.1)
+                                          targetDepth: -1.0)
         let lineEntity = DXF.Entity.line(a: DXF.Point(0, 0),
                                          b: DXF.Point(20, 0),
                                          layer: "0",
@@ -151,12 +150,12 @@ struct ContentView: View {
         // Layer 1: Solid Base Square (White/Cyan, Z = 0.0)
         let baseVertices = buildVertices(points: rawPoints, color: SIMD4<Float>(0.2, 0.8, 1.0, 1.0), zOffset: 0.0)
         let baseBuffer = device.makeBuffer(bytes: baseVertices, length: baseVertices.count * MemoryLayout<RenderVertex>.stride, options: .storageModeShared)!
-        let baseBatch = RenderBatch(vertexBuffer: baseBuffer, vertexCount: baseVertices.count, primitiveType: .lineStrip)
+        let baseBatch = RenderBatch(vertexBuffer: baseBuffer, vertexCount: baseVertices.count, primitiveType: .lineStrip, isDashed: true, dashLength: 0.4)
 
         // Layer 2: Dashed Overlay Square (Yellow, Z = 0.1 offset to prevent Z-fighting)
         let dashedVertices = buildVertices(points: toolpathPoints, color: SIMD4<Float>(1.0, 0.8, 0.0, 1.0), zOffset: 0.1)
         let dashedBuffer = device.makeBuffer(bytes: dashedVertices, length: dashedVertices.count * MemoryLayout<RenderVertex>.stride, options: .storageModeShared)!
-        let dashedBatch = RenderBatch(vertexBuffer: dashedBuffer, vertexCount: dashedVertices.count, primitiveType: .lineStrip, isDashed: true, dashLength: 1.0)
+        let dashedBatch = RenderBatch(vertexBuffer: dashedBuffer, vertexCount: dashedVertices.count, primitiveType: .lineStrip)
 
         self.renderBatches = [baseBatch, dashedBatch]
     }

@@ -8,6 +8,14 @@
 import SwiftUI
 import MetalKit
 
+// Custom MTKView subclass to capture scroll wheel events directly
+class InteractiveMTKView: MTKView {
+    var onScroll: ((NSEvent) -> Void)?
+    override func scrollWheel(with event: NSEvent) {
+        onScroll?(event)
+    }
+}
+
 struct MetalCanvasView: NSViewRepresentable {
     @Binding var batches: [RenderBatch]
 
@@ -16,19 +24,21 @@ struct MetalCanvasView: NSViewRepresentable {
     }
 
     func makeNSView(context: Context) -> MTKView {
-        let mtkView = MTKView()
+        let mtkView = InteractiveMTKView()
         guard let renderer = MetalRenderer(metalView: mtkView) else { return mtkView }
-        
+
         context.coordinator.renderer = renderer
         mtkView.delegate = renderer
-        
-        // Setup Gesture Recognizers
+
+        // Handle Scroll Wheel / Pinch for Zooming
+        mtkView.onScroll = { [weak coordinator = context.coordinator] event in
+            coordinator?.handleScroll(event)
+        }
+
+        // Setup Gesture Recognizers for Orbit and Pan
         let panGesture = NSPanGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handlePan(_:)))
-        let clickGesture = NSClickGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleClick(_:)))
-        
         mtkView.addGestureRecognizer(panGesture)
-        mtkView.addGestureRecognizer(clickGesture)
-        
+
         return mtkView
     }
 
@@ -59,12 +69,35 @@ struct MetalCanvasView: NSViewRepresentable {
                 let sensitivity: Float = 0.005
                 camera.rotation.y -= Float(translation.x) * sensitivity
                 camera.rotation.x = max(-.pi/2 + 0.1, min(.pi/2 - 0.1, camera.rotation.x + Float(translation.y) * sensitivity))
+
+                // --- PRINT ROTATION VALUES ---
+                let pitchDeg = camera.rotation.x * 180 / .pi
+                let yawDeg = camera.rotation.y * 180 / .pi
+                print(String(format: "🎥 Pitch (X): %.2f rad (%.1f°) | Yaw (Y): %.2f rad (%.1f°)", camera.rotation.x, pitchDeg, camera.rotation.y, yawDeg))
             }
             gesture.setTranslation(.zero, in: gesture.view)
         }
 
         @objc func handleClick(_ gesture: NSClickGestureRecognizer) {
             // Optional: Handle selection / Raycasting targeting
+        }
+
+        func handleScroll(_ event: NSEvent) {
+            guard let camera = renderer?.camera else { return }
+
+            // Adjust zoom sensitivity (scrolling deltaY)
+            let zoomSensitivity: Float = 0.5
+            let delta = Float(event.scrollingDeltaY) * zoomSensitivity
+
+            // Smooth zoom exponential scaling or linear step
+            if event.hasPreciseScrollingDeltas {
+                camera.distance -= delta * (camera.distance * 0.02)
+            } else {
+                camera.distance -= delta * 2.0
+            }
+
+            // Clamp distance to prevent clipping into target or zooming out into infinity
+            camera.distance = max(2.0, min(2000.0, camera.distance))
         }
     }
 }

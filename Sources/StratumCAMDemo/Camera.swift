@@ -17,13 +17,17 @@ class Camera {
     var position: SIMD3<Float> = [0, 0, 150]
     var target: SIMD3<Float> = [0, 0, 0]
     var up: SIMD3<Float> = [0, 1, 0]
-    
+
     var fov: Float = 45.0 * (.pi / 180.0)
     var aspectRatio: Float = 1.0
     var nearZ: Float = 0.1
     var farZ: Float = 1000.0
-    
-    var rotation: SIMD2<Float> = [0, 0] // pitch, yaw
+
+    // Default 3D View Angle
+    // Pitch (X-axis): -0.6 radians (~-35° looking down)
+    // Yaw (Y-axis): 0.8 radians (~45° angled horizontally)
+    var rotation: SIMD2<Float> = [1.17, 0.0]
+
     var distance: Float = 150.0
 
     func updateMatrix() -> matrix_float4x4 {
