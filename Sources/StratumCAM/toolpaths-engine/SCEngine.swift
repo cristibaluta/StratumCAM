@@ -22,7 +22,7 @@ public final class SCEngine {
     public func generateToolpaths(from contours: [SC.Contour],
                                   tool: SC.ToolParams,
                                   settings: SC.MachineSettings,
-                                  strategy: SC.Strategy = .engrave) -> [SC.OutputToolpath] {
+                                  strategy: SC.Strategy) -> [SC.OutputToolpath] {
 
         var results: [SC.OutputToolpath] = []
 
