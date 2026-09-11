@@ -16,6 +16,7 @@ extension SC {
         public var safeZ: Double            // Rapid clearance plane above stock
         public var retractZ: Double         // Short lift clearance between close cuts
         public var targetDepth: Double      // Total depth of cut (positive depth into stock)
+        public var dwell: Double?           // Optional drilling dwell in seconds
 
         public init(
             feedRate: Double = 1200.0,
@@ -23,7 +24,8 @@ extension SC {
             spindleSpeed: Double = 12000.0,
             safeZ: Double = 5.0,
             retractZ: Double = 1.0,
-            targetDepth: Double = 3.0
+            targetDepth: Double = 3.0,
+            dwell: Double? = nil
         ) {
             self.feedRate = feedRate
             self.plungeRate = plungeRate
@@ -31,6 +33,7 @@ extension SC {
             self.safeZ = safeZ
             self.retractZ = retractZ
             self.targetDepth = targetDepth
+            self.dwell = dwell
         }
     }
 }

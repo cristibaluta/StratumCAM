@@ -10,8 +10,7 @@ moving on. Don't ask for a whole "Track" in one message — ask for one step, re
 commit, then move to the next. That's what keeps sessions from blowing up mid-feature.
 
 Suggested prompt shape per step:
-> "Implement Step X.Y from the roadmap: <paste the step>. Follow the existing code
-> style in SCEngine+Profile.swift. Add a test file mirroring Engraving_Tests.swift."
+> "Implement Step X.Y from the roadmap: <step>. Follow the existing code style in SCEngine+Profile.swift. Add a test file mirroring Engraving_Tests.swift."
 
 ---
 
@@ -66,7 +65,7 @@ Drilling is the smallest remaining strategy — good next feature after the Trac
   since it's one-toolpath-per-contour already) — add a test with 3+ holes and mixed
   peck/non-peck tools to lock in the behavior.
 
-- **1.5 — G-code: dwell + tool-specific spindle speed for drilling**
+- DONE **1.5 — G-code: dwell + tool-specific spindle speed for drilling**
   Add optional dwell (`G04`) after final peck, useful for spot-facing. This is the first
   place `SCGCodeEngine`'s single global spindle speed starts to feel wrong — flag it, but
   don't fix the multi-tool problem here (that's Track 3).
