@@ -24,7 +24,7 @@ These are quick, isolated, and reduce risk before building on top of profile/cha
   (already public-ish inside `SCEngine+Profile.swift`) before offsetting, same as profile
   does. ~10 line change + 1 test.
 
-- **0.2 — Test coverage: `.profile`**
+- DONE **0.2 — Test coverage: `.profile`**
   New `Profile_Tests.swift`. Cover: outside/inside offset direction, climb vs conventional
   reversal, plunge/ramp/helix entry each produce sane waypoints, one holding-tab case.
   This is the highest-value test gap right now — profile is your biggest chunk of logic
