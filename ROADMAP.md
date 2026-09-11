@@ -34,7 +34,7 @@ These are quick, isolated, and reduce risk before building on top of profile/cha
   New `Chamfer_Tests.swift`. Cover: depth resolved from width+vAngle, explicit depth
   override, non-V-bit tool returns `nil`, inside vs outside offset sign.
 
-- **0.4 — `calculateZPasses` float-safety cleanup** (optional, low priority)
+- DONE **0.4 — `calculateZPasses` float-safety cleanup** (optional, low priority)
   Replace the epsilon-margin loop with a count-based `(0..<n).map` so pass count is exact
   regardless of float drift. Small, isolated, has an existing TODO pointing right at it.
 
@@ -44,7 +44,7 @@ These are quick, isolated, and reduce risk before building on top of profile/cha
 
 Drilling is the smallest remaining strategy — good next feature after the Track 0 cleanup.
 
-- **1.1 — Point-contour recognition**
+- DONE **1.1 — Point-contour recognition**
   Drilling needs a hole *center*, not a chain of segments. Add a helper that extracts a
   drill point from a contour: support `DXF.Entity.point` directly, and — since circles are
   common "drill here" markers in DXF — optionally treat a single closed `.circle` contour's
