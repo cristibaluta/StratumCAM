@@ -44,33 +44,39 @@ class Demo {
         }
 
         // 3. Build Contour vertices (blue and dashed)
+        // Some contours (e.g. a drilling point) have no linearizable base path,
+        // so rawPoints/baseVertices can legitimately be empty. makeBuffer with a
+        // zero-length allocation is invalid, so skip the batch entirely in that case.
         let baseVertices = buildVertices(points: rawPoints,
                                          color: SIMD4<Float>(0.2, 0.8, 1.0, 1.0),
                                          zOffset: 0.0)
-        let baseBuffer = device.makeBuffer(bytes: baseVertices,
-                                           length: baseVertices.count * MemoryLayout<RenderVertex>.stride,
-                                           options: .storageModeShared)!
-        let baseBatch = RenderBatch(vertexBuffer: baseBuffer,
-                                    vertexCount: baseVertices.count,
-                                    primitiveType: .lineStrip,
-                                    isDashed: true,
-                                    dashLength: 0.4)
+        var batches: [RenderBatch] = []
+        if !baseVertices.isEmpty, let baseBuffer = device.makeBuffer(bytes: baseVertices,
+                                                                      length: baseVertices.count * MemoryLayout<RenderVertex>.stride,
+                                                                      options: .storageModeShared) {
+            batches.append(RenderBatch(vertexBuffer: baseBuffer,
+                                       vertexCount: baseVertices.count,
+                                       primitiveType: .lineStrip,
+                                       isDashed: true,
+                                       dashLength: 0.4))
+        }
 
         // 4. Build toolpaths vertices (yellow)
         let toolpathVertices = buildVertices(points: toolpathPoints,
                                              color: SIMD4<Float>(1.0, 0.8, 0.0, 1.0),
                                              zOffset: 0.0)
-        let toolpathBuffer = device.makeBuffer(bytes: toolpathVertices,
-                                               length: toolpathVertices.count * MemoryLayout<RenderVertex>.stride,
-                                               options: .storageModeShared)!
-        let toolpathBatch = RenderBatch(vertexBuffer: toolpathBuffer,
-                                        vertexCount: toolpathVertices.count,
-                                        primitiveType: .lineStrip)
+        if !toolpathVertices.isEmpty, let toolpathBuffer = device.makeBuffer(bytes: toolpathVertices,
+                                                                              length: toolpathVertices.count * MemoryLayout<RenderVertex>.stride,
+                                                                              options: .storageModeShared) {
+            batches.append(RenderBatch(vertexBuffer: toolpathBuffer,
+                                       vertexCount: toolpathVertices.count,
+                                       primitiveType: .lineStrip))
+        }
 
         // 5. Generate G-code for the same toolpaths
         let gcode = gcodeEngine.generateGCode(from: toolpaths, settings: settings)
 
-        return DemoResult(batches: [baseBatch, toolpathBatch], gcode: gcode)
+        return DemoResult(batches: batches, gcode: gcode)
     }
 
     /// `buildWaypoints`/toolpath passes only carry the *endpoints* of each move (plus a

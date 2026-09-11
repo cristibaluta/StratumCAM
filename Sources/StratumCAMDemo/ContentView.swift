@@ -51,6 +51,14 @@ struct ContentView: View {
                         show(DemoProfile().demoHoldingTab())
                     }
                 }
+                Section("Drilling") {
+                    Button("Plain Drill") {
+                        show(DemoDrilling().demoPlainDrill())
+                    }
+                    Button("Peck Drill") {
+                        show(DemoDrilling().demoPeckDrill())
+                    }
+                }
             }
             .navigationTitle("StratumCAM Demo")
         } content: {
