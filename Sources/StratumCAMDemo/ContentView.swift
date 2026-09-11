@@ -61,6 +61,17 @@ struct ContentView: View {
                         show(DemoDrilling().demoMultipleHoles())
                     }
                 }
+                Section("Pocketing") {
+                    Button("Rectangle (Climb)") {
+                        show(DemoPocketing().demoPocketRectangle())
+                    }
+                    Button("Rectangle (Conventional)") {
+                        show(DemoPocketing().demoPocketRectangleConventional())
+                    }
+                    Button("Rounded Rectangle") {
+                        show(DemoPocketing().demoPocketRoundedRectangle())
+                    }
+                }
             }
             .navigationTitle("StratumCAM Demo")
         } content: {

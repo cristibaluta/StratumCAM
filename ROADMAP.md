@@ -77,7 +77,7 @@ Drilling is the smallest remaining strategy — good next feature after the Trac
 Biggest remaining feature. Split by pocket pattern since they're genuinely independent
 algorithms — don't try to do both in one pass.
 
-- **2.1 — Pocket boundary offsetting (single ring)**
+- DONE **2.1 — Pocket boundary offsetting (single ring)**
   Given a closed contour, generate the first inward offset ring at `toolRadius` using the
   *existing* `offsetContour`/`offsetDistance` machinery (it already handles closed-contour
   offsetting for profile/chamfer — pocketing reuses it, doesn't reinvent it). No stepover

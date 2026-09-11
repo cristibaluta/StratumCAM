@@ -50,8 +50,96 @@ struct Pocket_Tests {
         return (xs.min()!, xs.max()!, ys.min()!, ys.max()!)
     }
 
+    private func segmentsBBox(_ segments: [SC.Segment]) -> (minX: Double, maxX: Double, minY: Double, maxY: Double) {
+        var xs: [Double] = []
+        var ys: [Double] = []
+        for segment in segments {
+            xs.append(segment.startPoint.x)
+            xs.append(segment.endPoint.x)
+            ys.append(segment.startPoint.y)
+            ys.append(segment.endPoint.y)
+        }
+        return (xs.min()!, xs.max()!, ys.min()!, ys.max()!)
+    }
+
     private func pocketStrategy(direction: SC.CutDirection) -> SC.Strategy {
         .pocket(direction: direction, pocketType: .offsetPattern, entry: .plunge)
+    }
+
+    // MARK: - Concentric ring stepping (Step 2.2)
+
+    @Test("Pocket rings step inward by stepover and stop before the ring would invert")
+    func testPocketRingsStepInwardAndStopAtCollapse() {
+        let engine = SCEngine()
+        let tool = SC.ToolParams(diameter: 4.0, stepdown: 1.0, stepoverPercentage: 0.5)
+
+        let baseSegments = engine.linearize(contour: ccwRectangleContour())
+        let oriented = engine.orientedForDirection(baseSegments, side: .inside, direction: .climb)
+
+        let rings = engine.pocketRings(from: oriented, tool: tool)
+
+        // 20x10 rectangle, 2mm tool radius, 2mm stepover: ring 0 is [2,18]x[2,8].
+        // A third-ring attempt would offset the already-6mm-tall ring 1 down to a
+        // height of -2 -- it must stop there rather than emit an inverted ring.
+        #expect(rings.count == 2,
+                "Test Failed: expected exactly 2 rings before the next stepover would invert the ring")
+
+        let ring0Box = segmentsBBox(rings[0])
+        #expect(abs(ring0Box.minX - 2.0) < 1e-5 && abs(ring0Box.maxX - 18.0) < 1e-5,
+                "Test Failed: ring 0 X bounds mismatch")
+        #expect(abs(ring0Box.minY - 2.0) < 1e-5 && abs(ring0Box.maxY - 8.0) < 1e-5,
+                "Test Failed: ring 0 Y bounds mismatch")
+
+        let ring1Box = segmentsBBox(rings[1])
+        #expect(abs(ring1Box.minX - 4.0) < 1e-5 && abs(ring1Box.maxX - 16.0) < 1e-5,
+                "Test Failed: ring 1 X bounds mismatch -- stepover not honored")
+        #expect(abs(ring1Box.minY - 4.0) < 1e-5 && abs(ring1Box.maxY - 6.0) < 1e-5,
+                "Test Failed: ring 1 Y bounds mismatch -- stepover not honored")
+    }
+
+    @Test("Pocket chains multiple rings into one continuous pass with a connecting transition")
+    func testPocketChainsMultipleRingsIntoOnePass() {
+        let engine = SCEngine()
+        let tool = SC.ToolParams(diameter: 4.0, stepdown: 1.0, stepoverPercentage: 0.5)
+        let settings = SC.MachineSettings(feedRate: 1000.0,
+                                          plungeRate: 300.0,
+                                          safeZ: 5.0,
+                                          targetDepth: -1.0)
+
+        let toolpaths = engine.generateToolpaths(
+            from: [ccwRectangleContour()],
+            tool: tool,
+            settings: settings,
+            strategy: pocketStrategy(direction: .climb)
+        )
+
+        #expect(toolpaths.count == 1, "Test Failed: expected 1 pocket toolpath")
+
+        let waypoints = toolpaths[0].passes[0].waypoints
+
+        // rapid + plunge + (4 ring-0 corners + 1 transition + 4 ring-1 corners) + retract.
+        #expect(waypoints.count == 12,
+                "Test Failed: expected 12 waypoints for a 2-ring chained pocket, got \(waypoints.count)")
+
+        // Only one plunge for the whole chained pass -- Z stepdown per ring is
+        // explicitly out of scope until Step 2.5.
+        #expect(waypoints[0].position.z == 5.0, "Test Failed: expected the initial rapid at safeZ")
+        #expect(waypoints[1].position.z == -1.0, "Test Failed: expected a single plunge to targetDepth")
+
+        // The transition waypoint (index 6) is the lateral step from ring 0's
+        // closing point into ring 1's start corner -- proof the rings were
+        // actually chained, not just concatenated as two separate passes.
+        let transition = waypoints[6]
+        #expect(abs(transition.position.x - 4.0) < 1e-5 && abs(transition.position.y - 4.0) < 1e-5,
+                "Test Failed: expected the ring-0-to-ring-1 transition to land on ring 1's start corner")
+
+        // Ring 1 traces its own four corners after the transition, closing back
+        // on itself before the final retract.
+        let ring1Close = waypoints[10]
+        #expect(abs(ring1Close.position.x - 4.0) < 1e-5 && abs(ring1Close.position.y - 4.0) < 1e-5,
+                "Test Failed: expected ring 1 to close back on its own start corner")
+
+        #expect(waypoints[11].position.z == 5.0, "Test Failed: expected the final retract to safeZ")
     }
 
     // MARK: - Basic offset ring
