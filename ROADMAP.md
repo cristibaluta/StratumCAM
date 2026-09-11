@@ -30,7 +30,7 @@ These are quick, isolated, and reduce risk before building on top of profile/cha
   This is the highest-value test gap right now — profile is your biggest chunk of logic
   and has zero direct tests.
 
-- **0.3 — Test coverage: `.chamfer`**
+- DONE **0.3 — Test coverage: `.chamfer`**
   New `Chamfer_Tests.swift`. Cover: depth resolved from width+vAngle, explicit depth
   override, non-V-bit tool returns `nil`, inside vs outside offset sign.
 
