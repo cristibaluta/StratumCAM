@@ -55,7 +55,7 @@ Drilling is the smallest remaining strategy — good next feature after the Trac
   `plungeRate`, retract to safeZ. One `ToolpathPass`. Wire into `SCEngine.buildToolpath`
   switch, replacing the `nil` stub for the non-peck case.
 
-- **1.3 — Peck drilling**
+- DONE **1.3 — Peck drilling**
   When `peckDepth != nil`: repeated plunge-retract-plunge cycles to `retractZ` between pecks
   (using `settings.retractZ`, which already exists but is currently unused anywhere). Each
   peck deeper than the last until `targetDepth`. This is genuinely its own step — pecking

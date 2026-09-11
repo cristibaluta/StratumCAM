@@ -11,7 +11,7 @@ import CoreGraphics
 import simd
 @testable import StratumCAM
 
-// Covers point-contour recognition and basic (non-peck) drill cycles for `.drilling`.
+// Covers point-contour recognition and both plain and peck-cycle drill cycles for `.drilling`.
 
 struct Drilling_Tests {
 
@@ -154,18 +154,127 @@ struct Drilling_Tests {
         #expect(toolpaths.isEmpty, "Test Failed: a non-point contour should not produce a drilling toolpath")
     }
 
-    @Test("Peck drilling is not yet implemented and returns no toolpath")
-    func testDrillingWithPeckDepthNotYetImplementedReturnsNil() {
+    // MARK: - Peck drilling
+
+    @Test("Peck drilling with an evenly divisible depth produces exactly the right number of pecks")
+    func testPeckDrillingEvenDivisionProducesExactPeckCount() {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .drill, diameter: 3.0, stepdown: 1.0)
-        let settings = SC.MachineSettings(feedRate: 1000.0, plungeRate: 200.0, safeZ: 5.0, targetDepth: -8.0)
+        let settings = SC.MachineSettings(feedRate: 1000.0, plungeRate: 200.0, safeZ: 5.0, retractZ: 1.0, targetDepth: 8.0)
+
+        let contour = SC.Contour(entities: [
+            .init(entity: .point(at: DXF.Point(10, 10), layer: "0", color: 7), reversed: false)
+        ], isClosed: false)
+
+        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings, strategy: .drilling(peckDepth: 4.0))
+
+        #expect(toolpaths.count == 1, "Test Failed: expected 1 output toolpath")
+        let toolpath = toolpaths[0]
+        #expect(toolpath.passes.count == 1, "Test Failed: peck drilling should still be a single ToolpathPass")
+
+        let waypoints = toolpath.passes[0].waypoints
+        // 1 initial rapid to Safe Z, then 2 pecks x (plunge + retract) = 1 + 4 = 5 waypoints.
+        #expect(waypoints.count == 5, "Test Failed: expected 5 waypoints for 2 pecks, got \(waypoints.count)")
+
+        // [0] Initial rapid to Safe Z
+        #expect(waypoints[0].position.z == 5.0, "Test Failed: initial move should be at Safe Z")
+        if case .rapid = waypoints[0].motion {} else {
+            Issue.record("Test Failed: initial waypoint motion must be .rapid")
+        }
+
+        // [1] First peck plunges to -4.0
+        #expect(waypoints[1].position.z == -4.0, "Test Failed: first peck should stop at -4.0")
+        #expect(waypoints[1].feedRate == 200.0, "Test Failed: peck plunge should use plunge feed rate")
+        if case .linear = waypoints[1].motion {} else {
+            Issue.record("Test Failed: peck plunge motion must be .linear")
+        }
+
+        // [2] Retract between pecks goes only to retractZ, not Safe Z
+        #expect(waypoints[2].position.z == 1.0, "Test Failed: between-peck retract should go to retractZ")
+        if case .rapid = waypoints[2].motion {} else {
+            Issue.record("Test Failed: between-peck retract motion must be .rapid")
+        }
+
+        // [3] Second (final) peck plunges to full target depth
+        #expect(waypoints[3].position.z == -8.0, "Test Failed: final peck should land exactly on target depth")
+        if case .linear = waypoints[3].motion {} else {
+            Issue.record("Test Failed: final peck plunge motion must be .linear")
+        }
+
+        // [4] Final retract goes all the way to Safe Z
+        #expect(waypoints[4].position.z == 5.0, "Test Failed: final retract after last peck should go to Safe Z")
+        if case .rapid = waypoints[4].motion {} else {
+            Issue.record("Test Failed: final retract motion must be .rapid")
+        }
+
+        // XY stays fixed at the hole location throughout the cycle.
+        for wp in waypoints {
+            #expect(abs(wp.position.x - 10.0) < 1e-9 && abs(wp.position.y - 10.0) < 1e-9,
+                    "Test Failed: peck cycle should stay at the hole's XY throughout")
+        }
+    }
+
+    @Test("Peck drilling with an unevenly divisible depth ends exactly on target depth")
+    func testPeckDrillingUnevenDivisionEndsAtTargetDepth() {
+        let engine = SCEngine()
+        let tool = SC.ToolParams(type: .drill, diameter: 3.0, stepdown: 1.0)
+        let settings = SC.MachineSettings(feedRate: 1000.0, plungeRate: 200.0, safeZ: 5.0, retractZ: 1.0, targetDepth: 10.0)
 
         let contour = SC.Contour(entities: [
             .init(entity: .point(at: DXF.Point(0, 0), layer: "0", color: 7), reversed: false)
         ], isClosed: false)
 
-        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings, strategy: .drilling(peckDepth: 1.5))
+        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings, strategy: .drilling(peckDepth: 4.0))
 
-        #expect(toolpaths.isEmpty, "Test Failed: peck drilling should return no toolpath until Step 1.3 implements it")
+        let waypoints = toolpaths[0].passes[0].waypoints
+        // 10.0 / 4.0 -> 2.5 -> rounds up to 3 pecks (4, 8, 10).
+        // 1 initial rapid + 3 pecks x (plunge + retract) = 7 waypoints.
+        #expect(waypoints.count == 7, "Test Failed: expected 7 waypoints for 3 pecks, got \(waypoints.count)")
+
+        let plungeDepths = [waypoints[1].position.z, waypoints[3].position.z, waypoints[5].position.z]
+        #expect(plungeDepths == [-4.0, -8.0, -10.0], "Test Failed: peck depths should be -4.0, -8.0, -10.0, got \(plungeDepths)")
+
+        // Only the very last retract should reach Safe Z; the rest stop at retractZ.
+        #expect(waypoints[2].position.z == 1.0 && waypoints[4].position.z == 1.0,
+                "Test Failed: intermediate retracts should stop at retractZ")
+        #expect(waypoints[6].position.z == 5.0, "Test Failed: final retract should reach Safe Z")
+    }
+
+    @Test("Peck drilling from a closed circle contour pecks at the circle's center")
+    func testPeckDrillingUsesCircleCenterAsHoleLocation() {
+        let engine = SCEngine()
+        let tool = SC.ToolParams(type: .drill, diameter: 4.0, stepdown: 1.0)
+        let settings = SC.MachineSettings(feedRate: 1000.0, plungeRate: 250.0, safeZ: 6.0, retractZ: 1.5, targetDepth: 6.0)
+
+        let contour = SC.Contour(entities: [
+            .init(entity: .circle(center: DXF.Point(1, 2), radius: 2.0, layer: "0", color: 7), reversed: false)
+        ], isClosed: true)
+
+        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings, strategy: .drilling(peckDepth: 3.0))
+
+        #expect(toolpaths.count == 1, "Test Failed: expected 1 output toolpath")
+        let waypoints = toolpaths[0].passes[0].waypoints
+        for wp in waypoints {
+            #expect(abs(wp.position.x - 1.0) < 1e-9 && abs(wp.position.y - 2.0) < 1e-9,
+                    "Test Failed: peck cycle should stay at the circle's center")
+        }
+        #expect(waypoints.last?.position.z == 6.0, "Test Failed: final retract should reach Safe Z")
+    }
+
+    @Test("A zero or negative peck depth falls back to a plain drill cycle")
+    func testNonPositivePeckDepthFallsBackToPlainDrillCycle() {
+        let engine = SCEngine()
+        let tool = SC.ToolParams(type: .drill, diameter: 3.0, stepdown: 1.0)
+        let settings = SC.MachineSettings(feedRate: 1000.0, plungeRate: 200.0, safeZ: 5.0, targetDepth: 8.0)
+
+        let contour = SC.Contour(entities: [
+            .init(entity: .point(at: DXF.Point(0, 0), layer: "0", color: 7), reversed: false)
+        ], isClosed: false)
+
+        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings, strategy: .drilling(peckDepth: 0.0))
+
+        let waypoints = toolpaths[0].passes[0].waypoints
+        #expect(waypoints.count == 3, "Test Failed: a non-positive peck depth should behave like a plain drill cycle")
+        #expect(waypoints[1].position.z == -8.0, "Test Failed: plunge should still reach full target depth")
     }
 }
