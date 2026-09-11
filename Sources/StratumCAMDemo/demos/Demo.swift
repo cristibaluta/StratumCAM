@@ -25,14 +25,24 @@ class Demo {
     }
 
     func run(contour: SC.Contour, tool: SC.ToolParams, settings: SC.MachineSettings, strategy: SC.Strategy) -> DemoResult {
+        run(contours: [contour], tool: tool, settings: settings, strategy: strategy)
+    }
 
-        // 1. Convert Contour to 3D simd points
-        let segments = engine.linearize(contour: contour)
-        let waypoints = engine.buildWaypoints(for: segments, atZ: 0, settings: settings)
-        let rawPoints = tessellateForRender(waypoints)
+    /// Same as `run(contour:tool:settings:strategy:)` but for demos with several
+    /// independent contours sharing one tool/settings/strategy (e.g. a batch of
+    /// drill holes) — mirrors the engine's own `generateToolpaths(from: [SC.Contour], ...)`.
+    func run(contours: [SC.Contour], tool: SC.ToolParams, settings: SC.MachineSettings, strategy: SC.Strategy) -> DemoResult {
 
-        // 2. Convert Contour to toolpaths then to 3d simd points
-        let toolpaths: [SC.OutputToolpath] = engine.generateToolpaths(from: [contour],
+        // 1. Convert each Contour to 3D simd points
+        var rawPoints: [SIMD3<Float>] = []
+        for contour in contours {
+            let segments = engine.linearize(contour: contour)
+            let waypoints = engine.buildWaypoints(for: segments, atZ: 0, settings: settings)
+            rawPoints.append(contentsOf: tessellateForRender(waypoints))
+        }
+
+        // 2. Convert Contours to toolpaths then to 3d simd points
+        let toolpaths: [SC.OutputToolpath] = engine.generateToolpaths(from: contours,
                                                                       tool: tool,
                                                                       settings: settings,
                                                                       strategy: strategy)

@@ -52,4 +52,27 @@ class DemoDrilling: Demo {
 
         return self.run(contour: pointContour(10, 10), tool: tool, settings: settings, strategy: strategy)
     }
+
+    // MARK: - Multiple drill points
+
+    /// Drills four independent point contours laid out as a rectangle. Mirrors
+    /// "Multiple drill point contours produce one toolpath per hole": each hole
+    /// gets its own rapid-plunge-retract toolpath, all sharing the same tool,
+    /// settings, and (non-peck) strategy.
+    func demoMultipleHoles() -> Demo.DemoResult {
+        let tool = SC.ToolParams(type: .drill, diameter: 3.0, stepdown: 1.0)
+        let settings = SC.MachineSettings(feedRate: 1000.0, plungeRate: 200.0, safeZ: 5.0, targetDepth: 8.0)
+
+        let points = [
+            (10.0, 20.0),
+            (30.0, 20.0),
+            (30.0, 40.0),
+            (10.0, 40.0)
+        ]
+        let contours = points.map { pointContour($0.0, $0.1) }
+
+        let strategy: SC.Strategy = .drilling(peckDepth: nil)
+
+        return self.run(contours: contours, tool: tool, settings: settings, strategy: strategy)
+    }
 }

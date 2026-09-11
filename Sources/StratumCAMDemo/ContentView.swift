@@ -58,6 +58,9 @@ struct ContentView: View {
                     Button("Peck Drill") {
                         show(DemoDrilling().demoPeckDrill())
                     }
+                    Button("Multiple Holes") {
+                        show(DemoDrilling().demoMultipleHoles())
+                    }
                 }
             }
             .navigationTitle("StratumCAM Demo")
