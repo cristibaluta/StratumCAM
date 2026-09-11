@@ -34,6 +34,23 @@ struct ContentView: View {
                         show(DemoEngraving().demoLetterS())
                     }
                 }
+                Section("Profile") {
+                    Button("Outside Square") {
+                        show(DemoProfile().demoOutsideSquare())
+                    }
+                    Button("Inside Square") {
+                        show(DemoProfile().demoInsideSquare())
+                    }
+                    Button("Ramp Entry") {
+                        show(DemoProfile().demoRampEntry())
+                    }
+                    Button("Helix Entry") {
+                        show(DemoProfile().demoHelixEntry())
+                    }
+                    Button("Holding Tab") {
+                        show(DemoProfile().demoHoldingTab())
+                    }
+                }
             }
             .navigationTitle("StratumCAM Demo")
         } content: {
