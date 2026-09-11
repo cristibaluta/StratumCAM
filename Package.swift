@@ -4,7 +4,7 @@ import PackageDescription
 let package = Package(
     name: "StratumCAM",
     platforms: [
-        .macOS(.v11),
+        .macOS(.v13),
         .iOS(.v15)
     ],
     products: [
@@ -32,6 +32,9 @@ let package = Package(
             dependencies: [
                 "StratumCAM",
                 .product(name: "SwiftDXF", package: "SwiftDXF")
+            ],
+            resources: [
+                .process("Sources/StratumCAMDemo/Shaders.metal")
             ]
         ),
         .testTarget(

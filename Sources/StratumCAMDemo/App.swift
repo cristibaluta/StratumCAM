@@ -16,17 +16,3 @@ struct StratumCAMDemoApp: App {
         }
     }
 }
-
-struct ContentView: View {
-    var body: some View {
-        VStack(spacing: 16) {
-            Text("StratumCAM Demo App")
-                .font(.title)
-            Button("Run Demo Action") {
-                // Call into StratumCAM here
-            }
-        }
-        .frame(width: 400, height: 300)
-        .padding()
-    }
-}

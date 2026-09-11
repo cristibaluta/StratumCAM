@@ -1,13 +1,13 @@
 # StratumCAM Visual Test Harness Plan
 
 ## Step 1: Geometry Data Pipeline & SIMD Conversion
-- [ ] Implement a lightweight inline DXF-to-SCContour hardcoded parser or mock loader (Lines, Arcs, Polylines).
-- [ ] Create a converter utility: `SCContour` / `SCSegment` -> `[SIMD3<Float>]` vertex buffers for Metal.
-- [ ] Add arc tessellation logic with configurable tolerance to convert circular arcs into linear SIMD segments.
+- [x] Implement a lightweight inline DXF-to-SCContour hardcoded parser or mock loader (Lines, Arcs, Polylines).
+- [x] Create a converter utility: `SCContour` / `SCSegment` -> `[SIMD3<Float>]` vertex buffers for Metal.
+- [x] Add arc tessellation logic with configurable tolerance to convert circular arcs into linear SIMD segments.
 
 ## Step 2: MetalKit 3D Render Canvas Setup
-- [ ] Set up `MTKView` and `MTKViewDelegate` in SwiftUI using `NSViewRepresentable`.
-- [ ] Implement simple 3D shaders (`position` + `color`) for line rendering (`MTLPrimitiveType.lineStrip` / `.line`).
+- [x] Set up `MTKView` and `MTKViewDelegate` in SwiftUI using `NSViewRepresentable`.
+- [x] Implement simple 3D shaders (`position` + `color`) for line rendering (`MTLPrimitiveType.lineStrip` / `.line`).
 - [ ] Implement camera controls: Pan, Zoom (Scroll wheel), and Orbit/Rotate (Mouse Drag) via SIMD transformation matrices.
 - [ ] Add visual overlays:
   - **Stock / Boundary**: Gray wireframe box or outline.
