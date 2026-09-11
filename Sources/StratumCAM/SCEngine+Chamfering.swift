@@ -30,10 +30,15 @@ extension SCEngine {
             return nil
         }
 
+        // Orient the chain so travel direction matches the requested climb/conventional
+        // cut, same as `.profile` -- reuses the existing helper rather than duplicating
+        // the winding logic here.
+        let oriented = orientedForDirection(baseSegments, side: params.side, direction: params.direction)
+
         // The bevel's horizontal reach at the resolved depth is what we offset the
         // centerline path by, same corner-fillet/trim machinery as a profile cut.
         let horizontalReach = abs(z) * tan((tool.vAngle ?? 0) / 2.0 * .pi / 180.0)
-        let toolpathSegments = offsetContour(baseSegments,
+        let toolpathSegments = offsetContour(oriented,
                                              side: params.side,
                                              toolRadius: horizontalReach,
                                              isClosed: contour.isClosed)
