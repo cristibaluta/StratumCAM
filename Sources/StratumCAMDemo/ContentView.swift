@@ -14,96 +14,97 @@ import SwiftDXF
 struct ContentView: View {
     @State private var renderBatches: [RenderBatch] = []
     @State private var gcodeText: String = ""
+    @State private var selectedDemoID: String? = nil
 
     var body: some View {
         NavigationSplitView {
             // Sidebar Controls & Test Cases
             List {
                 Section("Engraving") {
-                    Button("Engrave Line") {
+                    demoButton("Engrave Line") {
                         show(DemoEngraving().demoLine())
                     }
-                    Button("Square Profile") {
+                    demoButton("Square Profile") {
                         show(DemoEngraving().demoLineMultiplePasses())
                     }
-                    Button("Engrave Letter S") {
+                    demoButton("Engrave Letter S") {
                         show(DemoEngraving().demoLetterS())
                     }
-                    Button("Engrave Word STRATUM") {
+                    demoButton("Engrave Word STRATUM") {
                         show(DemoEngraving().demoWordSTRATUM())
                     }
                 }
                 Section("Contours") {
-                    Button("Outside Square") {
+                    demoButton("Outside Square") {
                         show(DemoContour().demoOutsideSquare())
                     }
-                    Button("Inside Square") {
+                    demoButton("Inside Square") {
                         show(DemoContour().demoInsideSquare())
                     }
-                    Button("Ramp Entry") {
+                    demoButton("Ramp Entry") {
                         show(DemoContour().demoRampEntry())
                     }
-                    Button("Helix Entry") {
+                    demoButton("Helix Entry") {
                         show(DemoContour().demoHelixEntry())
                     }
-                    Button("Holding Tab") {
+                    demoButton("Holding Tab") {
                         show(DemoContour().demoHoldingTab())
                     }
                 }
                 Section("Drilling") {
-                    Button("Plain Drill") {
+                    demoButton("Plain Drill") {
                         show(DemoDrilling().demoPlainDrill())
                     }
-                    Button("Peck Drill") {
+                    demoButton("Peck Drill") {
                         show(DemoDrilling().demoPeckDrill())
                     }
-                    Button("Multiple Holes") {
+                    demoButton("Multiple Holes") {
                         show(DemoDrilling().demoMultipleHoles())
                     }
                 }
                 Section("Pocketing") {
-                    Button("Rectangle (Climb)") {
+                    demoButton("Rectangle (Climb)") {
                         show(DemoPocketing().demoPocketRectangle())
                     }
-                    Button("Rectangle (Conventional)") {
+                    demoButton("Rectangle (Conventional)") {
                         show(DemoPocketing().demoPocketRectangleConventional())
                     }
-                    Button("Rounded Rectangle") {
+                    demoButton("Rounded Rectangle") {
                         show(DemoPocketing().demoPocketRoundedRectangle())
                     }
-                    Button("Multi-pass Z Stepdown") {
+                    demoButton("Multi-pass Z Stepdown") {
                         show(DemoPocketing().demoMultiPassZStepdown())
                     }
-                    Button("Raster Multi-pass Z Stepdown") {
+                    demoButton("Raster Multi-pass Z Stepdown") {
                         show(DemoPocketing().demoRasterMultiPassZStepdown())
                     }
-                    Button("Ring Geometry Reused Across Passes") {
+                    demoButton("Ring Geometry Reused Across Passes") {
                         show(DemoPocketing().demoRingGeometryReusedAcrossPasses())
                     }
-                    Button("Ramp Entry (Multi-pass)") {
+                    demoButton("Ramp Entry (Multi-pass)") {
                         show(DemoPocketing().demoRampEntryMultiPass())
                     }
-                    Button("Helix Entry (Multi-pass)") {
+                    demoButton("Helix Entry (Multi-pass)") {
                         show(DemoPocketing().demoHelixEntryMultiPass())
                     }
                 }
                 Section("Pocketing — Raster") {
-                    Button("Raster Rectangle (Climb)") {
+                    demoButton("Raster Rectangle (Climb)") {
                         show(DemoPocketing().demoRasterRectangle())
                     }
-                    Button("Raster Rectangle (Conventional)") {
+                    demoButton("Raster Rectangle (Conventional)") {
                         show(DemoPocketing().demoRasterRectangleConventional())
                     }
-                    Button("Raster Rounded Rectangle") {
+                    demoButton("Raster Rounded Rectangle") {
                         show(DemoPocketing().demoRasterRoundedRectangle())
                     }
-                    Button("Raster Ramp Entry") {
+                    demoButton("Raster Ramp Entry") {
                         show(DemoPocketing().demoRasterRampEntry())
                     }
-                    Button("Raster Helix Entry") {
+                    demoButton("Raster Helix Entry") {
                         show(DemoPocketing().demoRasterHelixEntry())
                     }
-                    Button("Concave Staple (Bridging Row Fix)") {
+                    demoButton("Concave Staple (Bridging Row Fix)") {
                         show(DemoPocketing().demoRasterConcaveStapleSkipsBridgingRows())
                     }
                 }
@@ -134,8 +135,27 @@ struct ContentView: View {
                 }
         }
         .onAppear {
+            selectedDemoID = "Engrave Word STRATUM"
             show(DemoEngraving().demoWordSTRATUM())
         }
+    }
+
+    /// A sidebar row that highlights itself when it was the last demo run, so the
+    /// current 3D preview/G-code always has an obvious source in the list -- handy
+    /// once a section has this many similarly-named buttons in it.
+    private func demoButton(_ title: String, action: @escaping () -> Void) -> some View {
+        let isSelected = selectedDemoID == title
+
+        return Button {
+            selectedDemoID = title
+            action()
+        } label: {
+            Text(title)
+                .fontWeight(isSelected ? .semibold : .regular)
+                .foregroundStyle(isSelected ? Color.accentColor : Color.primary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .listRowBackground(isSelected ? Color.accentColor.opacity(0.15) : Color.clear)
     }
 
     private func show(_ result: Demo.DemoResult) {
