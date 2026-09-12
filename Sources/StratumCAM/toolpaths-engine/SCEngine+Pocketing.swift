@@ -12,9 +12,11 @@ extension SCEngine {
 
     /// Builds the pocket toolpath for either `PocketType`. Both patterns share the same
     /// closed-contour validation and single-Z-pass waypoint wrapper -- they only differ
-    /// in how they produce `toolpathSegments`. Z stepdown and pocket entry (helix/ramp)
-    /// are still separate roadmap steps (1.2, 1.3) -- this always plunges/retracts
-    /// straight down at `targetDepth` via the shared `buildWaypoints` behavior.
+    /// in how they produce `toolpathSegments`. `entry` (plunge/ramp/helix) is wired into
+    /// the first plunge point for both pattern types as of Step 1.2, reusing the same
+    /// `rampWaypoints`/`helixEntryWaypoints` machinery `.contour` uses -- see
+    /// `buildPocketWaypoints` below. Multi-pass Z stepdown is still Step 1.3 -- this
+    /// remains single-pass at `targetDepth`.
     func buildPocketToolpath(for contour: SC.Contour,
                              tool: SC.ToolParams,
                              settings: SC.MachineSettings,
@@ -79,9 +81,10 @@ extension SCEngine {
         }
 
         let z = settings.targetDepth
-        let waypoints = buildWaypoints(for: toolpathSegments,
-                                       atZ: z,
-                                       settings: settings)
+        let waypoints = buildPocketWaypoints(for: toolpathSegments,
+                                             atZ: z,
+                                             settings: settings,
+                                             entry: entry)
         let pass = SC.ToolpathPass(passIndex: 0,
                                    depthZ: z,
                                    waypoints: waypoints)
@@ -90,6 +93,100 @@ extension SCEngine {
                                  tool: tool,
                                  settings: settings,
                                  passes: [pass])
+    }
+
+    // MARK: - Pocket entry
+
+    /// Wraps `segments` (an already-chained ring stack or raster row list) with an entry
+    /// move honoring `entry`, then traces the geometry and retracts -- same three-phase
+    /// shape as `.contour`'s `buildProfileWaypoints`, just without the lead-in/lead-out/tab
+    /// machinery pocketing doesn't have.
+    ///
+    /// `.plunge` is exactly the existing straight-down wrapper (`buildWaypoints`) --
+    /// nothing to change there. `.ramp` and `.helix` are a thin reuse of
+    /// `SCEngine+Contour.swift`'s `rampWaypoints`/`helixEntryWaypoints`: since pocketing
+    /// is still single-pass (Step 1.3 hasn't landed yet), both always descend from
+    /// top-of-stock (`fromZ: 0`) to `z` in one shot, the same way profile's first pass
+    /// ramps/helixes from `previousZ == 0`.
+    ///
+    /// `side` is hardcoded to `.inside` for the helix's signed-offset calculation --
+    /// pocketing has no separate inside/outside concept the way `.contour` does (the
+    /// wall offset is already baked into `toolpathSegments`), and `.inside` matches the
+    /// convention `orientedForDirection`/`pocketRings` already use elsewhere in this file.
+    private func buildPocketWaypoints(for segments: [SC.Segment],
+                                      atZ z: Double,
+                                      settings: SC.MachineSettings,
+                                      entry: SC.EntryStrategy) -> [SC.Waypoint] {
+
+        guard let firstSegment = segments.first else {
+            return []
+        }
+
+        guard entry != .plunge else {
+            return buildWaypoints(for: segments, atZ: z, settings: settings)
+        }
+
+        let startPoint = startPointOf(segment: firstSegment)
+        let startTangent = direction(of: firstSegment, atEnd: false)
+
+        var waypoints: [SC.Waypoint] = [
+            SC.Waypoint(position: SIMD3(startPoint.x, startPoint.y, settings.safeZ),
+                        motion: .rapid,
+                        feedRate: settings.cutting.feedRate)
+        ]
+
+        switch entry {
+            case .plunge:
+                break // Handled above via `buildWaypoints`.
+
+            case .ramp(let angleDegrees):
+                waypoints.append(
+                    contentsOf: rampWaypoints(firstSegment: firstSegment,
+                                              angleDegrees: angleDegrees,
+                                              fromZ: 0,
+                                              toZ: z,
+                                              settings: settings)
+                )
+
+            case .helix(let radius, let angleDegrees):
+                waypoints.append(
+                    contentsOf: helixEntryWaypoints(contourStart: startPoint,
+                                                    startTangent: startTangent,
+                                                    side: .inside,
+                                                    segments: segments,
+                                                    radius: radius,
+                                                    angleDegrees: angleDegrees,
+                                                    fromZ: 0,
+                                                    toZ: z,
+                                                    settings: settings)
+                )
+        }
+
+        // Trace the chained pocket geometry -- mirrors `buildWaypoints`' own trace step.
+        for segment in segments {
+            switch segment {
+                case .line(_, let end):
+                    waypoints.append(
+                        SC.Waypoint(position: SIMD3(end.x, end.y, z), motion: .linear, feedRate: settings.cutting.feedRate)
+                    )
+                case .arc(let center, let radius, _, let endAngle, let isCCW):
+                    let endX = center.x + radius * cos(endAngle)
+                    let endY = center.y + radius * sin(endAngle)
+                    waypoints.append(
+                        SC.Waypoint(position: SIMD3(endX, endY, z),
+                                    motion: isCCW ? .arcCCW(center: center) : .arcCW(center: center),
+                                    feedRate: settings.cutting.feedRate)
+                    )
+            }
+        }
+
+        if let lastPoint = waypoints.last?.position {
+            waypoints.append(
+                SC.Waypoint(position: SIMD3(lastPoint.x, lastPoint.y, settings.safeZ), motion: .rapid, feedRate: settings.cutting.feedRate)
+            )
+        }
+
+        return waypoints
     }
 
     // MARK: - Step 2.2a: ring geometry

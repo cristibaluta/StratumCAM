@@ -28,7 +28,7 @@ pattern, entry integration, Z stepdown, and rounding out test coverage.
   - 1.1a: scanline generation + clipping against a single closed contour (no islands)
   - 1.1b: entry strategy integration (helix/ramp reused from `.contour`'s entry code)
 
-- **1.2 — Pocket entry integration**
+- DONE **1.2 — Pocket entry integration**
   Wire `EntryStrategy` (already fully built for profile: plunge/ramp/helix) into
   pocket's first plunge point for both pattern types. Should be a thin reuse of
   `helixEntryWaypoints`/`rampWaypoints` from `SCEngine+Profile.swift`, not a rewrite.

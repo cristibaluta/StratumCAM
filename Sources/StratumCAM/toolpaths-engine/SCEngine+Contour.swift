@@ -260,7 +260,10 @@ extension SCEngine {
     /// increment of Z per leg, until the requested `angleDegrees` has been honored -- then
     /// lands back exactly on the contour's start point at `toZ`, ready to hand off into the
     /// normal trace.
-    private func rampWaypoints(firstSegment: SC.Segment,
+    ///
+    /// Internal rather than `private` so `SCEngine+Pocketing.swift` can reuse it for
+    /// pocket entry (Step 1.2) instead of duplicating the ramp geometry.
+    func rampWaypoints(firstSegment: SC.Segment,
                                angleDegrees: Double,
                                fromZ: Double,
                                toZ: Double,
@@ -322,7 +325,10 @@ extension SCEngine {
     /// tool never gouges the wall while descending), positioned so `contourStart` sits
     /// exactly on the circle. Always completes a whole number of turns, so it lands back on
     /// `contourStart` at `toZ`, tangent and ready to continue into the profile trace.
-    private func helixEntryWaypoints(contourStart: CGPoint,
+    ///
+    /// Internal rather than `private` so `SCEngine+Pocketing.swift` can reuse it for
+    /// pocket entry (Step 1.2) instead of duplicating the helix geometry.
+    func helixEntryWaypoints(contourStart: CGPoint,
                                      startTangent: CGPoint,
                                      side: SC.CutSide,
                                      segments: [SC.Segment],

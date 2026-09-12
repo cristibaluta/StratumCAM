@@ -148,7 +148,7 @@ struct Contour_Tests {
     func testProfilePlungeEntryStartsAtOffsetContourStart() {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 6.0)
-        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 0.1)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0)
         let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -1.0)
 
         let toolpaths = engine.generateToolpaths(
