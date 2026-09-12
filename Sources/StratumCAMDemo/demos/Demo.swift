@@ -61,38 +61,66 @@ class Demo {
 
         // 3. Build Contour vertices (blue and dashed)
         // Some contours (e.g. a drilling point) have no linearizable base path,
-        // so rawPoints/baseVertices can legitimately be empty. makeBuffer with a
-        // zero-length allocation is invalid, so skip the batch entirely in that case.
-        let baseVertices = buildVertices(points: rawPoints,
-                                         color: SIMD4<Float>(0.2, 0.8, 1.0, 1.0),
-                                         zOffset: 0.0)
+        // so rawPoints can legitimately be empty -- renderBatch(forPoints:...)
+        // returns nil in that case and the batch is skipped entirely.
         var batches: [RenderBatch] = []
-        if !baseVertices.isEmpty, let baseBuffer = device.makeBuffer(bytes: baseVertices,
-                                                                      length: baseVertices.count * MemoryLayout<RenderVertex>.stride,
-                                                                      options: .storageModeShared) {
-            batches.append(RenderBatch(vertexBuffer: baseBuffer,
-                                       vertexCount: baseVertices.count,
-                                       primitiveType: .lineStrip,
+        if let baseBatch = renderBatch(forPoints: rawPoints,
+                                       color: SIMD4<Float>(0.2, 0.8, 1.0, 1.0),
                                        isDashed: true,
-                                       dashLength: 0.4))
+                                       dashLength: 0.4) {
+            batches.append(baseBatch)
         }
 
         // 4. Build toolpaths vertices (yellow)
-        let toolpathVertices = buildVertices(points: toolpathPoints,
-                                             color: SIMD4<Float>(1.0, 0.8, 0.0, 1.0),
-                                             zOffset: 0.0)
-        if !toolpathVertices.isEmpty, let toolpathBuffer = device.makeBuffer(bytes: toolpathVertices,
-                                                                              length: toolpathVertices.count * MemoryLayout<RenderVertex>.stride,
-                                                                              options: .storageModeShared) {
-            batches.append(RenderBatch(vertexBuffer: toolpathBuffer,
-                                       vertexCount: toolpathVertices.count,
-                                       primitiveType: .lineStrip))
+        if let toolpathBatch = renderBatch(forPoints: toolpathPoints,
+                                           color: SIMD4<Float>(1.0, 0.8, 0.0, 1.0)) {
+            batches.append(toolpathBatch)
         }
 
         // 5. Generate G-code for the same toolpaths
         let gcode = gcodeEngine.generateGCode(from: toolpaths, settings: settings)
 
         return DemoResult(batches: batches, gcode: gcode, toolpathPoints: toolpathPoints)
+    }
+
+    // MARK: - Step 5.2: prefix-slice + reusable batch builder
+
+    /// Returns just the point prefix up to and including `index`, clamped to
+    /// the array's own bounds (a negative index clamps to the first point, an
+    /// index past the end clamps to the last). Pure function, no Metal/device
+    /// dependency -- deliberately kept separate from `renderBatch(forPoints:...)`
+    /// below so it's testable on its own once Step 5.8 adds coverage for it.
+    static func pointsPrefix(_ points: [SIMD3<Float>], upTo index: Int) -> [SIMD3<Float>] {
+        guard !points.isEmpty else {
+            return []
+        }
+        let clampedIndex = max(0, min(index, points.count - 1))
+        return Array(points[0...clampedIndex])
+    }
+
+    /// Builds a single `.lineStrip` `RenderBatch` from an arbitrary point array --
+    /// the same buffer-building steps `run(contours:...)` above already repeats
+    /// once for the blue contour and once for the full yellow toolpath, pulled out
+    /// here so a caller (Step 5.4's slider) can build a batch from just a *prefix*
+    /// of the toolpath's points without duplicating that boilerplate a third time.
+    /// Returns `nil` for an empty point array, the same "skip the batch" convention
+    /// `run(contours:...)` already uses -- an empty `makeBuffer` call is invalid.
+    func renderBatch(forPoints points: [SIMD3<Float>],
+                     color: SIMD4<Float>,
+                     isDashed: Bool = false,
+                     dashLength: Float = 5.0) -> RenderBatch? {
+        let vertices = buildVertices(points: points, color: color, zOffset: 0.0)
+        guard !vertices.isEmpty,
+              let buffer = device.makeBuffer(bytes: vertices,
+                                             length: vertices.count * MemoryLayout<RenderVertex>.stride,
+                                             options: .storageModeShared) else {
+            return nil
+        }
+        return RenderBatch(vertexBuffer: buffer,
+                           vertexCount: vertices.count,
+                           primitiveType: .lineStrip,
+                           isDashed: isDashed,
+                           dashLength: dashLength)
     }
 
     /// `buildWaypoints`/toolpath passes only carry the *endpoints* of each move (plus a

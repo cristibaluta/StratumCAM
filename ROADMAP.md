@@ -355,7 +355,7 @@ step below should compile and look right in the running app before moving to
 the next; verify by temporarily hardcoding a scrub value/index if the previous
 step's plumbing isn't wired to UI yet.
 
-- **5.1 — Expose the raw toolpath points from `Demo.DemoResult`**
+- DONE **5.1 — Expose the raw toolpath points from `Demo.DemoResult`**
   `Demo.run(contours:...)` already builds `toolpathPoints: [SIMD3<Float>]`
   internally (`Demo.swift`, ~line 49) before turning it into a prebuilt
   `RenderBatch` and discarding the array. Add a `toolpathPoints: [SIMD3<Float>]`
@@ -365,7 +365,7 @@ step's plumbing isn't wired to UI yet.
   awareness is deferred to 5.6. Pure data plumbing, no UI or rendering change
   yet.
 
-- **5.2 — Prefix-slice helper: partial toolpath batch from an index**
+- DONE **5.2 — Prefix-slice helper: partial toolpath batch from an index**
   Add a small, testable helper (free function or a method that doesn't need
   `self`/Metal state beyond a device) that takes `toolpathPoints` and an
   integer index and returns just the point prefix up to that index. Reuse
