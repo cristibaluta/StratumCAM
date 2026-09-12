@@ -184,21 +184,59 @@ struct Profile_Tests {
         let waypoints = toolpaths[0].passes[0].waypoints
 
         // [0] Rapid above the offset contour start (0, -3) @ SafeZ
-        // [1] Ramp leg 1: across to (10, -3), dropping partway (Z = 2)
-        // [2] Ramp leg 2: back to (0, -3), landing exactly at TargetZ (-1.0)
-        #expect(waypoints.count >= 3)
+        // [1] Rapid down to (0, -3) @ previous pass depth (top of stock, Z = 0, since this
+        //     is the first pass) -- the ramp itself should only cover this pass's fresh
+        //     stepdown, not the whole safeZ-to-target travel distance.
+        // [2] Ramp leg 1: across to (10, -3), dropping partway (Z = -0.5)
+        // [3] Ramp leg 2: back to (0, -3), landing exactly at TargetZ (-1.0)
+        #expect(waypoints.count >= 4)
 
         let wp0 = waypoints[0]
         #expect(abs(wp0.position.x - 0.0) < 1e-5 && abs(wp0.position.y - (-3.0)) < 1e-5 && wp0.position.z == 5.0,
                 "Test Failed: initial rapid move incorrect")
 
         let wp1 = waypoints[1]
-        #expect(abs(wp1.position.x - 10.0) < 1e-5 && abs(wp1.position.y - (-3.0)) < 1e-5, "Test Failed: ramp leg 1 XY mismatch")
-        #expect(abs(wp1.position.z - 2.0) < 1e-9, "Test Failed: ramp leg 1 should be partway down, not at full depth")
+        #expect(abs(wp1.position.x - 0.0) < 1e-5 && abs(wp1.position.y - (-3.0)) < 1e-5 && wp1.position.z == 0.0,
+                "Test Failed: expected a rapid down to top-of-stock before the ramp starts")
 
         let wp2 = waypoints[2]
-        #expect(abs(wp2.position.x - 0.0) < 1e-5 && abs(wp2.position.y - (-3.0)) < 1e-5, "Test Failed: ramp leg 2 XY mismatch")
-        #expect(abs(wp2.position.z - (-1.0)) < 1e-9, "Test Failed: ramp should land exactly at target depth")
+        #expect(abs(wp2.position.x - 10.0) < 1e-5 && abs(wp2.position.y - (-3.0)) < 1e-5, "Test Failed: ramp leg 1 XY mismatch")
+        #expect(abs(wp2.position.z - (-0.5)) < 1e-9, "Test Failed: ramp leg 1 should be partway down, not at full depth")
+
+        let wp3 = waypoints[3]
+        #expect(abs(wp3.position.x - 0.0) < 1e-5 && abs(wp3.position.y - (-3.0)) < 1e-5, "Test Failed: ramp leg 2 XY mismatch")
+        #expect(abs(wp3.position.z - (-1.0)) < 1e-9, "Test Failed: ramp should land exactly at target depth")
+    }
+
+    @Test("Ramp entry on a later pass starts at the previous pass's depth, not safeZ")
+    func testProfileRampEntryStartsFromPreviousPassDepth() {
+        let engine = SCEngine()
+        let tool = SC.ToolParams(diameter: 6.0)
+        // stepdown 1.0 over a target of -2.0 -> two passes: -1.0, then -2.0.
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -2.0)
+
+        let toolpaths = engine.generateToolpaths(
+            from: [ccwSquareContour()], tool: tool, settings: settings,
+            operation: .contour(side: .outside, direction: .climb, entry: .ramp(angleDegrees: 30), leadIn: nil, leadOut: nil, tabs: [])
+        )
+
+        #expect(toolpaths[0].passes.count == 2)
+
+        let secondPassWaypoints = toolpaths[0].passes[1].waypoints
+
+        // [0] Rapid above contour start @ SafeZ
+        // [1] Rapid down to contour start @ the first pass's depth (-1.0) -- the ramp for
+        //     this pass should only cover the fresh -1.0 -> -2.0 stepdown, never re-descend
+        //     the whole safeZ -> -2.0 span through material the first pass already opened.
+        let wp1 = secondPassWaypoints[1]
+        #expect(abs(wp1.position.z - (-1.0)) < 1e-9,
+                "Test Failed: second pass ramp should start at the previous pass depth (-1.0), not safeZ")
+
+        // No waypoint in this pass's entry should sit at safeZ except the initial travel rapid.
+        let landsAtNewTarget = secondPassWaypoints.contains { wp in
+            abs(wp.position.z - (-2.0)) < 1e-9
+        }
+        #expect(landsAtNewTarget, "Test Failed: second pass ramp should still land exactly at this pass's target depth")
     }
 
     @Test("Helix entry spirals down and returns to the contour start at depth")

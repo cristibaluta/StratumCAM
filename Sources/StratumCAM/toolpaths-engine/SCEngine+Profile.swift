@@ -40,11 +40,13 @@ extension SCEngine {
         let totalDepth = abs(settings.targetDepth)
 
         var passes: [SC.ToolpathPass] = []
+        var previousZ = 0.0 // top of stock -- pass 0 ramps/helixes down from here, not from safeZ.
         for (i, z) in zDepths.enumerated() {
             let waypoints = buildProfileWaypoints(
                 for: toolpathSegments,
                 firstSegment: firstSegment,
                 atZ: z,
+                previousZ: previousZ,
                 totalDepth: totalDepth,
                 side: side,
                 settings: settings,
@@ -54,6 +56,7 @@ extension SCEngine {
                 tabs: tabs
             )
             passes.append(SC.ToolpathPass(passIndex: i, depthZ: z, waypoints: waypoints))
+            previousZ = z
         }
 
         return SC.OutputToolpath(operation: operation, tool: tool, settings: settings, passes: passes)
@@ -87,6 +90,7 @@ extension SCEngine {
     private func buildProfileWaypoints(for segments: [SC.Segment],
                                        firstSegment: SC.Segment,
                                        atZ z: Double,
+                                       previousZ: Double,
                                        totalDepth: Double,
                                        side: SC.CutSide,
                                        settings: SC.MachineSettings,
@@ -123,22 +127,39 @@ extension SCEngine {
                 }
 
             case .ramp(let angleDegrees):
+                // Travel at safeZ, but the ramp itself only needs to cover this pass's
+                // fresh stepdown -- it starts at the depth the previous pass already
+                // reached (0 / top-of-stock for the first pass), not safeZ. Ramping the
+                // full safeZ->z distance on every pass would re-descend through material
+                // that's already open air from earlier passes.
                 waypoints.append(
                     SC.Waypoint(position: SIMD3(contourStart.x, contourStart.y, settings.safeZ),
                                 motion: .rapid,
                                 feedRate: settings.cutting.feedRate)
                 )
                 waypoints.append(
+                    SC.Waypoint(position: SIMD3(contourStart.x, contourStart.y, previousZ),
+                                motion: .rapid,
+                                feedRate: settings.cutting.feedRate)
+                )
+                waypoints.append(
                     contentsOf: rampWaypoints(firstSegment: firstSegment,
                                               angleDegrees: angleDegrees,
-                                              fromZ: settings.safeZ,
+                                              fromZ: previousZ,
                                               toZ: z,
                                               settings: settings)
                 )
 
             case .helix(let radius, let angleDegrees):
+                // Same reasoning as `.ramp` above: travel at safeZ, but helix down only
+                // from the previous pass's depth to this pass's depth.
                 waypoints.append(
                     SC.Waypoint(position: SIMD3(contourStart.x, contourStart.y, settings.safeZ),
+                                motion: .rapid,
+                                feedRate: settings.cutting.feedRate)
+                )
+                waypoints.append(
+                    SC.Waypoint(position: SIMD3(contourStart.x, contourStart.y, previousZ),
                                 motion: .rapid,
                                 feedRate: settings.cutting.feedRate)
                 )
@@ -149,7 +170,7 @@ extension SCEngine {
                                                     segments: segments,
                                                     radius: radius,
                                                     angleDegrees: angleDegrees,
-                                                    fromZ: settings.safeZ,
+                                                    fromZ: previousZ,
                                                     toZ: z,
                                                     settings: settings)
                 )
@@ -432,7 +453,7 @@ extension SCEngine {
         switch segment {
             case .line(let start, let end):
                 return hypot(end.x - start.x, end.y - start.y)
-                
+
             case .arc(_, let radius, let startAngle, let endAngle, let isCCW):
                 let sweep = isCCW ? (endAngle - startAngle) : (startAngle - endAngle)
                 return radius * abs(sweep)
