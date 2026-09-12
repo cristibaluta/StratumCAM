@@ -29,7 +29,7 @@ public struct SCGCodeEngine {
         for toolpath in toolpaths {
 
             let isDrilling: Bool = {
-                if case .drilling = toolpath.strategy {
+                if case .drilling = toolpath.operation {
                     return true
                 }
                 return false

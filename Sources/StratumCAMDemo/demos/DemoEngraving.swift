@@ -31,7 +31,7 @@ class DemoEngraving: Demo {
             isClosed: false
         )
 
-        return self.run(contour: contour, tool: tool, settings: settings, strategy: .engrave)
+        return self.run(contour: contour, tool: tool, settings: settings, operation: .engrave)
     }
 
     func demoLineMultiplePasses() -> Demo.DemoResult {
@@ -53,7 +53,7 @@ class DemoEngraving: Demo {
             isClosed: false
         )
 
-        return self.run(contour: contour, tool: tool, settings: settings, strategy: .engrave)
+        return self.run(contour: contour, tool: tool, settings: settings, operation: .engrave)
     }
 
     /// Engraves the character "S" as a single continuous pass, built from two
@@ -95,7 +95,7 @@ class DemoEngraving: Demo {
             isClosed: false
         )
 
-        return self.run(contour: contour, tool: tool, settings: settings, strategy: .engrave)
+        return self.run(contour: contour, tool: tool, settings: settings, operation: .engrave)
     }
 
     // MARK: - Word
@@ -105,7 +105,7 @@ class DemoEngraving: Demo {
     /// pen-plotter-style strokes; a stroke that can't be drawn without lifting
     /// the tool (e.g. the crossbar of an "A") becomes its own `SC.Contour`, so
     /// the whole word is a batch of contours run through the
-    /// `run(contours:tool:settings:strategy:)` overload in one call — the same
+    /// `run(contours:tool:settings:operation:)` overload in one call — the same
     /// way `demoMultipleHoles()` batches several drill points.
     ///
     /// Every letter is drawn inside a local 10 (wide) x 20 (tall) box with its
@@ -131,7 +131,7 @@ class DemoEngraving: Demo {
             contours.append(contentsOf: letter(xOffset))
         }
 
-        return self.run(contours: contours, tool: tool, settings: settings, strategy: .engrave)
+        return self.run(contours: contours, tool: tool, settings: settings, operation: .engrave)
     }
 
     // MARK: - Letterforms

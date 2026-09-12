@@ -54,14 +54,14 @@ class DemoProfile: Demo {
         let tool = SC.ToolParams(diameter: 3.175, stepdown: 0.1)
         let settings = SC.MachineSettings(feedRate: 1000.0, plungeRate: 300.0, safeZ: 5.0, targetDepth: -1.0)
 
-        let strategy: SC.MachiningOperation = .contour(side: .outside,
+        let operation: SC.MachiningOperation = .contour(side: .outside,
                                              direction: .climb,
                                              entry: .plunge,
                                              leadIn: nil,
                                              leadOut: nil,
                                              tabs: [])
 
-        return self.run(contour: ccwSquareContour(), tool: tool, settings: settings, strategy: strategy)
+        return self.run(contour: ccwSquareContour(), tool: tool, settings: settings, operation: operation)
     }
 
     /// Profiles the inside wall of the square. Mirrors "Inside profile offsets
@@ -71,14 +71,14 @@ class DemoProfile: Demo {
         let tool = SC.ToolParams(diameter: 3.175, stepdown: 0.1)
         let settings = SC.MachineSettings(feedRate: 1000.0, plungeRate: 300.0, safeZ: 5.0, targetDepth: -1.0)
 
-        let strategy: SC.MachiningOperation = .contour(side: .inside,
+        let operation: SC.MachiningOperation = .contour(side: .inside,
                                              direction: .climb,
                                              entry: .plunge,
                                              leadIn: nil,
                                              leadOut: nil,
                                              tabs: [])
 
-        return self.run(contour: ccwSquareContour(), tool: tool, settings: settings, strategy: strategy)
+        return self.run(contour: ccwSquareContour(), tool: tool, settings: settings, operation: operation)
     }
 
     // MARK: - Entry strategies
@@ -91,14 +91,14 @@ class DemoProfile: Demo {
         let tool = SC.ToolParams(diameter: 3.175, stepdown: 0.1)
         let settings = SC.MachineSettings(feedRate: 1000.0, plungeRate: 300.0, safeZ: 5.0, targetDepth: -1.0)
 
-        let strategy: SC.MachiningOperation = .contour(side: .outside,
+        let operation: SC.MachiningOperation = .contour(side: .outside,
                                              direction: .climb,
                                              entry: .ramp(angleDegrees: 30),
                                              leadIn: nil,
                                              leadOut: nil,
                                              tabs: [])
 
-        return self.run(contour: ccwSquareContour(), tool: tool, settings: settings, strategy: strategy)
+        return self.run(contour: ccwSquareContour(), tool: tool, settings: settings, operation: operation)
     }
 
     /// Enters the outside profile by spiraling down. Mirrors "Helix entry
@@ -109,14 +109,14 @@ class DemoProfile: Demo {
         let tool = SC.ToolParams(diameter: 3.175, stepdown: 0.1)
         let settings = SC.MachineSettings(feedRate: 1000.0, plungeRate: 300.0, safeZ: 5.0, targetDepth: -1.0)
 
-        let strategy: SC.MachiningOperation = .contour(side: .outside,
+        let operation: SC.MachiningOperation = .contour(side: .outside,
                                              direction: .climb,
                                              entry: .helix(radius: 2, rampAngleDegrees: 30),
                                              leadIn: nil,
                                              leadOut: nil,
                                              tabs: [])
 
-        return self.run(contour: ccwSquareContour(), tool: tool, settings: settings, strategy: strategy)
+        return self.run(contour: ccwSquareContour(), tool: tool, settings: settings, operation: operation)
     }
 
     // MARK: - Holding tabs
@@ -131,13 +131,13 @@ class DemoProfile: Demo {
         let settings = SC.MachineSettings(feedRate: 1000.0, plungeRate: 300.0, safeZ: 5.0, targetDepth: -3.0)
         let tab = SC.HoldingTab(positionRatio: 0.5, width: 2.0, height: 1.5)
 
-        let strategy: SC.MachiningOperation = .contour(side: .onContour,
+        let operation: SC.MachiningOperation = .contour(side: .onContour,
                                              direction: .climb,
                                              entry: .plunge,
                                              leadIn: nil,
                                              leadOut: nil,
                                              tabs: [tab])
 
-        return self.run(contour: fourSegmentLineContour(), tool: tool, settings: settings, strategy: strategy)
+        return self.run(contour: fourSegmentLineContour(), tool: tool, settings: settings, operation: operation)
     }
 }

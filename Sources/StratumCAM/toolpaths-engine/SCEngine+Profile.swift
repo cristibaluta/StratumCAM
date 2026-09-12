@@ -2,25 +2,13 @@
 //  SCEngine+Profile.swift
 //  StratumCAM
 //
-//  Phase 1: full ".profile" strategy support on top of the tool-radius-compensated
-//  contour tracing already built by the offset engine -- travel direction (climb /
-//  conventional), ramped/helical entry, lead-in/lead-out moves, and holding tabs.
-//
-//  Known Phase 1 simplifications (left as TODOs for later phases):
-//  - `leadIn`/`leadOut` only apply when `entry == .plunge`. Ramp and helix entries
-//    already provide their own smooth transition onto the wall, so combining them
-//    with a separate lead-in move is deferred rather than guessed at.
-//  - Holding tabs are only inserted at existing path vertices, not split mid-segment,
-//    so a tab's effective span snaps to the nearest vertices rather than landing at
-//    the exact requested width. Sub-segment splitting is a later refinement.
-//
 
 import Foundation
 import CoreGraphics
 
 extension SCEngine {
 
-    /// Builds a toolpath for `.profile`, honoring `direction`, `entry`, `leadIn`/`leadOut`,
+    /// Builds a toolpath for `.contour`, honoring `direction`, `entry`, `leadIn`/`leadOut`,
     /// and `tabs` -- unlike `.engrave`, which just traces the geometry at cutter-center with
     /// a plain vertical plunge.
     func buildProfileToolpath(for contour: SC.Contour,
@@ -32,7 +20,7 @@ extension SCEngine {
                               leadIn: SC.LeadInOut?,
                               leadOut: SC.LeadInOut?,
                               tabs: [SC.HoldingTab],
-                              strategy: SC.MachiningOperation) -> SC.OutputToolpath? {
+                              operation: SC.MachiningOperation) -> SC.OutputToolpath? {
 
         let baseSegments = linearize(contour: contour)
         guard !baseSegments.isEmpty else {
@@ -68,7 +56,7 @@ extension SCEngine {
             passes.append(SC.ToolpathPass(passIndex: i, depthZ: z, waypoints: waypoints))
         }
 
-        return SC.OutputToolpath(strategy: strategy, tool: tool, settings: settings, passes: passes)
+        return SC.OutputToolpath(operation: operation, tool: tool, settings: settings, passes: passes)
     }
 
     // MARK: - Direction

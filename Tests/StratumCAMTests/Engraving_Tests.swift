@@ -38,7 +38,7 @@ struct Engraving_Tests {
         )
 
         // 3. Execute Engine
-        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings, strategy: .engrave)
+        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings, operation: .engrave)
 
         // 4. #expections
 
@@ -117,7 +117,7 @@ struct Engraving_Tests {
         )
 
         // 3. Execute Engine
-        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings, strategy: .engrave)
+        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings, operation: .engrave)
 
         // 4. #expections
 
@@ -189,7 +189,7 @@ struct Engraving_Tests {
         )
 
         // #expect Output Structures
-        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings, strategy: .engrave)
+        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings, operation: .engrave)
         #expect(toolpaths.count == 1, "Test Failed: Expected 1 output toolpath")
 
         // Depth: -1.0 with stepdown 0.1 should produce 10 passes

@@ -13,21 +13,21 @@ extension SC {
         
         public var id: UUID
         public var name: String
-        public var strategy: MachiningOperation
+        public var operation: MachiningOperation
         public var tool: ToolParams
         public var settings: MachineSettings
         public var passes: [ToolpathPass]
 
         public init(id: UUID = UUID(),
                     name: String = "Toolpath Operation",
-                    strategy: MachiningOperation,
+                    operation: MachiningOperation,
                     tool: ToolParams,
                     settings: MachineSettings,
                     passes: [ToolpathPass]) {
 
             self.id = id
             self.name = name
-            self.strategy = strategy
+            self.operation = operation
             self.tool = tool
             self.settings = settings
             self.passes = passes

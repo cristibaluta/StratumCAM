@@ -32,9 +32,9 @@ class DemoDrilling: Demo {
         let tool = SC.ToolParams(type: .drill, diameter: 3.0, stepdown: 1.0)
         let settings = SC.MachineSettings(feedRate: 1000.0, plungeRate: 200.0, safeZ: 5.0, targetDepth: -8.0)
 
-        let strategy: SC.MachiningOperation = .drilling(peckDepth: nil)
+        let operation: SC.MachiningOperation = .drilling(peckDepth: nil)
 
-        return self.run(contour: pointContour(12, 20), tool: tool, settings: settings, strategy: strategy)
+        return self.run(contour: pointContour(12, 20), tool: tool, settings: settings, operation: operation)
     }
 
     // MARK: - Peck drilling
@@ -48,9 +48,9 @@ class DemoDrilling: Demo {
         let tool = SC.ToolParams(type: .drill, diameter: 3.0, stepdown: 1.0)
         let settings = SC.MachineSettings(feedRate: 1000.0, plungeRate: 200.0, safeZ: 5.0, retractZ: 1.0, targetDepth: 8.0)
 
-        let strategy: SC.MachiningOperation = .drilling(peckDepth: 4.0)
+        let operation: SC.MachiningOperation = .drilling(peckDepth: 4.0)
 
-        return self.run(contour: pointContour(10, 10), tool: tool, settings: settings, strategy: strategy)
+        return self.run(contour: pointContour(10, 10), tool: tool, settings: settings, operation: operation)
     }
 
     // MARK: - Multiple drill points
@@ -71,8 +71,8 @@ class DemoDrilling: Demo {
         ]
         let contours = points.map { pointContour($0.0, $0.1) }
 
-        let strategy: SC.MachiningOperation = .drilling(peckDepth: nil)
+        let operation: SC.MachiningOperation = .drilling(peckDepth: nil)
 
-        return self.run(contours: contours, tool: tool, settings: settings, strategy: strategy)
+        return self.run(contours: contours, tool: tool, settings: settings, operation: operation)
     }
 }

@@ -23,7 +23,7 @@ extension SCEngine {
                              direction: SC.CutDirection,
                              pocketType: SC.PocketType,
                              entry: SC.EntryStrategy,
-                             strategy: SC.MachiningOperation) -> SC.OutputToolpath? {
+                             operation: SC.MachiningOperation) -> SC.OutputToolpath? {
 
         guard contour.isClosed else {
             return nil
@@ -70,7 +70,7 @@ extension SCEngine {
                                    depthZ: z,
                                    waypoints: waypoints)
 
-        return SC.OutputToolpath(strategy: strategy,
+        return SC.OutputToolpath(operation: operation,
                                  tool: tool,
                                  settings: settings,
                                  passes: [pass])

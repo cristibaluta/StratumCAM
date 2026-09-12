@@ -10,7 +10,7 @@ import CoreGraphics
 
 extension SCEngine {
 
-    /// Shared pipeline behind `.engrave` and (for now) `.profile`: linearize the contour,
+    /// Shared pipeline behind `.engrave` and (for now) `.contour`: linearize the contour,
     /// optionally apply tool-radius compensation, step down through Z, and trace the
     /// resulting segments once per pass. The `strategy` passed in is the one actually
     /// requested by the caller, so the output is tagged accurately instead of hardcoded.
@@ -18,7 +18,7 @@ extension SCEngine {
                                      tool: SC.ToolParams,
                                      settings: SC.MachineSettings,
                                      side: SC.CutSide,
-                                     strategy: SC.MachiningOperation) -> SC.OutputToolpath? {
+                                     operation: SC.MachiningOperation) -> SC.OutputToolpath? {
 
         // 1. Normalize DXF Entities into linear/arc segments (handling reversed flag)
         let baseSegments = linearize(contour: contour)
@@ -42,6 +42,6 @@ extension SCEngine {
             passes.append(SC.ToolpathPass(passIndex: i, depthZ: z, waypoints: waypoints))
         }
 
-        return SC.OutputToolpath(strategy: strategy, tool: tool, settings: settings, passes: passes)
+        return SC.OutputToolpath(operation: operation, tool: tool, settings: settings, passes: passes)
     }
 }

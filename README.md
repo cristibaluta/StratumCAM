@@ -8,11 +8,9 @@ All the models are under the SC namespace and it uses also the models from the D
 
 ### Input
 To generate toolpaths the lib expects as input a `[SC.Contour]`, `SC.ToolParams`, `SC.MachineSettings`. A Contour is a chain of `DXF.Entity` lines, arcs, circles..... Each continuous selectable path from your model should be a Contour.
-  |
-  |
+
 Internally StratumCNC converts the entities to only lines and arcs that a CNC understands, based on the chosen tool and strategy.
-  |
-  |
+
 ### Output
 The output is `[SC.OutputToolpath]` containing `[ToolpathPass]` from where you can extract the simd 3D points for drawing a preview on screen.
 
@@ -34,8 +32,8 @@ let contour = SC.Contour(
     ],
     isClosed: false
 )
-let strategy: SC.CAMStrategy = .engrave
-let toolpaths = engine.generateToolpaths(from: contours, tool: tool, settings: settings, strategy: strategy)
+let operation: SC.MachiningOperation = .engrave
+let toolpaths = engine.generateToolpaths(from: contours, tool: tool, settings: settings, operation: operation)
 ```
 
 

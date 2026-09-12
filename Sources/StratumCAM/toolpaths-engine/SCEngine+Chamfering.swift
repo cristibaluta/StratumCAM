@@ -17,7 +17,7 @@ extension SCEngine {
                               tool: SC.ToolParams,
                               settings: SC.MachineSettings,
                               params: SC.ChamferParams,
-                              strategy: SC.MachiningOperation) -> SC.OutputToolpath? {
+                              operation: SC.MachiningOperation) -> SC.OutputToolpath? {
 
         guard let z = params.resolvedDepth(for: tool) else {
             // Misconfigured tool (not a V-bit, or missing vAngle with no explicit depth) --
@@ -31,7 +31,7 @@ extension SCEngine {
         }
 
         // Orient the chain so travel direction matches the requested climb/conventional
-        // cut, same as `.profile` -- reuses the existing helper rather than duplicating
+        // cut, same as `.contour` -- reuses the existing helper rather than duplicating
         // the winding logic here.
         let oriented = orientedForDirection(baseSegments, side: params.side, direction: params.direction)
 
@@ -46,6 +46,6 @@ extension SCEngine {
         let waypoints = buildWaypoints(for: toolpathSegments, atZ: z, settings: settings)
         let pass = SC.ToolpathPass(passIndex: 0, depthZ: z, waypoints: waypoints)
 
-        return SC.OutputToolpath(strategy: strategy, tool: tool, settings: settings, passes: [pass])
+        return SC.OutputToolpath(operation: operation, tool: tool, settings: settings, passes: [pass])
     }
 }

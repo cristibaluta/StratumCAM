@@ -22,12 +22,12 @@ public final class SCEngine {
     public func generateToolpaths(from contours: [SC.Contour],
                                   tool: SC.ToolParams,
                                   settings: SC.MachineSettings,
-                                  strategy: SC.MachiningOperation) -> [SC.OutputToolpath] {
+                                  operation: SC.MachiningOperation) -> [SC.OutputToolpath] {
 
         var results: [SC.OutputToolpath] = []
 
         for contour in contours {
-            if let toolpath = buildToolpath(for: contour, tool: tool, settings: settings, strategy: strategy) {
+            if let toolpath = buildToolpath(for: contour, tool: tool, settings: settings, operation: operation) {
                 results.append(toolpath)
             }
         }
@@ -45,7 +45,7 @@ public final class SCEngine {
                 for: operation.contour,
                 tool: operation.tool,
                 settings: operation.settings,
-                strategy: .drilling(peckDepth: operation.peckDepth)
+                operation: .drilling(peckDepth: operation.peckDepth)
             )
         }
     }
@@ -58,14 +58,14 @@ public final class SCEngine {
     private func buildToolpath(for contour: SC.Contour,
                                tool: SC.ToolParams,
                                settings: SC.MachineSettings,
-                               strategy: SC.MachiningOperation) -> SC.OutputToolpath? {
-        switch strategy {
+                               operation: SC.MachiningOperation) -> SC.OutputToolpath? {
+        switch operation {
             case .engrave:
                 return buildContourTracingToolpath(for: contour,
                                                    tool: tool,
                                                    settings: settings,
                                                    side: .onContour,
-                                                   strategy: strategy)
+                                                   operation: operation)
 
             case .contour(let side, let direction, let entry, let leadIn, let leadOut, let tabs):
                 return buildProfileToolpath(
@@ -78,7 +78,7 @@ public final class SCEngine {
                     leadIn: leadIn,
                     leadOut: leadOut,
                     tabs: tabs,
-                    strategy: strategy
+                    operation: operation
                 )
 
             case .chamfer(let params):
@@ -86,14 +86,14 @@ public final class SCEngine {
                                             tool: tool,
                                             settings: settings,
                                             params: params,
-                                            strategy: strategy)
+                                            operation: operation)
 
             case .drilling(let peckDepth):
                 return buildDrillingToolpath(for: contour,
                                              tool: tool,
                                              settings: settings,
                                              peckDepth: peckDepth,
-                                             strategy: strategy)
+                                             operation: operation)
 
             case .pocket(let direction, let pocketType, let entry):
                 return buildPocketToolpath(
@@ -103,7 +103,7 @@ public final class SCEngine {
                     direction: direction,
                     pocketType: pocketType,
                     entry: entry,
-                    strategy: strategy
+                    operation: operation
                 )
 
             case .adaptiveClearing:

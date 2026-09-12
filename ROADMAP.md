@@ -10,7 +10,7 @@ moving on. Don't ask for a whole "Track" in one message — ask for one step, re
 commit, then move to the next. That's what keeps sessions from blowing up mid-feature.
 
 Suggested prompt shape per step:
-> "Implement Step X.Y from the roadmap: <step>. Follow the existing code style in SCEngine+Profile.swift. Add a test file mirroring Engraving_Tests.swift."
+> "Implement Step X.Y from the roadmap. Follow the existing code style in SCEngine+Profile.swift. Add a test file in the style of Engraving_Tests.swift."
 
 ---
 
@@ -23,7 +23,7 @@ These are quick, isolated, and reduce risk before building on top of profile/cha
   (already public-ish inside `SCEngine+Profile.swift`) before offsetting, same as profile
   does. ~10 line change + 1 test.
 
-- DONE **0.2 — Test coverage: `.profile`**
+- DONE **0.2 — Test coverage: `.contour`**
   New `Profile_Tests.swift`. Cover: outside/inside offset direction, climb vs conventional
   reversal, plunge/ramp/helix entry each produce sane waypoints, one holding-tab case.
   This is the highest-value test gap right now — profile is your biggest chunk of logic
@@ -98,7 +98,7 @@ algorithms — don't try to do both in one pass.
   alternating direction (boustrophedon) or same-direction with rapid retracts, per
   `direction` (climb/conventional) via stepover sign. Also its own multi-step item if large:
   - 2.3a: scanline generation + clipping against a single closed contour (no islands)
-  - 2.3b: entry strategy integration (helix/ramp reused from `.profile`'s entry code)
+  - 2.3b: entry strategy integration (helix/ramp reused from `.contour`'s entry code)
 
 - **2.4 — Pocket entry integration**
   Wire `EntryStrategy` (already fully built for profile: plunge/ramp/helix) into pocket's

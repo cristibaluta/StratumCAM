@@ -45,7 +45,7 @@ struct GCode_Drilling_Tests {
             from: [contour],
             tool: tool,
             settings: settings,
-            strategy: .drilling(peckDepth: 4.0)
+            operation: .drilling(peckDepth: 4.0)
         )
 
         let gcode = SCGCodeEngine().generateGCode(
@@ -129,7 +129,7 @@ struct GCode_Drilling_Tests {
             from: [contour],
             tool: tool,
             settings: settings,
-            strategy: .drilling(peckDepth: nil)
+            operation: .drilling(peckDepth: nil)
         )
 
         let gcode = SCGCodeEngine().generateGCode(
@@ -175,7 +175,7 @@ struct GCode_Drilling_Tests {
             from: [contour],
             tool: tool,
             settings: settings,
-            strategy: .drilling(peckDepth: nil)
+            operation: .drilling(peckDepth: nil)
         )
 
         let gcode = SCGCodeEngine().generateGCode(
@@ -220,7 +220,7 @@ struct GCode_Drilling_Tests {
             from: [contour],
             tool: tool,
             settings: settings,
-            strategy: .drilling(peckDepth: nil)
+            operation: .drilling(peckDepth: nil)
         )
 
         let gcode = SCGCodeEngine().generateGCode(

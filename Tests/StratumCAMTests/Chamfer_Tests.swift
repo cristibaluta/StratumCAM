@@ -72,7 +72,7 @@ struct Chamfer_Tests {
         let settings = SC.MachineSettings(feedRate: 1000.0, plungeRate: 300.0, safeZ: 5.0, targetDepth: -1.0)
         let toolpaths = engine.generateToolpaths(
             from: [ccwSquareContour()], tool: flatTool, settings: settings,
-            strategy: .chamfer(params: params)
+            operation: .chamfer(params: params)
         )
         #expect(toolpaths.isEmpty, "Test Failed: expected no toolpath for a misconfigured chamfer tool")
     }
@@ -86,7 +86,10 @@ struct Chamfer_Tests {
         let settings = SC.MachineSettings(feedRate: 1000.0, plungeRate: 300.0, safeZ: 5.0, targetDepth: -1.0)
         let params = SC.ChamferParams(width: 1.0, side: .outside, direction: .climb)
 
-        let toolpaths = engine.generateToolpaths(from: [ccwSquareContour()], tool: tool, settings: settings, strategy: .chamfer(params: params))
+        let toolpaths = engine.generateToolpaths(from: [ccwSquareContour()],
+                                                 tool: tool,
+                                                 settings: settings,
+                                                 operation: .chamfer(params: params))
         #expect(toolpaths.count == 1)
         let box = bbox(toolpaths[0].passes[0].waypoints)
 
@@ -104,7 +107,7 @@ struct Chamfer_Tests {
         let settings = SC.MachineSettings(feedRate: 1000.0, plungeRate: 300.0, safeZ: 5.0, targetDepth: -1.0)
         let params = SC.ChamferParams(width: 1.0, side: .inside, direction: .climb)
 
-        let toolpaths = engine.generateToolpaths(from: [ccwSquareContour()], tool: tool, settings: settings, strategy: .chamfer(params: params))
+        let toolpaths = engine.generateToolpaths(from: [ccwSquareContour()], tool: tool, settings: settings, operation: .chamfer(params: params))
         #expect(toolpaths.count == 1)
         let box = bbox(toolpaths[0].passes[0].waypoints)
 
@@ -126,8 +129,8 @@ struct Chamfer_Tests {
         let climbParams = SC.ChamferParams(width: 1.0, side: .outside, direction: .climb)
         let conventionalParams = SC.ChamferParams(width: 1.0, side: .outside, direction: .conventional)
 
-        let climbWaypoints = engine.generateToolpaths(from: [ccwSquareContour()], tool: tool, settings: settings, strategy: .chamfer(params: climbParams))[0].passes[0].waypoints
-        let conventionalWaypoints = engine.generateToolpaths(from: [ccwSquareContour()], tool: tool, settings: settings, strategy: .chamfer(params: conventionalParams))[0].passes[0].waypoints
+        let climbWaypoints = engine.generateToolpaths(from: [ccwSquareContour()], tool: tool, settings: settings, operation: .chamfer(params: climbParams))[0].passes[0].waypoints
+        let conventionalWaypoints = engine.generateToolpaths(from: [ccwSquareContour()], tool: tool, settings: settings, operation: .chamfer(params: conventionalParams))[0].passes[0].waypoints
 
         // Climb (already-CCW square, no reorientation needed) starts its cut below the
         // bottom edge, at (0, -1).
@@ -159,10 +162,14 @@ struct Chamfer_Tests {
         let climbParams = SC.ChamferParams(width: 1.0, side: .outside, direction: .climb)
         let conventionalParams = SC.ChamferParams(width: 1.0, side: .outside, direction: .conventional)
 
-        let climbPath = engine.generateToolpaths(from: [square], tool: tool, settings: settings,
-                                                  strategy: .chamfer(params: climbParams)).first
-        let conventionalPath = engine.generateToolpaths(from: [square], tool: tool, settings: settings,
-                                                          strategy: .chamfer(params: conventionalParams)).first
+        let climbPath = engine.generateToolpaths(from: [square],
+                                                 tool: tool,
+                                                 settings: settings,
+                                                 operation: .chamfer(params: climbParams)).first
+        let conventionalPath = engine.generateToolpaths(from: [square],
+                                                        tool: tool,
+                                                        settings: settings,
+                                                        operation: .chamfer(params: conventionalParams)).first
 
         // Same geometry, opposite travel direction -> waypoint order should differ.
         #expect(climbPath?.passes.first?.waypoints != conventionalPath?.passes.first?.waypoints)

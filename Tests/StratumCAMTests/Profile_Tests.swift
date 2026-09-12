@@ -9,7 +9,7 @@ import CoreGraphics
 import simd
 @testable import StratumCAM
 
-// Covers `.profile`: tool-radius offset direction (inside/outside), climb vs conventional
+// Covers `.contour`: tool-radius offset direction (inside/outside), climb vs conventional
 // travel reversal, each entry style (plunge/ramp/helix), and holding-tab depth clamping.
 
 struct Profile_Tests {
@@ -63,7 +63,7 @@ struct Profile_Tests {
 
         let toolpaths = engine.generateToolpaths(
             from: [ccwSquareContour()], tool: tool, settings: settings,
-            strategy: .profile(side: .outside, direction: .climb, entry: .plunge, leadIn: nil, leadOut: nil, tabs: [])
+            operation: .contour(side: .outside, direction: .climb, entry: .plunge, leadIn: nil, leadOut: nil, tabs: [])
         )
 
         #expect(toolpaths.count == 1)
@@ -84,7 +84,7 @@ struct Profile_Tests {
 
         let toolpaths = engine.generateToolpaths(
             from: [ccwSquareContour()], tool: tool, settings: settings,
-            strategy: .profile(side: .inside, direction: .climb, entry: .plunge, leadIn: nil, leadOut: nil, tabs: [])
+            operation: .contour(side: .inside, direction: .climb, entry: .plunge, leadIn: nil, leadOut: nil, tabs: [])
         )
 
         #expect(toolpaths.count == 1)
@@ -150,7 +150,7 @@ struct Profile_Tests {
 
         let toolpaths = engine.generateToolpaths(
             from: [ccwSquareContour()], tool: tool, settings: settings,
-            strategy: .profile(side: .outside, direction: .climb, entry: .plunge, leadIn: nil, leadOut: nil, tabs: [])
+            operation: .contour(side: .outside, direction: .climb, entry: .plunge, leadIn: nil, leadOut: nil, tabs: [])
         )
 
         let waypoints = toolpaths[0].passes[0].waypoints
@@ -178,7 +178,7 @@ struct Profile_Tests {
 
         let toolpaths = engine.generateToolpaths(
             from: [ccwSquareContour()], tool: tool, settings: settings,
-            strategy: .profile(side: .outside, direction: .climb, entry: .ramp(angleDegrees: 30), leadIn: nil, leadOut: nil, tabs: [])
+            operation: .contour(side: .outside, direction: .climb, entry: .ramp(angleDegrees: 30), leadIn: nil, leadOut: nil, tabs: [])
         )
 
         let waypoints = toolpaths[0].passes[0].waypoints
@@ -209,7 +209,12 @@ struct Profile_Tests {
 
         let toolpaths = engine.generateToolpaths(
             from: [ccwSquareContour()], tool: tool, settings: settings,
-            strategy: .profile(side: .outside, direction: .climb, entry: .helix(radius: 2, rampAngleDegrees: 30), leadIn: nil, leadOut: nil, tabs: [])
+            operation: .contour(side: .outside,
+                                direction: .climb,
+                                entry: .helix(radius: 2, rampAngleDegrees: 30),
+                                leadIn: nil,
+                                leadOut: nil,
+                                tabs: [])
         )
 
         let waypoints = toolpaths[0].passes[0].waypoints
@@ -237,7 +242,12 @@ struct Profile_Tests {
 
         let toolpaths = engine.generateToolpaths(
             from: [fourSegmentLineContour()], tool: tool, settings: settings,
-            strategy: .profile(side: .onContour, direction: .climb, entry: .plunge, leadIn: nil, leadOut: nil, tabs: [tab])
+            operation: .contour(side: .onContour,
+                                direction: .climb,
+                                entry: .plunge,
+                                leadIn: nil,
+                                leadOut: nil,
+                                tabs: [tab])
         )
 
         let waypoints = toolpaths[0].passes[0].waypoints

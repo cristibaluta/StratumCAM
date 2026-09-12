@@ -86,7 +86,7 @@ struct Drilling_Tests {
             .init(entity: .point(at: DXF.Point(12, 20), layer: "0", color: 7), reversed: false)
         ], isClosed: false)
 
-        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings, strategy: .drilling(peckDepth: nil))
+        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings, operation: .drilling(peckDepth: nil))
 
         #expect(toolpaths.count == 1, "Test Failed: expected 1 output toolpath")
         let toolpath = toolpaths[0]
@@ -131,7 +131,7 @@ struct Drilling_Tests {
             .init(entity: .circle(center: DXF.Point(1, 2), radius: 2.0, layer: "0", color: 7), reversed: false)
         ], isClosed: true)
 
-        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings, strategy: .drilling(peckDepth: nil))
+        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings, operation: .drilling(peckDepth: nil))
 
         #expect(toolpaths.count == 1, "Test Failed: expected 1 output toolpath")
         let wp1 = toolpaths[0].passes[0].waypoints[1]
@@ -149,7 +149,7 @@ struct Drilling_Tests {
             .init(entity: .line(a: DXF.Point(0, 0), b: DXF.Point(10, 0), layer: "0", color: 7), reversed: false)
         ], isClosed: false)
 
-        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings, strategy: .drilling(peckDepth: nil))
+        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings, operation: .drilling(peckDepth: nil))
 
         #expect(toolpaths.isEmpty, "Test Failed: a non-point contour should not produce a drilling toolpath")
     }
@@ -166,7 +166,7 @@ struct Drilling_Tests {
             .init(entity: .point(at: DXF.Point(10, 10), layer: "0", color: 7), reversed: false)
         ], isClosed: false)
 
-        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings, strategy: .drilling(peckDepth: 4.0))
+        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings, operation: .drilling(peckDepth: 4.0))
 
         #expect(toolpaths.count == 1, "Test Failed: expected 1 output toolpath")
         let toolpath = toolpaths[0]
@@ -224,7 +224,7 @@ struct Drilling_Tests {
             .init(entity: .point(at: DXF.Point(0, 0), layer: "0", color: 7), reversed: false)
         ], isClosed: false)
 
-        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings, strategy: .drilling(peckDepth: 4.0))
+        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings, operation: .drilling(peckDepth: 4.0))
 
         let waypoints = toolpaths[0].passes[0].waypoints
         // 10.0 / 4.0 -> 2.5 -> rounds up to 3 pecks (4, 8, 10).
@@ -250,7 +250,7 @@ struct Drilling_Tests {
             .init(entity: .circle(center: DXF.Point(1, 2), radius: 2.0, layer: "0", color: 7), reversed: false)
         ], isClosed: true)
 
-        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings, strategy: .drilling(peckDepth: 3.0))
+        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings, operation: .drilling(peckDepth: 3.0))
 
         #expect(toolpaths.count == 1, "Test Failed: expected 1 output toolpath")
         let waypoints = toolpaths[0].passes[0].waypoints
@@ -271,7 +271,7 @@ struct Drilling_Tests {
             .init(entity: .point(at: DXF.Point(0, 0), layer: "0", color: 7), reversed: false)
         ], isClosed: false)
 
-        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings, strategy: .drilling(peckDepth: 0.0))
+        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings, operation: .drilling(peckDepth: 0.0))
 
         let waypoints = toolpaths[0].passes[0].waypoints
         #expect(waypoints.count == 3, "Test Failed: a non-positive peck depth should behave like a plain drill cycle")
@@ -318,7 +318,7 @@ struct Drilling_Tests {
             from: contours,
             tool: tool,
             settings: settings,
-            strategy: .drilling(peckDepth: nil)
+            operation: .drilling(peckDepth: nil)
         )
 
         #expect(
@@ -328,8 +328,8 @@ struct Drilling_Tests {
 
         for (toolpath, expected) in zip(toolpaths, points) {
             #expect(
-                toolpath.strategy == .drilling(peckDepth: nil),
-                "Test Failed: strategy should remain drilling without pecking"
+                toolpath.operation == .drilling(peckDepth: nil),
+                "Test Failed: operation should remain drilling without pecking"
             )
 
             let waypoints = toolpath.passes[0].waypoints

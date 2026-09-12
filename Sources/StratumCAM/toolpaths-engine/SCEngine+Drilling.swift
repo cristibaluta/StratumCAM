@@ -52,7 +52,7 @@ extension SCEngine {
                                tool: SC.ToolParams,
                                settings: SC.MachineSettings,
                                peckDepth: Double?,
-                               strategy: SC.MachiningOperation) -> SC.OutputToolpath? {
+                               operation: SC.MachiningOperation) -> SC.OutputToolpath? {
 
         guard let point = drillPoint(for: contour) else {
             return nil
@@ -72,7 +72,7 @@ extension SCEngine {
         }
 
         let pass = SC.ToolpathPass(passIndex: 0, depthZ: z, waypoints: waypoints)
-        return SC.OutputToolpath(strategy: strategy, tool: tool, settings: settings, passes: [pass])
+        return SC.OutputToolpath(operation: operation, tool: tool, settings: settings, passes: [pass])
     }
 
     /// Builds the waypoints for a peck-drilling cycle at a single hole location.
