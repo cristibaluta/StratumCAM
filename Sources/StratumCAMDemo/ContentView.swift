@@ -33,21 +33,21 @@ struct ContentView: View {
                         show(DemoEngraving().demoWordSTRATUM())
                     }
                 }
-                Section("Profile") {
+                Section("Contours") {
                     Button("Outside Square") {
-                        show(DemoProfile().demoOutsideSquare())
+                        show(DemoContour().demoOutsideSquare())
                     }
                     Button("Inside Square") {
-                        show(DemoProfile().demoInsideSquare())
+                        show(DemoContour().demoInsideSquare())
                     }
                     Button("Ramp Entry") {
-                        show(DemoProfile().demoRampEntry())
+                        show(DemoContour().demoRampEntry())
                     }
                     Button("Helix Entry") {
-                        show(DemoProfile().demoHelixEntry())
+                        show(DemoContour().demoHelixEntry())
                     }
                     Button("Holding Tab") {
-                        show(DemoProfile().demoHoldingTab())
+                        show(DemoContour().demoHoldingTab())
                     }
                 }
                 Section("Drilling") {

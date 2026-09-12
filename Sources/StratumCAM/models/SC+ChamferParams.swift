@@ -19,7 +19,7 @@ extension SC {
         public var depth: Double?
 
         /// Which side of the contour the bevel sits on -- same semantics as the `Side`
-        /// used for profile cuts (`.outside` breaks an outer edge, `.inside` breaks a hole/pocket rim).
+        /// used for contour cuts (`.outside` breaks an outer edge, `.inside` breaks a hole/pocket rim).
         public var side: CutSide
 
         /// Milling direction around the contour.

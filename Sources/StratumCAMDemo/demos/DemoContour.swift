@@ -1,5 +1,5 @@
 //
-//  DemoProfile.swift
+//  DemoContour.swift
 //  StratumCAM
 //
 //  Created by Cristian Baluta on 11.09.2026.
@@ -9,7 +9,7 @@ import Foundation
 import StratumCAM
 import SwiftDXF
 
-class DemoProfile: Demo {
+class DemoContour: Demo {
 
     // MARK: - Fixtures
     // Mirrors the fixtures in Profile_Tests.swift so each demo below reproduces
@@ -52,14 +52,15 @@ class DemoProfile: Demo {
     /// since that test uses this exact configuration.
     func demoOutsideSquare() -> Demo.DemoResult {
         let tool = SC.ToolParams(diameter: 3.175)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 0.1), safeZ: 5.0, targetDepth: -1.0)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 0.1)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -1.0)
 
         let operation: SC.MachiningOperation = .contour(side: .outside,
-                                             direction: .climb,
-                                             entry: .plunge,
-                                             leadIn: nil,
-                                             leadOut: nil,
-                                             tabs: [])
+                                                        direction: .climb,
+                                                        entry: .plunge,
+                                                        leadIn: nil,
+                                                        leadOut: nil,
+                                                        tabs: [])
 
         return self.run(contour: ccwSquareContour(), tool: tool, settings: settings, operation: operation)
     }
@@ -69,14 +70,15 @@ class DemoProfile: Demo {
     /// shrinks the square's bounding box in from [0, 10] to [3, 7] on both axes.
     func demoInsideSquare() -> Demo.DemoResult {
         let tool = SC.ToolParams(diameter: 3.175)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 0.1), safeZ: 5.0, targetDepth: -1.0)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 0.1)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -1.0)
 
         let operation: SC.MachiningOperation = .contour(side: .inside,
-                                             direction: .climb,
-                                             entry: .plunge,
-                                             leadIn: nil,
-                                             leadOut: nil,
-                                             tabs: [])
+                                                        direction: .climb,
+                                                        entry: .plunge,
+                                                        leadIn: nil,
+                                                        leadOut: nil,
+                                                        tabs: [])
 
         return self.run(contour: ccwSquareContour(), tool: tool, settings: settings, operation: operation)
     }
@@ -89,14 +91,15 @@ class DemoProfile: Demo {
     /// partway on the way out and landing exactly at target depth on the way back.
     func demoRampEntry() -> Demo.DemoResult {
         let tool = SC.ToolParams(diameter: 3.175)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 0.1), safeZ: 5.0, targetDepth: -1.0)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 0.1)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -1.0)
 
         let operation: SC.MachiningOperation = .contour(side: .outside,
-                                             direction: .climb,
-                                             entry: .ramp(angleDegrees: 30),
-                                             leadIn: nil,
-                                             leadOut: nil,
-                                             tabs: [])
+                                                        direction: .climb,
+                                                        entry: .ramp(angleDegrees: 3),
+                                                        leadIn: nil,
+                                                        leadOut: nil,
+                                                        tabs: [])
 
         return self.run(contour: ccwSquareContour(), tool: tool, settings: settings, operation: operation)
     }
@@ -107,14 +110,15 @@ class DemoProfile: Demo {
     /// turns and lands back on the contour start, exactly at target depth.
     func demoHelixEntry() -> Demo.DemoResult {
         let tool = SC.ToolParams(diameter: 3.175)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 0.1), safeZ: 5.0, targetDepth: -1.0)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 0.1)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -1.0)
 
         let operation: SC.MachiningOperation = .contour(side: .outside,
-                                             direction: .climb,
-                                             entry: .helix(radius: 2, rampAngleDegrees: 30),
-                                             leadIn: nil,
-                                             leadOut: nil,
-                                             tabs: [])
+                                                        direction: .climb,
+                                                        entry: .helix(radius: 2, rampAngleDegrees: 3),
+                                                        leadIn: nil,
+                                                        leadOut: nil,
+                                                        tabs: [])
 
         return self.run(contour: ccwSquareContour(), tool: tool, settings: settings, operation: operation)
     }
@@ -128,15 +132,16 @@ class DemoProfile: Demo {
     /// remaining-stock floor (-1.5) so the part stays attached to the stock.
     func demoHoldingTab() -> Demo.DemoResult {
         let tool = SC.ToolParams(diameter: 3.175)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 0.1), safeZ: 5.0, targetDepth: -3.0)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 0.1)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -3.0)
         let tab = SC.HoldingTab(positionRatio: 0.5, width: 2.0, height: 1.5)
 
         let operation: SC.MachiningOperation = .contour(side: .onContour,
-                                             direction: .climb,
-                                             entry: .plunge,
-                                             leadIn: nil,
-                                             leadOut: nil,
-                                             tabs: [tab])
+                                                        direction: .climb,
+                                                        entry: .plunge,
+                                                        leadIn: nil,
+                                                        leadOut: nil,
+                                                        tabs: [tab])
 
         return self.run(contour: fourSegmentLineContour(), tool: tool, settings: settings, operation: operation)
     }

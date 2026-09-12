@@ -68,18 +68,16 @@ public final class SCEngine {
                                                    operation: operation)
 
             case .contour(let side, let direction, let entry, let leadIn, let leadOut, let tabs):
-                return buildProfileToolpath(
-                    for: contour,
-                    tool: tool,
-                    settings: settings,
-                    side: side,
-                    direction: direction,
-                    entry: entry,
-                    leadIn: leadIn,
-                    leadOut: leadOut,
-                    tabs: tabs,
-                    operation: operation
-                )
+                return buildContourToolpath(for: contour,
+                                            tool: tool,
+                                            settings: settings,
+                                            side: side,
+                                            direction: direction,
+                                            entry: entry,
+                                            leadIn: leadIn,
+                                            leadOut: leadOut,
+                                            tabs: tabs,
+                                            operation: operation)
 
             case .chamfer(let params):
                 return buildChamferToolpath(for: contour,

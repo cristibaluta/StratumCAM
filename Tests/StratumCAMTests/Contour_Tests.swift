@@ -1,5 +1,5 @@
 //
-//  Profile_Tests.swift
+//  Contour_Tests.swift
 //  StratumCAM
 //
 
@@ -12,7 +12,7 @@ import simd
 // Covers `.contour`: tool-radius offset direction (inside/outside), climb vs conventional
 // travel reversal, each entry style (plunge/ramp/helix), and holding-tab depth clamping.
 
-struct Profile_Tests {
+struct Contour_Tests {
 
     // MARK: - Fixtures
 
@@ -59,7 +59,8 @@ struct Profile_Tests {
     func testProfileOutsideOffsetsAwayFromContour() {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 6.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -1.0)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 0.1)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -1.0)
 
         let toolpaths = engine.generateToolpaths(
             from: [ccwSquareContour()], tool: tool, settings: settings,
@@ -80,7 +81,8 @@ struct Profile_Tests {
     func testProfileInsideOffsetsTowardContourCenter() {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 6.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -1.0)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 0.1)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -1.0)
 
         let toolpaths = engine.generateToolpaths(
             from: [ccwSquareContour()], tool: tool, settings: settings,
@@ -146,7 +148,8 @@ struct Profile_Tests {
     func testProfilePlungeEntryStartsAtOffsetContourStart() {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 6.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -1.0)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 0.1)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -1.0)
 
         let toolpaths = engine.generateToolpaths(
             from: [ccwSquareContour()], tool: tool, settings: settings,
@@ -174,7 +177,8 @@ struct Profile_Tests {
     func testProfileRampEntryDescendsGradually() {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 6.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -1.0)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -1.0)
 
         let toolpaths = engine.generateToolpaths(
             from: [ccwSquareContour()], tool: tool, settings: settings,
@@ -187,7 +191,8 @@ struct Profile_Tests {
         // [1] Rapid down to (0, -3) @ previous pass depth (top of stock, Z = 0, since this
         //     is the first pass) -- the ramp itself should only cover this pass's fresh
         //     stepdown, not the whole safeZ-to-target travel distance.
-        // [2] Ramp leg 1: across to (10, -3), dropping partway (Z = -0.5)
+        // [2] Ramp leg 1: a short hop toward (10, -3) -- only as far as the 30 degree angle
+        //     actually requires for a 1.0mm drop (~0.866mm), not the whole 10mm edge.
         // [3] Ramp leg 2: back to (0, -3), landing exactly at TargetZ (-1.0)
         #expect(waypoints.count >= 4)
 
@@ -200,7 +205,8 @@ struct Profile_Tests {
                 "Test Failed: expected a rapid down to top-of-stock before the ramp starts")
 
         let wp2 = waypoints[2]
-        #expect(abs(wp2.position.x - 10.0) < 1e-5 && abs(wp2.position.y - (-3.0)) < 1e-5, "Test Failed: ramp leg 1 XY mismatch")
+        #expect(abs(wp2.position.x - 0.8660254) < 1e-5 && abs(wp2.position.y - (-3.0)) < 1e-5,
+                "Test Failed: ramp leg 1 should only travel as far as the 30 degree angle needs, not the whole edge")
         #expect(abs(wp2.position.z - (-0.5)) < 1e-9, "Test Failed: ramp leg 1 should be partway down, not at full depth")
 
         let wp3 = waypoints[3]
@@ -237,6 +243,31 @@ struct Profile_Tests {
             abs(wp.position.z - (-2.0)) < 1e-9
         }
         #expect(landsAtNewTarget, "Test Failed: second pass ramp should still land exactly at this pass's target depth")
+    }
+
+    @Test("Ramp entry travel distance matches the requested angle, not the whole anchor edge")
+    func testProfileRampEntryDistanceMatchesAngle() {
+        let engine = SCEngine()
+        let tool = SC.ToolParams(diameter: 6.0)
+        // A shallow 0.1mm stepdown at 30 degrees only needs ~0.173mm of horizontal travel
+        // total (~0.0866mm per leg) -- nowhere near the 10mm anchor edge.
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 0.1)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -1.0)
+
+        let toolpaths = engine.generateToolpaths(
+            from: [ccwSquareContour()], tool: tool, settings: settings,
+            operation: .contour(side: .outside, direction: .climb, entry: .ramp(angleDegrees: 30), leadIn: nil, leadOut: nil, tabs: [])
+        )
+
+        let waypoints = toolpaths[0].passes[0].waypoints
+
+        // wp0 = rapid @ safeZ, wp1 = rapid down to top-of-stock, wp2 = the first ramp leg.
+        let firstRampLeg = waypoints[2]
+        let contourStartX = 0.0
+        let travelDistance = abs(firstRampLeg.position.x - contourStartX)
+
+        #expect(travelDistance < 1.0,
+                "Test Failed: a 0.1mm stepdown at 30 degrees should only travel a fraction of a mm, not swing across the whole 10mm edge")
     }
 
     @Test("Helix entry spirals down and returns to the contour start at depth")
