@@ -375,12 +375,12 @@ public final class SCEngine {
         // 1. Rapid move above start point at Safe Z
         waypoints.append(SC.Waypoint(position: SIMD3(startPoint.x, startPoint.y, settings.safeZ),
                                      motion: .rapid,
-                                     feedRate: settings.feedRate))
+                                     feedRate: settings.cutting.feedRate))
 
         // 2. Plunge down to target Z
         waypoints.append(SC.Waypoint(position: SIMD3(startPoint.x, startPoint.y, z),
                                      motion: .linear,
-                                     feedRate: settings.plungeRate))
+                                     feedRate: settings.cutting.plungeRate))
 
         // 3. Trace segments along XY plane
         for segment in segments {
@@ -388,7 +388,7 @@ public final class SCEngine {
                 case .line(_, let end):
                     waypoints.append(SC.Waypoint(position: SIMD3(end.x, end.y, z),
                                                  motion: .linear,
-                                                 feedRate: settings.feedRate))
+                                                 feedRate: settings.cutting.feedRate))
 
                 case .arc(let center, let radius, _, let endAngle, let isCCW):
                     // Compute end position using radius and radian end angle
@@ -398,7 +398,7 @@ public final class SCEngine {
 
                     waypoints.append(SC.Waypoint(position: SIMD3(endX, endY, z),
                                                  motion: motion,
-                                                 feedRate: settings.feedRate))
+                                                 feedRate: settings.cutting.feedRate))
             }
         }
 
@@ -406,7 +406,7 @@ public final class SCEngine {
         if let lastPoint = waypoints.last?.position {
             waypoints.append(SC.Waypoint(position: SIMD3(lastPoint.x, lastPoint.y, settings.safeZ),
                                          motion: .rapid,
-                                         feedRate: settings.feedRate))
+                                         feedRate: settings.cutting.feedRate))
         }
 
         return waypoints

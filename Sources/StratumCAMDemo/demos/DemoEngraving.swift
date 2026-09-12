@@ -13,10 +13,11 @@ class DemoEngraving: Demo {
 
     /// This will engravea line with one single pass
     func demoLine() -> Demo.DemoResult {
-        let tool = SC.ToolParams(diameter: 3.175, stepdown: 0.1)
+        let tool = SC.ToolParams(diameter: 3.175)
 
-        let settings = SC.MachineSettings(feedRate: 1000.0,
-                                          plungeRate: 300.0,
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0,
+                                                                  plungeRate: 300.0,
+                                                                  stepdown: 0.1),
                                           safeZ: 5.0,
                                           targetDepth: 0.1)
 
@@ -35,10 +36,11 @@ class DemoEngraving: Demo {
     }
 
     func demoLineMultiplePasses() -> Demo.DemoResult {
-        let tool = SC.ToolParams(diameter: 3.175, stepdown: 0.1)
+        let tool = SC.ToolParams(diameter: 3.175)
 
-        let settings = SC.MachineSettings(feedRate: 1000.0,
-                                          plungeRate: 300.0,
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0,
+                                                                  plungeRate: 300.0,
+                                                                  stepdown: 0.1),
                                           safeZ: 5.0,
                                           targetDepth: 1)
 
@@ -60,10 +62,11 @@ class DemoEngraving: Demo {
     /// chained arcs of equal radius curving in opposite directions (the same
     /// construction a stroke font uses for the letter's two humps).
     func demoLetterS() -> Demo.DemoResult {
-        let tool = SC.ToolParams(diameter: 3.175, stepdown: 0.1)
+        let tool = SC.ToolParams(diameter: 3.175)
 
-        let settings = SC.MachineSettings(feedRate: 1000.0,
-                                          plungeRate: 300.0,
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0,
+                                                                  plungeRate: 300.0,
+                                                                  stepdown: 0.1),
                                           safeZ: 5.0,
                                           targetDepth: 1.0)
 
@@ -112,10 +115,11 @@ class DemoEngraving: Demo {
     /// baseline at y = 0, then shifted along X by `letterAdvance` per letter so
     /// the word reads left to right.
     func demoWordSTRATUM() -> Demo.DemoResult {
-        let tool = SC.ToolParams(diameter: 3.175, stepdown: 0.1)
+        let tool = SC.ToolParams(diameter: 3.175)
 
-        let settings = SC.MachineSettings(feedRate: 1000.0,
-                                          plungeRate: 300.0,
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0,
+                                                                  plungeRate: 300.0,
+                                                                  stepdown: 0.1),
                                           safeZ: 5.0,
                                           targetDepth: 1.0)
 

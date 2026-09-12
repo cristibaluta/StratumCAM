@@ -58,8 +58,8 @@ struct Profile_Tests {
     @Test("Outside profile offsets the toolpath away from the contour")
     func testProfileOutsideOffsetsAwayFromContour() {
         let engine = SCEngine()
-        let tool = SC.ToolParams(diameter: 6.0, stepdown: 1.0)
-        let settings = SC.MachineSettings(feedRate: 1000.0, plungeRate: 300.0, safeZ: 5.0, targetDepth: -1.0)
+        let tool = SC.ToolParams(diameter: 6.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -1.0)
 
         let toolpaths = engine.generateToolpaths(
             from: [ccwSquareContour()], tool: tool, settings: settings,
@@ -79,8 +79,8 @@ struct Profile_Tests {
     @Test("Inside profile offsets the toolpath toward the contour center")
     func testProfileInsideOffsetsTowardContourCenter() {
         let engine = SCEngine()
-        let tool = SC.ToolParams(diameter: 6.0, stepdown: 1.0)
-        let settings = SC.MachineSettings(feedRate: 1000.0, plungeRate: 300.0, safeZ: 5.0, targetDepth: -1.0)
+        let tool = SC.ToolParams(diameter: 6.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -1.0)
 
         let toolpaths = engine.generateToolpaths(
             from: [ccwSquareContour()], tool: tool, settings: settings,
@@ -145,8 +145,8 @@ struct Profile_Tests {
     @Test("Plunge entry starts directly on the offset contour's start point")
     func testProfilePlungeEntryStartsAtOffsetContourStart() {
         let engine = SCEngine()
-        let tool = SC.ToolParams(diameter: 6.0, stepdown: 1.0)
-        let settings = SC.MachineSettings(feedRate: 1000.0, plungeRate: 300.0, safeZ: 5.0, targetDepth: -1.0)
+        let tool = SC.ToolParams(diameter: 6.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -1.0)
 
         let toolpaths = engine.generateToolpaths(
             from: [ccwSquareContour()], tool: tool, settings: settings,
@@ -173,8 +173,8 @@ struct Profile_Tests {
     @Test("Ramp entry descends gradually and lands back on the contour start at depth")
     func testProfileRampEntryDescendsGradually() {
         let engine = SCEngine()
-        let tool = SC.ToolParams(diameter: 6.0, stepdown: 1.0)
-        let settings = SC.MachineSettings(feedRate: 1000.0, plungeRate: 300.0, safeZ: 5.0, targetDepth: -1.0)
+        let tool = SC.ToolParams(diameter: 6.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -1.0)
 
         let toolpaths = engine.generateToolpaths(
             from: [ccwSquareContour()], tool: tool, settings: settings,
@@ -204,8 +204,8 @@ struct Profile_Tests {
     @Test("Helix entry spirals down and returns to the contour start at depth")
     func testProfileHelixEntryReturnsToContourStartAtDepth() {
         let engine = SCEngine()
-        let tool = SC.ToolParams(diameter: 6.0, stepdown: 1.0)
-        let settings = SC.MachineSettings(feedRate: 1000.0, plungeRate: 300.0, safeZ: 5.0, targetDepth: -1.0)
+        let tool = SC.ToolParams(diameter: 6.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -1.0)
 
         let toolpaths = engine.generateToolpaths(
             from: [ccwSquareContour()], tool: tool, settings: settings,
@@ -236,8 +236,8 @@ struct Profile_Tests {
     @Test("A holding tab clamps depth locally without affecting the rest of the pass")
     func testProfileHoldingTabClampsDepthLocally() {
         let engine = SCEngine()
-        let tool = SC.ToolParams(diameter: 6.0, stepdown: 3.0)
-        let settings = SC.MachineSettings(feedRate: 1000.0, plungeRate: 300.0, safeZ: 5.0, targetDepth: -3.0)
+        let tool = SC.ToolParams(diameter: 6.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 3.0), safeZ: 5.0, targetDepth: -3.0)
         let tab = SC.HoldingTab(positionRatio: 0.5, width: 2.0, height: 1.5)
 
         let toolpaths = engine.generateToolpaths(

@@ -36,7 +36,7 @@ extension SCEngine {
             return nil
         }
 
-        let zDepths = calculateZPasses(targetDepth: settings.targetDepth, stepdown: tool.stepdown)
+        let zDepths = calculateZPasses(targetDepth: settings.targetDepth, stepdown: settings.cutting.stepdown)
         let totalDepth = abs(settings.targetDepth)
 
         var passes: [SC.ToolpathPass] = []
@@ -111,12 +111,12 @@ extension SCEngine {
                 waypoints.append(
                     SC.Waypoint(position: SIMD3(entryPoint.x, entryPoint.y, settings.safeZ),
                                 motion: .rapid,
-                                feedRate: settings.feedRate)
+                                feedRate: settings.cutting.feedRate)
                 )
                 waypoints.append(
                     SC.Waypoint(position: SIMD3(entryPoint.x, entryPoint.y, z),
                                 motion: .linear,
-                                feedRate: settings.plungeRate)
+                                feedRate: settings.cutting.plungeRate)
                 )
                 if let leadInMove {
                     waypoints.append(leadInMove)
@@ -126,7 +126,7 @@ extension SCEngine {
                 waypoints.append(
                     SC.Waypoint(position: SIMD3(contourStart.x, contourStart.y, settings.safeZ),
                                 motion: .rapid,
-                                feedRate: settings.feedRate)
+                                feedRate: settings.cutting.feedRate)
                 )
                 waypoints.append(
                     contentsOf: rampWaypoints(firstSegment: firstSegment,
@@ -140,7 +140,7 @@ extension SCEngine {
                 waypoints.append(
                     SC.Waypoint(position: SIMD3(contourStart.x, contourStart.y, settings.safeZ),
                                 motion: .rapid,
-                                feedRate: settings.feedRate)
+                                feedRate: settings.cutting.feedRate)
                 )
                 waypoints.append(
                     contentsOf: helixEntryWaypoints(contourStart: contourStart,
@@ -182,7 +182,7 @@ extension SCEngine {
                 waypoints.append(
                     SC.Waypoint(position: SIMD3(exitPoint.x, exitPoint.y, settings.safeZ),
                                 motion: .rapid,
-                                feedRate: settings.feedRate)
+                                feedRate: settings.cutting.feedRate)
                 )
                 return waypoints
             }
@@ -191,7 +191,7 @@ extension SCEngine {
         waypoints.append(
             SC.Waypoint(position: SIMD3(contourEnd.x, contourEnd.y, settings.safeZ),
                         motion: .rapid,
-                        feedRate: settings.feedRate)
+                        feedRate: settings.cutting.feedRate)
         )
         return waypoints
     }
@@ -218,7 +218,7 @@ extension SCEngine {
         guard totalDrop > 1e-9, angleDegrees > 0, angleDegrees < 90, spanLength > 1e-9 else {
             // Degenerate ramp (already at depth, bad angle, or a zero-length first segment)
             // -- fall back to a straight plunge rather than produce nonsense geometry.
-            return [SC.Waypoint(position: SIMD3(a.x, a.y, toZ), motion: .linear, feedRate: settings.plungeRate)]
+            return [SC.Waypoint(position: SIMD3(a.x, a.y, toZ), motion: .linear, feedRate: settings.cutting.plungeRate)]
         }
 
         let horizontalRunNeeded = totalDrop / tan(angleRad)
@@ -235,7 +235,7 @@ extension SCEngine {
             waypoints.append(
                 SC.Waypoint(position: SIMD3(target.x, target.y, currentZ),
                             motion: .linear,
-                            feedRate: settings.plungeRate)
+                            feedRate: settings.cutting.plungeRate)
             )
         }
         return waypoints
@@ -261,7 +261,7 @@ extension SCEngine {
         let angleRad = angleDegrees * .pi / 180.0
 
         guard totalDrop > 1e-9, angleDegrees > 0, angleDegrees < 90, radius > 1e-9 else {
-            return [SC.Waypoint(position: SIMD3(contourStart.x, contourStart.y, toZ), motion: .linear, feedRate: settings.plungeRate)]
+            return [SC.Waypoint(position: SIMD3(contourStart.x, contourStart.y, toZ), motion: .linear, feedRate: settings.cutting.plungeRate)]
         }
 
         let signedOffset = offsetDistance(for: side, toolRadius: radius, segments: segments)
@@ -288,7 +288,7 @@ extension SCEngine {
             waypoints.append(
                 SC.Waypoint(position: SIMD3(x, y, currentZ),
                             motion: isCCW ? .arcCCW(center: center) : .arcCW(center: center),
-                            feedRate: settings.plungeRate)
+                            feedRate: settings.cutting.plungeRate)
             )
         }
         return waypoints
@@ -413,7 +413,7 @@ extension SCEngine {
             switch segment {
                 case .line(_, let end):
                     waypoints.append(
-                        SC.Waypoint(position: SIMD3(end.x, end.y, effectiveZ), motion: .linear, feedRate: settings.feedRate)
+                        SC.Waypoint(position: SIMD3(end.x, end.y, effectiveZ), motion: .linear, feedRate: settings.cutting.feedRate)
                     )
                 case .arc(let center, let radius, _, let endAngle, let isCCW):
                     let endX = center.x + radius * cos(endAngle)
@@ -421,7 +421,7 @@ extension SCEngine {
                     waypoints.append(
                         SC.Waypoint(position: SIMD3(endX, endY, effectiveZ),
                                     motion: isCCW ? .arcCCW(center: center) : .arcCW(center: center),
-                                    feedRate: settings.feedRate)
+                                    feedRate: settings.cutting.feedRate)
                     )
             }
         }

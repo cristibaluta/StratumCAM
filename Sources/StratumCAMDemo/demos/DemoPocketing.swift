@@ -47,8 +47,8 @@ class DemoPocketing: Demo {
     /// from Step 2.2 actually visible, rather than the single-ring case
     /// Step 2.1's demo would show.
     func demoPocketRectangle() -> Demo.DemoResult {
-        let tool = SC.ToolParams(diameter: 6.0, stepdown: 1.0, stepoverPercentage: 0.4)
-        let settings = SC.MachineSettings(feedRate: 1000.0, plungeRate: 300.0, safeZ: 5.0, targetDepth: -3.0)
+        let tool = SC.ToolParams(diameter: 6.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4), safeZ: 5.0, targetDepth: -3.0)
 
         let operation: SC.MachiningOperation = .pocket(direction: .climb, pocketType: .offsetPattern, entry: .plunge)
 
@@ -59,8 +59,8 @@ class DemoPocketing: Demo {
     /// start corner and travel direction can be compared side by side with
     /// `demoPocketRectangle()`.
     func demoPocketRectangleConventional() -> Demo.DemoResult {
-        let tool = SC.ToolParams(diameter: 6.0, stepdown: 1.0, stepoverPercentage: 0.4)
-        let settings = SC.MachineSettings(feedRate: 1000.0, plungeRate: 300.0, safeZ: 5.0, targetDepth: -3.0)
+        let tool = SC.ToolParams(diameter: 6.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4), safeZ: 5.0, targetDepth: -3.0)
 
         let operation: SC.MachiningOperation = .pocket(direction: .conventional, pocketType: .offsetPattern, entry: .plunge)
 
@@ -72,8 +72,8 @@ class DemoPocketing: Demo {
     /// stops -- the arc-collapse signal `pocketRings` relies on, rather than
     /// the straight-edge winding-flip signal `demoPocketRectangle()` hits.
     func demoPocketRoundedRectangle() -> Demo.DemoResult {
-        let tool = SC.ToolParams(diameter: 3.0, stepdown: 1.0, stepoverPercentage: 0.3)
-        let settings = SC.MachineSettings(feedRate: 1000.0, plungeRate: 300.0, safeZ: 5.0, targetDepth: -2.0)
+        let tool = SC.ToolParams(diameter: 3.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.3), safeZ: 5.0, targetDepth: -2.0)
 
         let operation: SC.MachiningOperation = .pocket(direction: .climb, pocketType: .offsetPattern, entry: .plunge)
 

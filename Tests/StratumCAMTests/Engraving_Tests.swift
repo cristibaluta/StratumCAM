@@ -19,9 +19,10 @@ struct Engraving_Tests {
         let engine = SCEngine()
 
         // 1. Setup Test Parameters
-        let tool = SC.ToolParams(diameter: 3.175, stepdown: 0.1)
-        let settings = SC.MachineSettings(feedRate: 1000.0,
-                                          plungeRate: 300.0,
+        let tool = SC.ToolParams(diameter: 3.175)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0,
+                                                                    plungeRate: 300.0,
+                                                                    stepdown: 0.1),
                                           safeZ: 5.0,
                                           targetDepth: -0.1)
 
@@ -94,9 +95,10 @@ struct Engraving_Tests {
         let engine = SCEngine()
 
         // 1. Setup Test Parameters
-        let tool = SC.ToolParams(diameter: 3.175, stepdown: 0.1)
-        let settings = SC.MachineSettings(feedRate: 1000.0,
-                                          plungeRate: 300.0,
+        let tool = SC.ToolParams(diameter: 3.175)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0,
+                                                                    plungeRate: 300.0,
+                                                                    stepdown: 0.1),
                                           safeZ: 5.0,
                                           targetDepth: -0.1)
 
@@ -173,9 +175,10 @@ struct Engraving_Tests {
         let engine = SCEngine()
 
         // 1. Setup Test Parameters
-        let tool = SC.ToolParams(diameter: 3.175, stepdown: 0.1)
-        let settings = SC.MachineSettings(feedRate: 1000.0,
-                                          plungeRate: 300.0,
+        let tool = SC.ToolParams(diameter: 3.175)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0,
+                                                                    plungeRate: 300.0,
+                                                                    stepdown: 0.1),
                                           safeZ: 5.0,
                                           targetDepth: -1.0)
 

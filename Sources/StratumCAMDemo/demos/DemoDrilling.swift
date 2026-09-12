@@ -29,8 +29,8 @@ class DemoDrilling: Demo {
     /// "A plain drill cycle plunges straight down and retracts at the point
     /// location": rapid-plunge-retract, 3 waypoints in a single pass.
     func demoPlainDrill() -> Demo.DemoResult {
-        let tool = SC.ToolParams(type: .drill, diameter: 3.0, stepdown: 1.0)
-        let settings = SC.MachineSettings(feedRate: 1000.0, plungeRate: 200.0, safeZ: 5.0, targetDepth: -8.0)
+        let tool = SC.ToolParams(type: .drill, diameter: 3.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -8.0)
 
         let operation: SC.MachiningOperation = .drilling(peckDepth: nil)
 
@@ -45,8 +45,8 @@ class DemoDrilling: Demo {
     /// right number of pecks": 8mm deep at a 4mm peck depth yields 2 pecks
     /// (5 waypoints: rapid, plunge, retract, plunge, retract).
     func demoPeckDrill() -> Demo.DemoResult {
-        let tool = SC.ToolParams(type: .drill, diameter: 3.0, stepdown: 1.0)
-        let settings = SC.MachineSettings(feedRate: 1000.0, plungeRate: 200.0, safeZ: 5.0, retractZ: 1.0, targetDepth: 8.0)
+        let tool = SC.ToolParams(type: .drill, diameter: 3.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, retractZ: 1.0, targetDepth: 8.0)
 
         let operation: SC.MachiningOperation = .drilling(peckDepth: 4.0)
 
@@ -60,8 +60,8 @@ class DemoDrilling: Demo {
     /// gets its own rapid-plunge-retract toolpath, all sharing the same tool,
     /// settings, and (non-peck) strategy.
     func demoMultipleHoles() -> Demo.DemoResult {
-        let tool = SC.ToolParams(type: .drill, diameter: 3.0, stepdown: 1.0)
-        let settings = SC.MachineSettings(feedRate: 1000.0, plungeRate: 200.0, safeZ: 5.0, targetDepth: 8.0)
+        let tool = SC.ToolParams(type: .drill, diameter: 3.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: 8.0)
 
         let points = [
             (10.0, 20.0),

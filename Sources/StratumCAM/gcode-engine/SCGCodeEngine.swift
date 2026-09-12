@@ -23,7 +23,7 @@ public struct SCGCodeEngine {
         lines.append("G90 (Absolute Distance Mode)")
         lines.append("G17 (XY Plane Selection)")
         lines.append("G00 Z\(String(format: "%.3f", settings.safeZ)) (Move to Safe Z)")
-        lines.append("M03 S\(Int(settings.spindleSpeed)) (Spindle On)")
+        lines.append("M03 S\(Int(settings.cutting.spindleSpeed)) (Spindle On)")
 
         // Toolpaths
         for toolpath in toolpaths {
@@ -35,15 +35,16 @@ public struct SCGCodeEngine {
                 return false
             }()
 
-            // Step 1.5 intentionally handles only the drilling spindle override.
-            // Tool changes (`M6`) and general per-tool spindle management remain
-            // a Track 4.1 concern.
+            // Step 1.5 intentionally handles only the drilling spindle override. Each
+            // toolpath carries its own `settings.cutting.spindleSpeed` (set per-operation
+            // when the toolpath was generated); if that differs from the machine-wide
+            // spindle speed passed into this call, emit an explicit override. Tool changes
+            // (`M6`) and general per-tool spindle management remain a Track 4.1 concern.
             if isDrilling,
-               let toolSpindleSpeed = toolpath.tool.spindleSpeed,
-               abs(toolSpindleSpeed - settings.spindleSpeed) > 0.000_001 {
+               abs(toolpath.settings.cutting.spindleSpeed - settings.cutting.spindleSpeed) > 0.000_001 {
 
                 lines.append(
-                    "M03 S\(Int(toolSpindleSpeed)) (Drilling spindle speed)"
+                    "M03 S\(Int(toolpath.settings.cutting.spindleSpeed)) (Drilling spindle speed)"
                 )
             }
 

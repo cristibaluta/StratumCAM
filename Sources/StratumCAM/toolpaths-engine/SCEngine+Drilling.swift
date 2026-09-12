@@ -65,9 +65,9 @@ extension SCEngine {
             waypoints = peckDrillingWaypoints(at: point, peckDepth: peckDepth, settings: settings)
         } else {
             waypoints = [
-                SC.Waypoint(position: SIMD3(point.x, point.y, settings.safeZ), motion: .rapid, feedRate: settings.feedRate),
-                SC.Waypoint(position: SIMD3(point.x, point.y, z), motion: .linear, feedRate: settings.plungeRate),
-                SC.Waypoint(position: SIMD3(point.x, point.y, settings.safeZ), motion: .rapid, feedRate: settings.feedRate)
+                SC.Waypoint(position: SIMD3(point.x, point.y, settings.safeZ), motion: .rapid, feedRate: settings.cutting.feedRate),
+                SC.Waypoint(position: SIMD3(point.x, point.y, z), motion: .linear, feedRate: settings.cutting.plungeRate),
+                SC.Waypoint(position: SIMD3(point.x, point.y, settings.safeZ), motion: .rapid, feedRate: settings.cutting.feedRate)
             ]
         }
 
@@ -92,15 +92,15 @@ extension SCEngine {
         let peckDepths = calculateZPasses(targetDepth: settings.targetDepth, stepdown: peckDepth)
 
         var waypoints: [SC.Waypoint] = [
-            SC.Waypoint(position: SIMD3(point.x, point.y, settings.safeZ), motion: .rapid, feedRate: settings.feedRate)
+            SC.Waypoint(position: SIMD3(point.x, point.y, settings.safeZ), motion: .rapid, feedRate: settings.cutting.feedRate)
         ]
 
         for (index, depth) in peckDepths.enumerated() {
-            waypoints.append(SC.Waypoint(position: SIMD3(point.x, point.y, depth), motion: .linear, feedRate: settings.plungeRate))
+            waypoints.append(SC.Waypoint(position: SIMD3(point.x, point.y, depth), motion: .linear, feedRate: settings.cutting.plungeRate))
 
             let isLastPeck = index == peckDepths.count - 1
             let retractTo = isLastPeck ? settings.safeZ : settings.retractZ
-            waypoints.append(SC.Waypoint(position: SIMD3(point.x, point.y, retractTo), motion: .rapid, feedRate: settings.feedRate))
+            waypoints.append(SC.Waypoint(position: SIMD3(point.x, point.y, retractTo), motion: .rapid, feedRate: settings.cutting.feedRate))
         }
 
         return waypoints

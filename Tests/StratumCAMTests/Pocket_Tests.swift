@@ -71,12 +71,12 @@ struct Pocket_Tests {
     @Test("Pocket rings step inward by stepover and stop before the ring would invert")
     func testPocketRingsStepInwardAndStopAtCollapse() {
         let engine = SCEngine()
-        let tool = SC.ToolParams(diameter: 4.0, stepdown: 1.0, stepoverPercentage: 0.5)
+        let tool = SC.ToolParams(diameter: 4.0)
 
         let baseSegments = engine.linearize(contour: ccwRectangleContour())
         let oriented = engine.orientedForDirection(baseSegments, side: .inside, direction: .climb)
 
-        let rings = engine.pocketRings(from: oriented, tool: tool)
+        let rings = engine.pocketRings(from: oriented, tool: tool, stepoverPercentage: 0.5)
 
         // 20x10 rectangle, 2mm tool radius, 2mm stepover: ring 0 is [2,18]x[2,8].
         // A third-ring attempt would offset the already-6mm-tall ring 1 down to a
@@ -100,9 +100,11 @@ struct Pocket_Tests {
     @Test("Pocket chains multiple rings into one continuous pass with a connecting transition")
     func testPocketChainsMultipleRingsIntoOnePass() {
         let engine = SCEngine()
-        let tool = SC.ToolParams(diameter: 4.0, stepdown: 1.0, stepoverPercentage: 0.5)
-        let settings = SC.MachineSettings(feedRate: 1000.0,
-                                          plungeRate: 300.0,
+        let tool = SC.ToolParams(diameter: 4.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0,
+                                                                    plungeRate: 300.0,
+                                                                    stepdown: 1.0,
+                                                                    stepoverPercentage: 0.5),
                                           safeZ: 5.0,
                                           targetDepth: -1.0)
 
@@ -147,9 +149,10 @@ struct Pocket_Tests {
     @Test("Pocket offsetPattern generates one inward ring for a rectangle")
     func testPocketRectangleGeneratesSingleInwardRing() {
         let engine = SCEngine()
-        let tool = SC.ToolParams(diameter: 6.0, stepdown: 1.0)
-        let settings = SC.MachineSettings(feedRate: 1000.0,
-                                          plungeRate: 300.0,
+        let tool = SC.ToolParams(diameter: 6.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0,
+                                                                  plungeRate: 300.0,
+                                                                  stepdown: 1.0),
                                           safeZ: 5.0,
                                           targetDepth: -1.0)
 
@@ -192,9 +195,10 @@ struct Pocket_Tests {
     @Test("Pocket offsetPattern preserves rounded corners while offsetting inward")
     func testPocketRoundedRectangleGeneratesSingleInwardRing() {
         let engine = SCEngine()
-        let tool = SC.ToolParams(diameter: 3.0, stepdown: 1.0)
-        let settings = SC.MachineSettings(feedRate: 1000.0,
-                                          plungeRate: 300.0,
+        let tool = SC.ToolParams(diameter: 3.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0,
+                                                                  plungeRate: 300.0,
+                                                                  stepdown: 1.0),
                                           safeZ: 5.0,
                                           targetDepth: -1.0)
 
@@ -248,9 +252,10 @@ struct Pocket_Tests {
     @Test("Pocket honors climb versus conventional travel direction")
     func testPocketHonorsDirection() {
         let engine = SCEngine()
-        let tool = SC.ToolParams(diameter: 6.0, stepdown: 1.0)
-        let settings = SC.MachineSettings(feedRate: 1000.0,
-                                          plungeRate: 300.0,
+        let tool = SC.ToolParams(diameter: 6.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0,
+                                                                  plungeRate: 300.0,
+                                                                  stepdown: 1.0),
                                           safeZ: 5.0,
                                           targetDepth: -1.0)
 
@@ -308,9 +313,10 @@ struct Pocket_Tests {
     @Test("An open contour does not produce a pocket toolpath")
     func testPocketRequiresClosedContour() {
         let engine = SCEngine()
-        let tool = SC.ToolParams(diameter: 6.0, stepdown: 1.0)
-        let settings = SC.MachineSettings(feedRate: 1000.0,
-                                          plungeRate: 300.0,
+        let tool = SC.ToolParams(diameter: 6.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0,
+                                                                  plungeRate: 300.0,
+                                                                  stepdown: 1.0),
                                           safeZ: 5.0,
                                           targetDepth: -1.0)
 

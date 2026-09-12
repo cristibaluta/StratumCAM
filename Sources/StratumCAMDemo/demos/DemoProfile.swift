@@ -51,8 +51,8 @@ class DemoProfile: Demo {
     /// "Plunge entry starts directly on the offset contour's start point",
     /// since that test uses this exact configuration.
     func demoOutsideSquare() -> Demo.DemoResult {
-        let tool = SC.ToolParams(diameter: 3.175, stepdown: 0.1)
-        let settings = SC.MachineSettings(feedRate: 1000.0, plungeRate: 300.0, safeZ: 5.0, targetDepth: -1.0)
+        let tool = SC.ToolParams(diameter: 3.175)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 0.1), safeZ: 5.0, targetDepth: -1.0)
 
         let operation: SC.MachiningOperation = .contour(side: .outside,
                                              direction: .climb,
@@ -68,8 +68,8 @@ class DemoProfile: Demo {
     /// the toolpath toward the contour center": with a 6mm tool the toolpath
     /// shrinks the square's bounding box in from [0, 10] to [3, 7] on both axes.
     func demoInsideSquare() -> Demo.DemoResult {
-        let tool = SC.ToolParams(diameter: 3.175, stepdown: 0.1)
-        let settings = SC.MachineSettings(feedRate: 1000.0, plungeRate: 300.0, safeZ: 5.0, targetDepth: -1.0)
+        let tool = SC.ToolParams(diameter: 3.175)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 0.1), safeZ: 5.0, targetDepth: -1.0)
 
         let operation: SC.MachiningOperation = .contour(side: .inside,
                                              direction: .climb,
@@ -88,8 +88,8 @@ class DemoProfile: Demo {
     /// contour start at depth": the tool zig-zags across the top edge, dropping
     /// partway on the way out and landing exactly at target depth on the way back.
     func demoRampEntry() -> Demo.DemoResult {
-        let tool = SC.ToolParams(diameter: 3.175, stepdown: 0.1)
-        let settings = SC.MachineSettings(feedRate: 1000.0, plungeRate: 300.0, safeZ: 5.0, targetDepth: -1.0)
+        let tool = SC.ToolParams(diameter: 3.175)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 0.1), safeZ: 5.0, targetDepth: -1.0)
 
         let operation: SC.MachiningOperation = .contour(side: .outside,
                                              direction: .climb,
@@ -106,8 +106,8 @@ class DemoProfile: Demo {
     /// corkscrews at the start point until it completes a whole number of
     /// turns and lands back on the contour start, exactly at target depth.
     func demoHelixEntry() -> Demo.DemoResult {
-        let tool = SC.ToolParams(diameter: 3.175, stepdown: 0.1)
-        let settings = SC.MachineSettings(feedRate: 1000.0, plungeRate: 300.0, safeZ: 5.0, targetDepth: -1.0)
+        let tool = SC.ToolParams(diameter: 3.175)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 0.1), safeZ: 5.0, targetDepth: -1.0)
 
         let operation: SC.MachiningOperation = .contour(side: .outside,
                                              direction: .climb,
@@ -127,8 +127,8 @@ class DemoProfile: Demo {
     /// cuts to full depth (-3.0), while the tab itself is clamped to its
     /// remaining-stock floor (-1.5) so the part stays attached to the stock.
     func demoHoldingTab() -> Demo.DemoResult {
-        let tool = SC.ToolParams(diameter: 3.175, stepdown: 0.1)
-        let settings = SC.MachineSettings(feedRate: 1000.0, plungeRate: 300.0, safeZ: 5.0, targetDepth: -3.0)
+        let tool = SC.ToolParams(diameter: 3.175)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 0.1), safeZ: 5.0, targetDepth: -3.0)
         let tab = SC.HoldingTab(positionRatio: 0.5, width: 2.0, height: 1.5)
 
         let operation: SC.MachiningOperation = .contour(side: .onContour,

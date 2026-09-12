@@ -47,7 +47,7 @@ extension SCEngine {
                                             direction: direction)
 
         // 2. Generate the concentric ring stack, geometry only (Step 2.2a).
-        let rings = pocketRings(from: oriented, tool: tool)
+        let rings = pocketRings(from: oriented, tool: tool, stepoverPercentage: settings.cutting.stepoverPercentage)
         guard !rings.isEmpty else {
             return nil
         }
@@ -82,7 +82,7 @@ extension SCEngine {
     /// only -- no waypoints yet (that's `chainedRingSegments` + `buildWaypoints`).
     ///
     /// The first ring is the same tool-radius wall offset as Step 2.1. Every ring
-    /// after that steps a further `tool.stepoverPercentage * tool.diameter` inward --
+    /// after that steps a further `stepoverPercentage * tool.diameter` inward --
     /// the standard center-to-center spacing between adjacent passes for a given
     /// stepover percentage -- by re-offsetting the previous ring rather than the
     /// original boundary.
@@ -105,7 +105,12 @@ extension SCEngine {
     ///   the documented limitation flagged for Track 4.3), so this checks the
     ///   ring's winding direction instead: a flip from the boundary's original
     ///   winding means the offset pushed through the ring's own center.
-    func pocketRings(from orientedBoundary: [SC.Segment], tool: SC.ToolParams) -> [[SC.Segment]] {
+    ///
+    /// - Parameter stepoverPercentage: Fraction (0.1-0.95) of `tool.diameter` used as the
+    ///   center-to-center spacing between adjacent rings -- this comes from `CuttingData`
+    ///   rather than the tool itself, since the same physical tool can be run at different
+    ///   stepovers depending on material and job.
+    func pocketRings(from orientedBoundary: [SC.Segment], tool: SC.ToolParams, stepoverPercentage: Double) -> [[SC.Segment]] {
         let firstRing = offsetContour(orientedBoundary,
                                       side: .inside,
                                       toolRadius: tool.diameter / 2.0,
@@ -116,7 +121,7 @@ extension SCEngine {
 
         var rings: [[SC.Segment]] = [firstRing]
 
-        let stepover = tool.stepoverPercentage * tool.diameter
+        let stepover = stepoverPercentage * tool.diameter
         guard stepover > 1e-6 else {
             // No forward progress possible with a zero/negative stepover -- the
             // boundary ring is all we can offer.

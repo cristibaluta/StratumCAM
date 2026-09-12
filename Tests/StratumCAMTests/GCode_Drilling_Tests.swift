@@ -15,15 +15,16 @@ struct GCode_Drilling_Tests {
     func testDrillingDwellIsEmittedAfterFinalPeck() {
         let tool = SC.ToolParams(
             type: .drill,
-            diameter: 4.0,
-            stepdown: 1.0,
-            spindleSpeed: 9000.0
+            diameter: 4.0
         )
 
         let settings = SC.MachineSettings(
-            feedRate: 1000.0,
-            plungeRate: 200.0,
-            spindleSpeed: 12000.0,
+            cutting: SC.CuttingData(
+                spindleSpeed: 12000.0,
+                feedRate: 1000.0,
+                plungeRate: 200.0,
+                stepdown: 1.0
+            ),
             safeZ: 5.0,
             retractZ: 1.0,
             targetDepth: 8.0,
@@ -102,14 +103,16 @@ struct GCode_Drilling_Tests {
     func testDrillingWithoutDwellDoesNotEmitDwell() {
         let tool = SC.ToolParams(
             type: .drill,
-            diameter: 3.0,
-            stepdown: 1.0,
-            spindleSpeed: 9000.0
+            diameter: 3.0
         )
 
         let settings = SC.MachineSettings(
-            feedRate: 1000.0,
-            plungeRate: 200.0,
+            cutting: SC.CuttingData(
+                spindleSpeed: 9000.0,
+                feedRate: 1000.0,
+                plungeRate: 200.0,
+                stepdown: 1.0
+            ),
             safeZ: 5.0,
             targetDepth: 5.0
         )
@@ -143,19 +146,30 @@ struct GCode_Drilling_Tests {
         )
     }
 
-    @Test("Drilling uses the tool-specific spindle speed")
+    @Test("Drilling uses the operation-specific spindle speed when it differs from the machine default")
     func testDrillingUsesToolSpecificSpindleSpeed() {
         let tool = SC.ToolParams(
             type: .drill,
-            diameter: 5.0,
-            stepdown: 1.0,
-            spindleSpeed: 8500.0
+            diameter: 5.0
         )
 
-        let settings = SC.MachineSettings(
-            feedRate: 1000.0,
-            plungeRate: 200.0,
-            spindleSpeed: 12000.0,
+        // The settings this particular drilling operation was generated with -- its
+        // `cutting.spindleSpeed` is what ends up on `toolpath.settings`.
+        let operationSettings = SC.MachineSettings(
+            cutting: SC.CuttingData(
+                spindleSpeed: 8500.0,
+                feedRate: 1000.0,
+                plungeRate: 200.0,
+                stepdown: 1.0
+            ),
+            safeZ: 5.0,
+            targetDepth: 4.0
+        )
+
+        // The machine-wide settings passed into `generateGCode`, representing the
+        // program's default spindle speed (e.g. from the header `M03`).
+        let machineSettings = SC.MachineSettings(
+            cutting: SC.CuttingData(spindleSpeed: 12000.0),
             safeZ: 5.0,
             targetDepth: 4.0
         )
@@ -174,33 +188,35 @@ struct GCode_Drilling_Tests {
         let toolpaths = SCEngine().generateToolpaths(
             from: [contour],
             tool: tool,
-            settings: settings,
+            settings: operationSettings,
             operation: .drilling(peckDepth: nil)
         )
 
         let gcode = SCGCodeEngine().generateGCode(
             from: toolpaths,
-            settings: settings
+            settings: machineSettings
         )
 
         #expect(
             gcode.contains("M03 S8500 (Drilling spindle speed)"),
-            "Test Failed: drilling should select the tool-specific spindle speed"
+            "Test Failed: drilling should select the operation-specific spindle speed"
         )
     }
 
-    @Test("Drilling falls back to machine spindle speed when the tool has no spindle override")
+    @Test("Drilling falls back to machine spindle speed when the operation has no spindle override")
     func testDrillingFallsBackToMachineSpindleSpeed() {
         let tool = SC.ToolParams(
             type: .drill,
-            diameter: 3.0,
-            stepdown: 1.0
+            diameter: 3.0
         )
 
         let settings = SC.MachineSettings(
-            feedRate: 1000.0,
-            plungeRate: 200.0,
-            spindleSpeed: 11000.0,
+            cutting: SC.CuttingData(
+                spindleSpeed: 11000.0,
+                feedRate: 1000.0,
+                plungeRate: 200.0,
+                stepdown: 1.0
+            ),
             safeZ: 5.0,
             targetDepth: 4.0
         )
@@ -216,6 +232,8 @@ struct GCode_Drilling_Tests {
             )
         ], isClosed: false)
 
+        // The operation and the machine share the same settings, so `cutting.spindleSpeed`
+        // matches on both sides and no override should be emitted.
         let toolpaths = SCEngine().generateToolpaths(
             from: [contour],
             tool: tool,
@@ -230,7 +248,7 @@ struct GCode_Drilling_Tests {
 
         #expect(
             gcode.contains("M03 S11000 (Spindle On)"),
-            "Test Failed: drilling without a tool spindle override should use machine spindle speed"
+            "Test Failed: drilling without a spindle override should use machine spindle speed"
         )
 
         #expect(

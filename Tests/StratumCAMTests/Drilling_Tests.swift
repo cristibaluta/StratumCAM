@@ -79,8 +79,8 @@ struct Drilling_Tests {
     @Test("A plain drill cycle plunges straight down and retracts at the point location")
     func testDrillingPlungesAndRetractsAtPointLocation() {
         let engine = SCEngine()
-        let tool = SC.ToolParams(type: .drill, diameter: 3.0, stepdown: 1.0)
-        let settings = SC.MachineSettings(feedRate: 1000.0, plungeRate: 200.0, safeZ: 5.0, targetDepth: -8.0)
+        let tool = SC.ToolParams(type: .drill, diameter: 3.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -8.0)
 
         let contour = SC.Contour(entities: [
             .init(entity: .point(at: DXF.Point(12, 20), layer: "0", color: 7), reversed: false)
@@ -124,8 +124,8 @@ struct Drilling_Tests {
     @Test("A drill cycle from a closed circle contour drills at the circle's center")
     func testDrillingUsesCircleCenterAsHoleLocation() {
         let engine = SCEngine()
-        let tool = SC.ToolParams(type: .drill, diameter: 4.0, stepdown: 1.0)
-        let settings = SC.MachineSettings(feedRate: 1000.0, plungeRate: 250.0, safeZ: 6.0, targetDepth: -5.0)
+        let tool = SC.ToolParams(type: .drill, diameter: 4.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 250.0, stepdown: 1.0), safeZ: 6.0, targetDepth: -5.0)
 
         let contour = SC.Contour(entities: [
             .init(entity: .circle(center: DXF.Point(1, 2), radius: 2.0, layer: "0", color: 7), reversed: false)
@@ -142,8 +142,8 @@ struct Drilling_Tests {
     @Test("A non-drill-point contour produces no drilling toolpath")
     func testDrillingNonDrillPointContourReturnsNoToolpath() {
         let engine = SCEngine()
-        let tool = SC.ToolParams(type: .drill, diameter: 3.0, stepdown: 1.0)
-        let settings = SC.MachineSettings(feedRate: 1000.0, plungeRate: 200.0, safeZ: 5.0, targetDepth: -8.0)
+        let tool = SC.ToolParams(type: .drill, diameter: 3.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -8.0)
 
         let contour = SC.Contour(entities: [
             .init(entity: .line(a: DXF.Point(0, 0), b: DXF.Point(10, 0), layer: "0", color: 7), reversed: false)
@@ -159,8 +159,8 @@ struct Drilling_Tests {
     @Test("Peck drilling with an evenly divisible depth produces exactly the right number of pecks")
     func testPeckDrillingEvenDivisionProducesExactPeckCount() {
         let engine = SCEngine()
-        let tool = SC.ToolParams(type: .drill, diameter: 3.0, stepdown: 1.0)
-        let settings = SC.MachineSettings(feedRate: 1000.0, plungeRate: 200.0, safeZ: 5.0, retractZ: 1.0, targetDepth: 8.0)
+        let tool = SC.ToolParams(type: .drill, diameter: 3.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, retractZ: 1.0, targetDepth: 8.0)
 
         let contour = SC.Contour(entities: [
             .init(entity: .point(at: DXF.Point(10, 10), layer: "0", color: 7), reversed: false)
@@ -217,8 +217,8 @@ struct Drilling_Tests {
     @Test("Peck drilling with an unevenly divisible depth ends exactly on target depth")
     func testPeckDrillingUnevenDivisionEndsAtTargetDepth() {
         let engine = SCEngine()
-        let tool = SC.ToolParams(type: .drill, diameter: 3.0, stepdown: 1.0)
-        let settings = SC.MachineSettings(feedRate: 1000.0, plungeRate: 200.0, safeZ: 5.0, retractZ: 1.0, targetDepth: 10.0)
+        let tool = SC.ToolParams(type: .drill, diameter: 3.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, retractZ: 1.0, targetDepth: 10.0)
 
         let contour = SC.Contour(entities: [
             .init(entity: .point(at: DXF.Point(0, 0), layer: "0", color: 7), reversed: false)
@@ -243,8 +243,8 @@ struct Drilling_Tests {
     @Test("Peck drilling from a closed circle contour pecks at the circle's center")
     func testPeckDrillingUsesCircleCenterAsHoleLocation() {
         let engine = SCEngine()
-        let tool = SC.ToolParams(type: .drill, diameter: 4.0, stepdown: 1.0)
-        let settings = SC.MachineSettings(feedRate: 1000.0, plungeRate: 250.0, safeZ: 6.0, retractZ: 1.5, targetDepth: 6.0)
+        let tool = SC.ToolParams(type: .drill, diameter: 4.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 250.0, stepdown: 1.0), safeZ: 6.0, retractZ: 1.5, targetDepth: 6.0)
 
         let contour = SC.Contour(entities: [
             .init(entity: .circle(center: DXF.Point(1, 2), radius: 2.0, layer: "0", color: 7), reversed: false)
@@ -264,8 +264,8 @@ struct Drilling_Tests {
     @Test("A zero or negative peck depth falls back to a plain drill cycle")
     func testNonPositivePeckDepthFallsBackToPlainDrillCycle() {
         let engine = SCEngine()
-        let tool = SC.ToolParams(type: .drill, diameter: 3.0, stepdown: 1.0)
-        let settings = SC.MachineSettings(feedRate: 1000.0, plungeRate: 200.0, safeZ: 5.0, targetDepth: 8.0)
+        let tool = SC.ToolParams(type: .drill, diameter: 3.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: 8.0)
 
         let contour = SC.Contour(entities: [
             .init(entity: .point(at: DXF.Point(0, 0), layer: "0", color: 7), reversed: false)
@@ -283,10 +283,13 @@ struct Drilling_Tests {
     @Test("Multiple drill point contours produce one toolpath per hole")
     func testMultipleDrillPointsProduceOneToolpathPerContour() {
         let engine = SCEngine()
-        let tool = SC.ToolParams(type: .drill, diameter: 3.0, stepdown: 1.0)
+        let tool = SC.ToolParams(type: .drill, diameter: 3.0)
         let settings = SC.MachineSettings(
-            feedRate: 1000.0,
-            plungeRate: 200.0,
+            cutting: SC.CuttingData(
+                feedRate: 1000.0,
+                plungeRate: 200.0,
+                stepdown: 1.0
+            ),
             safeZ: 5.0,
             targetDepth: 8.0
         )
@@ -358,27 +361,31 @@ struct Drilling_Tests {
 
         let plainTool = SC.ToolParams(
             type: .drill,
-            diameter: 3.0,
-            stepdown: 1.0
+            diameter: 3.0
         )
 
         let peckTool = SC.ToolParams(
             type: .drill,
-            diameter: 6.0,
-            stepdown: 1.0
+            diameter: 6.0
         )
 
         let plainSettings = SC.MachineSettings(
-            feedRate: 1000.0,
-            plungeRate: 200.0,
+            cutting: SC.CuttingData(
+                feedRate: 1000.0,
+                plungeRate: 200.0,
+                stepdown: 1.0
+            ),
             safeZ: 5.0,
             retractZ: 1.0,
             targetDepth: 6.0
         )
 
         let peckSettings = SC.MachineSettings(
-            feedRate: 800.0,
-            plungeRate: 150.0,
+            cutting: SC.CuttingData(
+                feedRate: 800.0,
+                plungeRate: 150.0,
+                stepdown: 1.0
+            ),
             safeZ: 7.0,
             retractZ: 1.5,
             targetDepth: 10.0

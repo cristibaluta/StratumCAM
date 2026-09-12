@@ -32,8 +32,8 @@ extension SCEngine {
                                              toolRadius: tool.diameter / 2.0,
                                              isClosed: contour.isClosed)
 
-        // 2. Calculate Z depth passes based on tool stepdown
-        let zDepths = calculateZPasses(targetDepth: settings.targetDepth, stepdown: tool.stepdown)
+        // 2. Calculate Z depth passes based on the configured cutting stepdown
+        let zDepths = calculateZPasses(targetDepth: settings.targetDepth, stepdown: settings.cutting.stepdown)
 
         // 3. Build waypoints per pass
         var passes: [SC.ToolpathPass] = []
