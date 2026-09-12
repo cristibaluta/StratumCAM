@@ -87,9 +87,33 @@ extension SCEngine {
                 // another ordered stack of segment groups needing connecting transitions
                 // between them.
                 toolpathSegments = chainedRingSegments(rows)
-            case .adaptive:
-                fatalError("Not implemented yet")
             case .spiral:
+                // Same climb/conventional wall orientation as `.offsetPattern` -- a
+                // spiral pocket is still, at heart, the same concentric-ring shape.
+                let oriented = orientedForDirection(baseSegments, side: .inside, direction: direction)
+                boundarySegments = oriented
+
+                // The discrete ring stack is reused either way: as the interpolation
+                // control points for a true spiral (below), or, on the fallback path,
+                // exactly as `.offsetPattern` already chains them.
+                let rings = pocketRings(from: oriented, tool: tool, stepoverPercentage: settings.cutting.stepoverPercentage)
+                guard !rings.isEmpty else {
+                    return nil
+                }
+
+                if isSpiralEligible(oriented) {
+                    toolpathSegments = spiralSegments(from: rings)
+                } else {
+                    // Per the `.spiral` case's own doc comment, this only has a
+                    // well-defined single center on a circular boundary -- anything
+                    // else (a rectangle, an arbitrary polygon, even an ellipse or
+                    // near-symmetrical shape this doesn't specifically detect) falls
+                    // back to the exact ring-and-chain path `.offsetPattern` uses,
+                    // rather than spiraling around a center that doesn't actually fit
+                    // the boundary. See `isSpiralEligible`.
+                    toolpathSegments = chainedRingSegments(rings)
+                }
+            case .adaptive:
                 fatalError("Not implemented yet")
             case .morph:
                 fatalError("Not implemented yet")
@@ -344,6 +368,96 @@ extension SCEngine {
         }
 
         return chained
+    }
+
+    // MARK: - Step 1B.1: spiral pocket
+
+    /// Whether `boundary` has the single well-defined center a continuous spiral needs
+    /// to interpolate around -- true only when every segment is an arc sharing the same
+    /// center and radius, i.e. a full circle. That's the shape a DXF `.circle` entity
+    /// linearizes into (two 180° arcs of matching center/radius -- see `SCEngine.swift`'s
+    /// `.circle` case), so a plain circular pocket boundary is always detected here.
+    ///
+    /// The `.spiral` case's own doc comment also allows "elliptical, or near-symmetrical"
+    /// boundaries, but this doesn't attempt to detect those: an ellipse has no single
+    /// radius to check against, and "near-symmetrical" has no crisp definition at all.
+    /// Rather than guess and risk spiraling around a center that doesn't actually fit the
+    /// boundary, anything that isn't a plain circle -- including ellipses, rounded
+    /// rectangles, and arbitrary polygons -- takes the `.offsetPattern` ring-and-chain
+    /// fallback in `buildPocketToolpath` above instead.
+    private func isSpiralEligible(_ boundary: [SC.Segment]) -> Bool {
+        guard case .arc(let center, let radius, _, _, _) = boundary.first else {
+            return false
+        }
+        return boundary.allSatisfy { segment in
+            guard case .arc(let c, let r, _, _, _) = segment else {
+                return false
+            }
+            return hypot(c.x - center.x, c.y - center.y) < 1e-6 && abs(r - radius) < 1e-6
+        }
+    }
+
+    /// Turns a concentric ring stack (as `pocketRings` produces, outside-in) into one
+    /// continuous spiral: one full turn per ring, radius interpolating linearly from
+    /// that ring's radius to the next ring's radius over the turn, so the path never
+    /// closes on itself the way `chainedRingSegments`' discrete rings-plus-transitions
+    /// does. The final turn holds at the innermost ring's radius rather than
+    /// interpolating toward anything, fully closing out the pocket floor at depth --
+    /// the "final pass" the `.spiral` case's own doc comment describes as the one place
+    /// the path does close.
+    ///
+    /// `SC.Segment` has no primitive for an arc of continuously-changing radius, so the
+    /// spiral is approximated as a polyline of short `.line` chords -- the same kind of
+    /// tessellation trade-off `helixEntryWaypoints` already makes for its own circular
+    /// entry move, just at a finer resolution here (every 5 degrees rather than every
+    /// 45): this is the whole cut, not a short entry hop clear of any wall, so visible
+    /// faceting on the pocket floor matters more.
+    ///
+    /// Only called once `isSpiralEligible` has confirmed every ring shares one true
+    /// center -- `rings` themselves are trusted to be concentric arcs here rather than
+    /// re-checked.
+    private func spiralSegments(from rings: [[SC.Segment]]) -> [SC.Segment] {
+        guard case .arc(let center, let startRadius, let startAngle, _, let isCCW) = rings.first?.first else {
+            return []
+        }
+
+        let radii: [Double] = rings.map { ring -> Double in
+            guard case .arc(_, let r, _, _, _) = ring.first else {
+                return startRadius // unreachable once `isSpiralEligible` has passed.
+            }
+            return r
+        }
+
+        let stepsPerTurn = 72
+        let turnCount = radii.count // one turn per ring: `radii.count - 1` transitions, plus one closing turn at the innermost radius.
+        let totalSteps = turnCount * stepsPerTurn
+        let angleStep = (2 * Double.pi / Double(stepsPerTurn)) * (isCCW ? 1.0 : -1.0)
+
+        func point(atStep step: Int) -> CGPoint {
+            let turnIndex = min(step / stepsPerTurn, radii.count - 1)
+            let angle = startAngle + angleStep * Double(step)
+
+            let radius: Double
+            if turnIndex < radii.count - 1 {
+                let stepWithinTurn = step % stepsPerTurn
+                let t = Double(stepWithinTurn) / Double(stepsPerTurn)
+                radius = radii[turnIndex] + (radii[turnIndex + 1] - radii[turnIndex]) * t
+            } else {
+                radius = radii[radii.count - 1] // final closing turn: constant, innermost radius.
+            }
+
+            return CGPoint(x: center.x + radius * cos(angle), y: center.y + radius * sin(angle))
+        }
+
+        var segments: [SC.Segment] = []
+        var previousPoint = point(atStep: 0)
+        for step in 1...totalSteps {
+            let nextPoint = point(atStep: step)
+            segments.append(.line(start: previousPoint, end: nextPoint))
+            previousPoint = nextPoint
+        }
+
+        return segments
     }
 
     // MARK: - Step 1.1a: raster scanline geometry

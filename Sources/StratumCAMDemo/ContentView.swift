@@ -108,6 +108,14 @@ struct ContentView: View {
                         show(DemoPocketing().demoRasterConcaveStapleSkipsBridgingRows())
                     }
                 }
+                Section("Pocketing — Spiral") {
+                    demoButton("Spiral Circle") {
+                        show(DemoPocketing().demoSpiralCircle())
+                    }
+                    demoButton("Spiral Fallback on Rectangle") {
+                        show(DemoPocketing().demoSpiralFallbackOnRectangle())
+                    }
+                }
             }
             .navigationTitle("StratumCAM Demo")
         } content: {

@@ -1,6 +1,6 @@
 # StratumCAM — Implementation Roadmap
 
-Last updated after: Track 1 (Pocketing) test coverage complete + raster
+Last updated after: spiral pocket clearing (`.spiral`, Step 1B.1)
 concave-row bug fix (`SCEngine+Pocketing.swift`, `Raster_Tests.swift`) + raster
 helix-entry bounding fixes (`SCEngine+Contour.swift`, `SCEngine+Pocketing.swift`,
 `PocketEntry_Tests.swift`) + Track 1C added (raster multi-span rows +
@@ -14,7 +14,7 @@ moving on. Don't ask for a whole "Track" in one message — ask for one step, re
 commit, then move to the next. That's what keeps sessions from blowing up mid-feature.
 
 Suggested prompt shape per step:
-> "Implement Step X.Y from the roadmap. Follow the existing code style in SCEngine+Profile.swift. Add a test file in the style of Engraving_Tests.swift."
+> "Implement Step X.Y from the roadmap. Follow the existing code style in SCEngine+Contour.swift. Add a test file in the style of Engraving_Tests.swift and add also a demo following the DemoContour style."
 
 ---
 
@@ -167,18 +167,18 @@ order below; each is progressively harder to slot into the existing shape.
 > is exactly why `.adaptive` here should reuse Track 3's core algorithm rather
 > than growing a second, divergent implementation. See 1B.4.
 
-- **1B.1 — `spiral` pocket: continuous inward/outward spiral**
-  Closest relative of the two done patterns: like `offsetPattern`'s ring stack,
-  but instead of chaining discrete closed rings with connecting transitions
-  (`chainedRingSegments`), interpolate each ring's radius/offset continuously
-  from one ring to the next so the path never closes on itself until the final
-  pass. `pocketRings` already gives the discrete ring stack (Step 1.1's
-  boundary-offset machinery) — reuse its ring geometry as the interpolation
-  control points rather than recomputing offsets. Only well-defined for
-  boundaries close to circular/elliptical/near-symmetrical, per the enum's own
-  doc comment — for anything else, fall back to `.offsetPattern`'s ring-and-chain
-  behavior (flag this fallback rule rather than silently producing a bad spiral
-  on odd shapes).
+- DONE **1B.1 — `spiral` pocket: continuous inward/outward spiral**
+  Reuses `pocketRings`' ring stack as interpolation control points: one full turn
+  per ring, radius interpolating linearly between consecutive rings' radii, with
+  a final closing turn held at the innermost ring's radius. Only takes effect on
+  a genuinely circular boundary (`isSpiralEligible`: every segment a concentric
+  arc, matching how a DXF `.circle` linearizes) -- anything else, including
+  ellipses and rounded rectangles this doesn't specifically detect, falls back
+  to the exact `.offsetPattern` ring-and-chain path instead of spiraling around
+  a center that doesn't fit the boundary. `SC.Segment` has no continuously-varying-
+  radius arc primitive, so the spiral itself is a polyline of short `.line`
+  chords, tessellated finer (5°/step) than `helixEntryWaypoints`' own circular
+  entry move, since this is the whole cut rather than a short hop clear of a wall.
 
 - **1B.2 — `trochoidal` pocket: overlapping circular loop clearing**
   Advance along the pocket's centerline/boundary (reuse the same oriented
@@ -218,6 +218,10 @@ order below; each is progressively harder to slot into the existing shape.
   overlap honors stepover, `adaptive` pattern matches Track 3's core output on
   the same input geometry once 1B.4 lands. No test for `morph` until 1B.3's
   model-change blocker is resolved.
+  > Spiral's two cases (continuity + fallback) are already covered, in their own
+  > `PocketSpiral_Tests.swift` rather than `Pocket_Tests.swift` -- landed
+  > alongside 1B.1 itself rather than deferred here. What's left for this step
+  > is trochoidal (1B.2) and adaptive (1B.4)'s coverage.
 
 ---
 

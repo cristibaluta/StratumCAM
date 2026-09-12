@@ -57,6 +57,15 @@ class DemoPocketing: Demo {
         ], isClosed: true)
     }
 
+    /// A circle of the given radius centered at the origin -- the one boundary shape
+    /// `.spiral` treats as eligible for a genuinely continuous spiral (matches how a
+    /// DXF `.circle` entity linearizes: two 180° arcs of matching center/radius).
+    private func circleContour(radius: Double) -> SC.Contour {
+        SC.Contour(entities: [
+            SC.Contour.Chained(entity: .circle(center: DXF.Point(0, 0), radius: radius, layer: "0", color: 7), reversed: false)
+        ], isClosed: true)
+    }
+
     // MARK: - Concentric ring pocketing (Step 2.2)
 
     /// Clears a 40x24 rectangle with a 6mm tool at 40% stepover. Wide enough
@@ -250,5 +259,35 @@ class DemoPocketing: Demo {
         let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .raster, entry: .plunge)
 
         return self.run(contour: staplePolygonContour(scale: 2.0), tool: tool, settings: settings, operation: operation)
+    }
+
+    // MARK: - Spiral clearing (Step 1B.1)
+
+    /// Clears a 20mm-radius circular pocket with one continuous inward spiral
+    /// instead of discrete rings -- the direct visual contrast with
+    /// `demoPocketRectangle()`'s ring stack: no lateral "jump" transition between
+    /// passes, just one smoothly shrinking curve down to the center.
+    func demoSpiralCircle() -> Demo.DemoResult {
+        let tool = SC.ToolParams(diameter: 6.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4), safeZ: 5.0, targetDepth: -3.0)
+
+        let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .spiral, entry: .plunge)
+
+        return self.run(contour: circleContour(radius: 20), tool: tool, settings: settings, operation: operation)
+    }
+
+    /// The same 40x24 rectangle and settings as `demoPocketRectangle()`, but with
+    /// `.spiral` requested instead of `.offsetPattern`. A rectangle has no single
+    /// center to spiral around, so this should look identical to
+    /// `demoPocketRectangle()` -- the discrete ring-and-chain fallback `.spiral`
+    /// takes on any non-circular boundary, not a spiral computed around the wrong
+    /// point. See `isSpiralEligible`.
+    func demoSpiralFallbackOnRectangle() -> Demo.DemoResult {
+        let tool = SC.ToolParams(diameter: 6.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4), safeZ: 5.0, targetDepth: -3.0)
+
+        let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .spiral, entry: .plunge)
+
+        return self.run(contour: rectangleContour(width: 40, height: 24), tool: tool, settings: settings, operation: operation)
     }
 }
