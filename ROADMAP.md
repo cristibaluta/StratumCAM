@@ -180,6 +180,35 @@ order below; each is progressively harder to slot into the existing shape.
   chords, tessellated finer (5°/step) than `helixEntryWaypoints`' own circular
   entry move, since this is the whole cut rather than a short hop clear of a wall.
 
+- **1B.1b — `spiral` pocket: selectable direction (outside-in / inside-out)**
+  1B.1 only walks `pocketRings`' ring stack in the order it's produced -- outer
+  wall ring first, shrinking inward -- with `spiralSegments`' opening turn held
+  at the outer (wall) radius and its closing turn held at the innermost radius.
+  That's one legitimate real-world choice (engage the wall first while the tool's
+  fresh, clear the floor last) but not the only one: entering near the center and
+  finishing by cutting the wall once, last, is closer to what canned circular-
+  pocket cycles (e.g. Fanuc G12/G13) and several CAM packages default to when
+  wall finish matters most -- nothing re-touches the wall after that final pass.
+  Add a `direction: .outsideIn | .insideOut` parameter on `.spiral`
+  (`SC+ClearingPattern.swift`, mirroring 1C.3's `axis: .x | .y` parameter style)
+  with `.outsideIn` as the default so existing callers/demos are unaffected:
+  - For `.insideOut`, reverse the ring order (or generate rings inside-out to
+    begin with) before interpolating in `spiralSegments`, and swap which end
+    gets the "hold and fully close" bookend treatment -- opening turn holds at
+    the innermost radius, closing turn holds at the outermost (wall) radius.
+  - Entry moves too: `.outsideIn`'s first-ring entry (already wired per Step
+    1.2) is the outer wall ring, still correct for that direction, but
+    `.insideOut` needs to plunge at/near the innermost ring instead. Because
+    `isSpiralEligible` only allows this path on a genuinely circular boundary,
+    the innermost ring is itself a real (small) circle with a well-defined
+    center -- this doesn't need the general "center of an arbitrary pocket"
+    detection that's still blocked on the `Contour` model change flagged under
+    Track 1 and 1B.3, it's just "plunge at the smallest ring instead of the
+    largest one" once the ring order is reversed.
+  - `isSpiralEligible`'s fallback behavior (non-circular boundary -> exact
+    `.offsetPattern` ring-and-chain path) is unaffected either way; `direction`
+    only matters once a boundary is already spiral-eligible.
+
 - **1B.2 — `trochoidal` pocket: overlapping circular loop clearing**
   Advance along the pocket's centerline/boundary (reuse the same oriented
   chain `.offsetPattern` builds via `orientedForDirection`) while looping the
@@ -221,7 +250,11 @@ order below; each is progressively harder to slot into the existing shape.
   > Spiral's two cases (continuity + fallback) are already covered, in their own
   > `PocketSpiral_Tests.swift` rather than `Pocket_Tests.swift` -- landed
   > alongside 1B.1 itself rather than deferred here. What's left for this step
-  > is trochoidal (1B.2) and adaptive (1B.4)'s coverage.
+  > is trochoidal (1B.2) and adaptive (1B.4)'s coverage, plus 1B.1b's
+  > `.insideOut` direction once that lands: same continuity check as
+  > `.outsideIn`'s but bookends swapped (opens at innermost radius, closes at
+  > outermost), and entry-point placement at the innermost ring instead of the
+  > outer wall ring.
 
 ---
 
@@ -376,7 +409,7 @@ step's plumbing isn't wired to UI yet.
   confirming the yellow toolpath visibly stops short instead of drawing the
   whole thing.
 
-- **5.3 — Marker circle geometry at a point**
+- DONE **5.3 — Marker circle geometry at a point**
   Add a pure-geometry helper that generates a small flat circle's worth of
   `RenderVertex`s (e.g. 24-32 point loop, `.lineStrip`, closed) centered on a
   given `SIMD3<Float>`, in its own distinct color (something that reads clearly
@@ -385,7 +418,7 @@ step's plumbing isn't wired to UI yet.
   as one more `RenderBatch` appended alongside the sliced toolpath batch from
   5.2. Verify the same way as 5.2: hardcode a test index/point first.
 
-- **5.4 — Slider UI in `ContentView`, wired to 5.1-5.3**
+- DONE **5.4 — Slider UI in `ContentView`, wired to 5.1-5.3**
   Add `@State private var toolpathPoints: [SIMD3<Float>] = []` and
   `@State private var scrubIndex: Double = 0` to `ContentView`. Add a
   `Slider` bound to `scrubIndex`, ranged `0...Double(max(0, toolpathPoints.count - 1))`,
@@ -397,7 +430,7 @@ step's plumbing isn't wired to UI yet.
   always starts fully drawn rather than at a stale scrub position from whatever
   was previously selected.
 
-- **5.5 — Smooth marker interpolation between points**
+- DINE **5.5 — Smooth marker interpolation between points**
   The marker currently jumps point-to-point, which is fine at the tessellation
   density most curved demos already produce, but looks chunky on coarse paths
   (e.g. a rectangle's 4 corners, or `demoPocketRectangle`'s straight ring
