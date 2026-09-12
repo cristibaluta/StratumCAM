@@ -247,6 +247,53 @@ struct PocketEntry_Tests {
         #expect(hasArcEntryMoves, "Test Failed: expected helix entry to generate arc motion waypoints")
     }
 
+    // MARK: - Regression: raster helix entry must not exceed the pocket's own bounds
+
+    /// A 40x24 CCW rectangle -- large enough, and with a large enough stepover, that
+    /// `.raster` produces several scan rows, which is what exposed the bug: computing
+    /// the helix's offset side from the raster's own (open, direction-alternating) row
+    /// chain instead of the closed wall boundary produced an arbitrary sign, so some
+    /// helix entries spiraled outward through the wall instead of staying inside it.
+    private func wideRasterContour() -> SC.Contour {
+        SC.Contour(entities: [
+            .init(entity: .line(a: DXF.Point(0, 0), b: DXF.Point(40, 0), layer: "0", color: 7), reversed: false),
+            .init(entity: .line(a: DXF.Point(40, 0), b: DXF.Point(40, 24), layer: "0", color: 7), reversed: false),
+            .init(entity: .line(a: DXF.Point(40, 24), b: DXF.Point(0, 24), layer: "0", color: 7), reversed: false),
+            .init(entity: .line(a: DXF.Point(0, 24), b: DXF.Point(0, 0), layer: "0", color: 7), reversed: false)
+        ], isClosed: true)
+    }
+
+    @Test("Raster helix entry never spirals past the pocket's own stock boundary")
+    func testRasterHelixEntryStaysWithinStockBoundary() {
+        let engine = SCEngine()
+        let tool = SC.ToolParams(diameter: 6.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0,
+                                                                    plungeRate: 300.0,
+                                                                    stepdown: 1.0,
+                                                                    stepoverPercentage: 0.4),
+                                          safeZ: 5.0,
+                                          targetDepth: -1.0)
+
+        let toolpaths = engine.generateToolpaths(
+            from: [wideRasterContour()],
+            tool: tool,
+            settings: settings,
+            operation: pocketStrategy(pattern: .raster, entry: .helix(radius: 2.0, rampAngleDegrees: 30))
+        )
+
+        #expect(toolpaths.count == 1, "Test Failed: expected 1 raster pocket toolpath")
+        let waypoints = toolpaths[0].passes[0].waypoints
+
+        // No waypoint -- helix entries included -- should ever land outside the stock
+        // the contour describes. A helix that offsets to the wrong side pokes its arc
+        // through the wall, well past [0, 40] x [0, 24].
+        let outOfBounds = waypoints.first { wp in
+            wp.position.x < -1e-6 || wp.position.x > 40 + 1e-6 || wp.position.y < -1e-6 || wp.position.y > 24 + 1e-6
+        }
+        #expect(outOfBounds == nil,
+                "Test Failed: expected every waypoint to stay within the [0, 40] x [0, 24] stock boundary, found \(String(describing: outOfBounds?.position))")
+    }
+
     // MARK: - Regression: plunge entry stays untouched
 
     @Test("Pocket plunge entry is unaffected by Step 1.2 -- still a straight rapid + plunge")

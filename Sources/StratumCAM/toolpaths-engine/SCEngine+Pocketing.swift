@@ -38,12 +38,22 @@ extension SCEngine {
 
         let toolpathSegments: [SC.Segment]
 
+        // The real, closed pocket-wall boundary -- distinct from `toolpathSegments`
+        // below. `.helix` entry needs a genuinely closed loop to compute which side
+        // of the tool's path is "inside" (see `isCCWWinding`'s shoelace calculation,
+        // which is only meaningful for a closed boundary); `toolpathSegments` itself
+        // is a closed loop for `.offsetPattern` (each ring is the wall, re-offset) but
+        // is an open, direction-alternating zig-zag for `.raster` (the chained scan
+        // rows), so it must not be reused for that purpose -- see `buildPocketWaypoints`.
+        let boundarySegments: [SC.Segment]
+
         switch pattern {
             case .offsetPattern:
                 // 1. Orient the chain so travel direction matches the requested cut
                 // direction. Pocket walls are inside cuts, so use `.inside` for the same
                 // climb/conventional convention already established by profile.
                 let oriented = orientedForDirection(baseSegments, side: .inside, direction: direction)
+                boundarySegments = oriented
 
                 // 2. Generate the concentric ring stack, geometry only (Step 2.2a, done).
                 let rings = pocketRings(from: oriented, tool: tool, stepoverPercentage: settings.cutting.stepoverPercentage)
@@ -65,6 +75,7 @@ extension SCEngine {
                 guard !wallOffset.isEmpty else {
                     return nil
                 }
+                boundarySegments = wallOffset
 
                 let stepover = settings.cutting.stepoverPercentage * tool.diameter
                 let rows = rasterScanlines(within: wallOffset, stepover: stepover, direction: direction)
@@ -100,6 +111,7 @@ extension SCEngine {
         var previousZ = 0.0 // top of stock -- pass 0 ramps/helixes down from here, same convention `.contour` uses.
         for (i, z) in zDepths.enumerated() {
             let waypoints = buildPocketWaypoints(for: toolpathSegments,
+                                                 boundary: boundarySegments,
                                                  atZ: z,
                                                  previousZ: previousZ,
                                                  settings: settings,
@@ -135,7 +147,18 @@ extension SCEngine {
     /// pocketing has no separate inside/outside concept the way `.contour` does (the
     /// wall offset is already baked into `toolpathSegments`), and `.inside` matches the
     /// convention `orientedForDirection`/`pocketRings` already use elsewhere in this file.
+    ///
+    /// `boundary` is the real, closed pocket-wall loop and is deliberately separate from
+    /// `segments` (the cutting geometry): the helix's signed-offset calculation needs a
+    /// genuinely closed loop to determine which side of the tool's path is "inside" the
+    /// wall (see `isCCWWinding`). For `.offsetPattern`, `segments` (the chained ring
+    /// stack) happens to also be closed, but for `.raster`, `segments` is an open,
+    /// direction-alternating zig-zag of scan rows -- treating that as a closed loop
+    /// produces an arbitrary offset sign and can send the helix spiraling outside the
+    /// pocket's own bounding box. `boundary` is always the one true closed wall,
+    /// regardless of pattern, so the helix stays consistently on the safe side of it.
     private func buildPocketWaypoints(for segments: [SC.Segment],
+                                      boundary: [SC.Segment],
                                       atZ z: Double,
                                       previousZ: Double,
                                       settings: SC.MachineSettings,
@@ -176,7 +199,7 @@ extension SCEngine {
                     contentsOf: helixEntryWaypoints(contourStart: startPoint,
                                                     startTangent: startTangent,
                                                     side: .inside,
-                                                    segments: segments,
+                                                    segments: boundary,
                                                     radius: radius,
                                                     angleDegrees: angleDegrees,
                                                     fromZ: previousZ,
