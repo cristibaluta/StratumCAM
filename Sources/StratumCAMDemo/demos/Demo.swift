@@ -17,11 +17,17 @@ class Demo {
     let engine = SCEngine()
     let gcodeEngine = SCGCodeEngine()
 
-    /// Everything a demo button needs to update the UI: the 3D preview batches
-    /// and the G-code text for the same toolpath.
+    /// Everything a demo button needs to update the UI: the 3D preview batches,
+    /// the G-code text for the same toolpath, and the raw toolpath points behind
+    /// the prebuilt toolpath batch -- kept around (Step 5.1) so the UI layer can
+    /// slice/scrub through them later instead of only ever drawing the whole
+    /// toolpath at once. Every Z pass's points are flattened into one continuous
+    /// array in the same order the full-toolpath batch already draws them in;
+    /// per-pass boundaries aren't tracked yet (see ROADMAP.md Track 5.6).
     struct DemoResult {
         let batches: [RenderBatch]
         let gcode: String
+        let toolpathPoints: [SIMD3<Float>]
     }
 
     func run(contour: SC.Contour, tool: SC.ToolParams, settings: SC.MachineSettings, operation: SC.MachiningOperation) -> DemoResult {
@@ -86,7 +92,7 @@ class Demo {
         // 5. Generate G-code for the same toolpaths
         let gcode = gcodeEngine.generateGCode(from: toolpaths, settings: settings)
 
-        return DemoResult(batches: batches, gcode: gcode)
+        return DemoResult(batches: batches, gcode: gcode, toolpathPoints: toolpathPoints)
     }
 
     /// `buildWaypoints`/toolpath passes only carry the *endpoints* of each move (plus a
