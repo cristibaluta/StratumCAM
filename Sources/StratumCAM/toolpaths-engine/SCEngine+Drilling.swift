@@ -52,7 +52,7 @@ extension SCEngine {
                                tool: SC.ToolParams,
                                settings: SC.MachineSettings,
                                peckDepth: Double?,
-                               strategy: SC.Strategy) -> SC.OutputToolpath? {
+                               strategy: SC.MachiningOperation) -> SC.OutputToolpath? {
 
         guard let point = drillPoint(for: contour) else {
             return nil

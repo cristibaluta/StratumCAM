@@ -24,14 +24,14 @@ class Demo {
         let gcode: String
     }
 
-    func run(contour: SC.Contour, tool: SC.ToolParams, settings: SC.MachineSettings, strategy: SC.Strategy) -> DemoResult {
+    func run(contour: SC.Contour, tool: SC.ToolParams, settings: SC.MachineSettings, strategy: SC.MachiningOperation) -> DemoResult {
         run(contours: [contour], tool: tool, settings: settings, strategy: strategy)
     }
 
     /// Same as `run(contour:tool:settings:strategy:)` but for demos with several
     /// independent contours sharing one tool/settings/strategy (e.g. a batch of
     /// drill holes) — mirrors the engine's own `generateToolpaths(from: [SC.Contour], ...)`.
-    func run(contours: [SC.Contour], tool: SC.ToolParams, settings: SC.MachineSettings, strategy: SC.Strategy) -> DemoResult {
+    func run(contours: [SC.Contour], tool: SC.ToolParams, settings: SC.MachineSettings, strategy: SC.MachiningOperation) -> DemoResult {
 
         // 1. Convert each Contour to 3D simd points
         var rawPoints: [SIMD3<Float>] = []

@@ -28,18 +28,17 @@ extension SC {
         public var maxOptimalLoad: Double       // Maximum radial stepover allowance for adaptive motion (mm)
         public var spindleSpeed: Double?        // Optional tool-specific spindle speed (RPM)
 
-        public init(
-            id: UUID = UUID(),
-            name: String = "1/4\" Flat End Mill",
-            type: ToolType = .flatEndMill,
-            diameter: Double = 6.35,
-            stepdown: Double = 1.5,
-            stepoverPercentage: Double = 0.4,
-            vAngle: Double? = nil,
-            fluteLength: Double = 12,
-            maxOptimalLoad: Double = 0.0,
-            spindleSpeed: Double? = nil
-        ) {
+        public init(id: UUID = UUID(),
+                    name: String = "1/4\" Flat End Mill",
+                    type: ToolType = .flatEndMill,
+                    diameter: Double = 6.35,
+                    stepdown: Double = 1.5,
+                    stepoverPercentage: Double = 0.4,
+                    vAngle: Double? = nil,
+                    fluteLength: Double = 12,
+                    maxOptimalLoad: Double = 0.0,
+                    spindleSpeed: Double? = nil) {
+
             self.id = id
             self.name = name
             self.type = type

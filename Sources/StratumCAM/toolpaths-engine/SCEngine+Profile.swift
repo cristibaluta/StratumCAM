@@ -32,7 +32,7 @@ extension SCEngine {
                               leadIn: SC.LeadInOut?,
                               leadOut: SC.LeadInOut?,
                               tabs: [SC.HoldingTab],
-                              strategy: SC.Strategy) -> SC.OutputToolpath? {
+                              strategy: SC.MachiningOperation) -> SC.OutputToolpath? {
 
         let baseSegments = linearize(contour: contour)
         guard !baseSegments.isEmpty else {

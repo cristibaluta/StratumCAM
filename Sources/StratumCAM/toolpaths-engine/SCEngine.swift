@@ -22,7 +22,7 @@ public final class SCEngine {
     public func generateToolpaths(from contours: [SC.Contour],
                                   tool: SC.ToolParams,
                                   settings: SC.MachineSettings,
-                                  strategy: SC.Strategy) -> [SC.OutputToolpath] {
+                                  strategy: SC.MachiningOperation) -> [SC.OutputToolpath] {
 
         var results: [SC.OutputToolpath] = []
 
@@ -58,7 +58,7 @@ public final class SCEngine {
     private func buildToolpath(for contour: SC.Contour,
                                tool: SC.ToolParams,
                                settings: SC.MachineSettings,
-                               strategy: SC.Strategy) -> SC.OutputToolpath? {
+                               strategy: SC.MachiningOperation) -> SC.OutputToolpath? {
         switch strategy {
             case .engrave:
                 return buildContourTracingToolpath(for: contour,
@@ -67,7 +67,7 @@ public final class SCEngine {
                                                    side: .onContour,
                                                    strategy: strategy)
 
-            case .profile(let side, let direction, let entry, let leadIn, let leadOut, let tabs):
+            case .contour(let side, let direction, let entry, let leadIn, let leadOut, let tabs):
                 return buildProfileToolpath(
                     for: contour,
                     tool: tool,
@@ -108,6 +108,22 @@ public final class SCEngine {
 
             case .adaptiveClearing:
                 // TODO(Phase 4): constant-engagement adaptive clearing.
+                return nil
+
+            case .facing(stepover: let stepover, direction: let direction, extensionLength: let extensionLength):
+                print("stepover \(stepover), direction \(direction), extensionLength \(extensionLength)")
+                return nil
+
+            case .slotting(depthPerPass: let depthPerPass, entry: let entry):
+                print("depthPerPass \(depthPerPass), entry \(entry)")
+                return nil
+
+            case .tapping(pitch: let pitch, isInternal: let isInternal, direction: let direction):
+                print("pitcher \(pitch), internal \(isInternal), direction \(direction)")
+                return nil
+
+            case .boring(targetDiameter: let targetDiameter, dwellTime: let dwellTime, shiftRetract: let shiftRetract):
+                print("targetDiameter \(targetDiameter), dwellTime \(String(describing: dwellTime)), shiftRetract \(shiftRetract)")
                 return nil
         }
     }

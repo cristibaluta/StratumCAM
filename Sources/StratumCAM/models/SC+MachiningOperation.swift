@@ -13,7 +13,16 @@ extension SC {
     ///
     /// Each strategy represents a different machining operation and contains
     /// the parameters required to generate its corresponding toolpath.
-    public enum Strategy: Sendable, Equatable {
+    public enum MachiningOperation: Sendable, Equatable {
+
+        /// Cleans the top surface of the stock to establish a flat datum plane.
+        case facing(stepover: Double, direction: CutDirection, extensionLength: Double)
+
+        /// Cuts a linear slot or groove along a center curve.
+        case slotting(depthPerPass: Double, entry: EntryStrategy)
+
+        /// Mills threads into a pre-drilled hole or onto a boss.
+        case tapping(pitch: Double, isInternal: Bool, direction: CutDirection)
 
         /// Engraves geometry along curves, text, or other shallow features.
         ///
@@ -39,7 +48,7 @@ extension SC {
         ///     before retracting.
         ///   - tabs: Holding tabs left in the profile to prevent the finished
         ///     part from moving or separating from the stock during machining.
-        case profile(side: CutSide,
+        case contour(side: CutSide,
                      direction: CutDirection,
                      entry: EntryStrategy,
                      leadIn: LeadInOut?,
@@ -102,5 +111,13 @@ extension SC {
                               direction: CutDirection,
                               optimalLoad: Double,
                               entry: EntryStrategy)
+
+        /// Enlarges an existing hole to precise diameter tolerances using a single-point tool.
+        ///
+        /// - Parameters:
+        ///   - targetDiameter: The final finished diameter of the bored hole.
+        ///   - dwellTime: Optional pause at the bottom of the bore to ensure true circularity.
+        ///   - shiftRetract: Whether to shift the cutter off-center before retracting to preserve surface finish.
+        case boring(targetDiameter: Double, dwellTime: Double?, shiftRetract: Bool)
     }
 }

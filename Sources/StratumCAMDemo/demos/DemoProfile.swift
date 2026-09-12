@@ -54,7 +54,7 @@ class DemoProfile: Demo {
         let tool = SC.ToolParams(diameter: 3.175, stepdown: 0.1)
         let settings = SC.MachineSettings(feedRate: 1000.0, plungeRate: 300.0, safeZ: 5.0, targetDepth: -1.0)
 
-        let strategy: SC.Strategy = .profile(side: .outside,
+        let strategy: SC.MachiningOperation = .contour(side: .outside,
                                              direction: .climb,
                                              entry: .plunge,
                                              leadIn: nil,
@@ -71,7 +71,7 @@ class DemoProfile: Demo {
         let tool = SC.ToolParams(diameter: 3.175, stepdown: 0.1)
         let settings = SC.MachineSettings(feedRate: 1000.0, plungeRate: 300.0, safeZ: 5.0, targetDepth: -1.0)
 
-        let strategy: SC.Strategy = .profile(side: .inside,
+        let strategy: SC.MachiningOperation = .contour(side: .inside,
                                              direction: .climb,
                                              entry: .plunge,
                                              leadIn: nil,
@@ -91,7 +91,7 @@ class DemoProfile: Demo {
         let tool = SC.ToolParams(diameter: 3.175, stepdown: 0.1)
         let settings = SC.MachineSettings(feedRate: 1000.0, plungeRate: 300.0, safeZ: 5.0, targetDepth: -1.0)
 
-        let strategy: SC.Strategy = .profile(side: .outside,
+        let strategy: SC.MachiningOperation = .contour(side: .outside,
                                              direction: .climb,
                                              entry: .ramp(angleDegrees: 30),
                                              leadIn: nil,
@@ -109,7 +109,7 @@ class DemoProfile: Demo {
         let tool = SC.ToolParams(diameter: 3.175, stepdown: 0.1)
         let settings = SC.MachineSettings(feedRate: 1000.0, plungeRate: 300.0, safeZ: 5.0, targetDepth: -1.0)
 
-        let strategy: SC.Strategy = .profile(side: .outside,
+        let strategy: SC.MachiningOperation = .contour(side: .outside,
                                              direction: .climb,
                                              entry: .helix(radius: 2, rampAngleDegrees: 30),
                                              leadIn: nil,
@@ -131,7 +131,7 @@ class DemoProfile: Demo {
         let settings = SC.MachineSettings(feedRate: 1000.0, plungeRate: 300.0, safeZ: 5.0, targetDepth: -3.0)
         let tab = SC.HoldingTab(positionRatio: 0.5, width: 2.0, height: 1.5)
 
-        let strategy: SC.Strategy = .profile(side: .onContour,
+        let strategy: SC.MachiningOperation = .contour(side: .onContour,
                                              direction: .climb,
                                              entry: .plunge,
                                              leadIn: nil,

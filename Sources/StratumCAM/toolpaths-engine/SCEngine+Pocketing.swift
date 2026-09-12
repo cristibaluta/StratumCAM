@@ -23,7 +23,7 @@ extension SCEngine {
                              direction: SC.CutDirection,
                              pocketType: SC.PocketType,
                              entry: SC.EntryStrategy,
-                             strategy: SC.Strategy) -> SC.OutputToolpath? {
+                             strategy: SC.MachiningOperation) -> SC.OutputToolpath? {
 
         guard contour.isClosed else {
             return nil

@@ -17,7 +17,7 @@ extension SCEngine {
                               tool: SC.ToolParams,
                               settings: SC.MachineSettings,
                               params: SC.ChamferParams,
-                              strategy: SC.Strategy) -> SC.OutputToolpath? {
+                              strategy: SC.MachiningOperation) -> SC.OutputToolpath? {
 
         guard let z = params.resolvedDepth(for: tool) else {
             // Misconfigured tool (not a V-bit, or missing vAngle with no explicit depth) --

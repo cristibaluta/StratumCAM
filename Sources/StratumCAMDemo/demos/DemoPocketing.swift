@@ -50,7 +50,7 @@ class DemoPocketing: Demo {
         let tool = SC.ToolParams(diameter: 6.0, stepdown: 1.0, stepoverPercentage: 0.4)
         let settings = SC.MachineSettings(feedRate: 1000.0, plungeRate: 300.0, safeZ: 5.0, targetDepth: -3.0)
 
-        let strategy: SC.Strategy = .pocket(direction: .climb, pocketType: .offsetPattern, entry: .plunge)
+        let strategy: SC.MachiningOperation = .pocket(direction: .climb, pocketType: .offsetPattern, entry: .plunge)
 
         return self.run(contour: rectangleContour(width: 40, height: 24), tool: tool, settings: settings, strategy: strategy)
     }
@@ -62,7 +62,7 @@ class DemoPocketing: Demo {
         let tool = SC.ToolParams(diameter: 6.0, stepdown: 1.0, stepoverPercentage: 0.4)
         let settings = SC.MachineSettings(feedRate: 1000.0, plungeRate: 300.0, safeZ: 5.0, targetDepth: -3.0)
 
-        let strategy: SC.Strategy = .pocket(direction: .conventional, pocketType: .offsetPattern, entry: .plunge)
+        let strategy: SC.MachiningOperation = .pocket(direction: .conventional, pocketType: .offsetPattern, entry: .plunge)
 
         return self.run(contour: rectangleContour(width: 40, height: 24), tool: tool, settings: settings, strategy: strategy)
     }
@@ -75,7 +75,7 @@ class DemoPocketing: Demo {
         let tool = SC.ToolParams(diameter: 3.0, stepdown: 1.0, stepoverPercentage: 0.3)
         let settings = SC.MachineSettings(feedRate: 1000.0, plungeRate: 300.0, safeZ: 5.0, targetDepth: -2.0)
 
-        let strategy: SC.Strategy = .pocket(direction: .climb, pocketType: .offsetPattern, entry: .plunge)
+        let strategy: SC.MachiningOperation = .pocket(direction: .climb, pocketType: .offsetPattern, entry: .plunge)
 
         return self.run(contour: roundedRectangleContour(width: 40, height: 24, cornerRadius: 5), tool: tool, settings: settings, strategy: strategy)
     }

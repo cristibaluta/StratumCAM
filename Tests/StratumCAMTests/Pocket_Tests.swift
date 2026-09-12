@@ -62,7 +62,7 @@ struct Pocket_Tests {
         return (xs.min()!, xs.max()!, ys.min()!, ys.max()!)
     }
 
-    private func pocketStrategy(direction: SC.CutDirection) -> SC.Strategy {
+    private func pocketStrategy(direction: SC.CutDirection) -> SC.MachiningOperation {
         .pocket(direction: direction, pocketType: .offsetPattern, entry: .plunge)
     }
 

@@ -18,7 +18,7 @@ extension SCEngine {
                                      tool: SC.ToolParams,
                                      settings: SC.MachineSettings,
                                      side: SC.CutSide,
-                                     strategy: SC.Strategy) -> SC.OutputToolpath? {
+                                     strategy: SC.MachiningOperation) -> SC.OutputToolpath? {
 
         // 1. Normalize DXF Entities into linear/arc segments (handling reversed flag)
         let baseSegments = linearize(contour: contour)
