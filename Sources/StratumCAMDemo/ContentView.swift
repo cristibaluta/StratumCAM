@@ -16,6 +16,12 @@ struct ContentView: View {
     @State private var gcodeText: String = ""
     @State private var selectedDemoID: String? = nil
 
+    /// Used only to build the sliced-prefix/marker batches in `show(_:)`'s Step 5.3
+    /// verification scaffold below -- a plain `Demo` (not a `DemoEngraving`/`DemoPocketing`
+    /// subclass) works fine since `pointsPrefix`/`renderBatch`/`markerBatch` don't touch
+    /// any demo-specific fixtures, just `device`.
+    private let previewDemo = Demo()
+
     var body: some View {
         NavigationSplitView {
             // Sidebar Controls & Test Cases
@@ -167,7 +173,33 @@ struct ContentView: View {
     }
 
     private func show(_ result: Demo.DemoResult) {
-        renderBatches = result.batches
         gcodeText = result.gcode
+
+        // Step 5.3 verification scaffold (temporary): hardcode a scrub index partway
+        // through the toolpath so the marker circle's geometry can be checked
+        // visually before Step 5.4 wires a real slider -- same "hardcode an index
+        // first" approach Step 5.2 used. Swaps the full yellow toolpath batch for a
+        // sliced prefix (5.2) plus a red marker circle at the prefix's last point
+        // (5.3), so both pieces are visible together. Step 5.4 replaces
+        // `hardcodedScrubIndex` with `scrubIndex` bound to an actual `Slider`.
+        var batches = result.batches
+        let points = result.toolpathPoints
+        if !points.isEmpty {
+            let hardcodedScrubIndex = points.count / 2
+            let prefix = Demo.pointsPrefix(points, upTo: hardcodedScrubIndex)
+
+            // The full toolpath batch is always the last one `run(contours:...)`
+            // appends whenever `toolpathPoints` is non-empty (step 4 there) -- drop
+            // it in favor of the sliced version below.
+            batches.removeLast()
+
+            if let slicedBatch = previewDemo.renderBatch(forPoints: prefix, color: SIMD4<Float>(1.0, 0.8, 0.0, 1.0)) {
+                batches.append(slicedBatch)
+            }
+            if let lastPoint = prefix.last, let marker = previewDemo.markerBatch(at: lastPoint) {
+                batches.append(marker)
+            }
+        }
+        renderBatches = batches
     }
 }

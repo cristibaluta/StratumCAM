@@ -123,6 +123,63 @@ class Demo {
                            dashLength: dashLength)
     }
 
+    // MARK: - Step 5.3: marker circle geometry at a point
+
+    /// Generates a small flat circle's worth of `RenderVertex`s centered on `point`,
+    /// as a closed loop meant to be drawn `.lineStrip` -- a "you are here" marker,
+    /// visually distinct from the blue base contour and yellow toolpath rather than
+    /// looking like part of either. Pure geometry, no Metal/device dependency, same
+    /// reasoning as `pointsPrefix` above: testable on its own once Step 5.8 adds
+    /// coverage (right point count, centered on the given point).
+    ///
+    /// The loop is drawn flat in the XY plane at `point.z` -- toolpaths in this demo
+    /// app are already planar per Z pass, so a flat ring at the marker's own Z matches
+    /// what's actually being scrubbed through rather than adding a third dimension.
+    /// `dist` is left at 0 for every vertex since the marker is never dashed
+    /// (`isDashed` only matters for `.lineStrip` paths where distance-along-path is
+    /// used to compute the dash pattern in the fragment shader).
+    static func markerCircleVertices(at point: SIMD3<Float>,
+                                     radius: Float = 1.0,
+                                     segments: Int = 28,
+                                     color: SIMD4<Float> = SIMD4<Float>(1.0, 0.05, 0.05, 1.0)) -> [RenderVertex] {
+        let clampedSegments = max(3, segments)
+        var vertices: [RenderVertex] = []
+        vertices.reserveCapacity(clampedSegments + 1)
+
+        // 0...clampedSegments (inclusive) so the last vertex lands back on the
+        // first angle, closing the loop -- required for `.lineStrip` to draw a
+        // full ring instead of a ring with one open gap.
+        for i in 0...clampedSegments {
+            let t = Float(i) / Float(clampedSegments)
+            let angle = t * 2 * Float.pi
+            let x = point.x + radius * cos(angle)
+            let y = point.y + radius * sin(angle)
+            vertices.append(RenderVertex(position: SIMD3<Float>(x, y, point.z), color: color, dist: 0))
+        }
+        return vertices
+    }
+
+    /// Builds the marker `RenderBatch` for a given point -- thin wrapper around
+    /// `markerCircleVertices(at:radius:segments:color:)` that turns the vertices into
+    /// a GPU buffer the same way `renderBatch(forPoints:...)` does above. Kept as an
+    /// instance method (not `static`) only because it needs `device` for the buffer,
+    /// same split as `pointsPrefix`/`renderBatch` above.
+    func markerBatch(at point: SIMD3<Float>,
+                     radius: Float = 1.0,
+                     segments: Int = 28,
+                     color: SIMD4<Float> = SIMD4<Float>(1.0, 0.05, 0.05, 1.0)) -> RenderBatch? {
+        let vertices = Demo.markerCircleVertices(at: point, radius: radius, segments: segments, color: color)
+        guard !vertices.isEmpty,
+              let buffer = device.makeBuffer(bytes: vertices,
+                                             length: vertices.count * MemoryLayout<RenderVertex>.stride,
+                                             options: .storageModeShared) else {
+            return nil
+        }
+        return RenderBatch(vertexBuffer: buffer,
+                           vertexCount: vertices.count,
+                           primitiveType: .lineStrip)
+    }
+
     /// `buildWaypoints`/toolpath passes only carry the *endpoints* of each move (plus a
     /// center + direction for arcs) since that's all a real controller needs for `G02`/`G03`.
     /// For the on-screen preview we need actual curvature, so this walks the waypoints and,
