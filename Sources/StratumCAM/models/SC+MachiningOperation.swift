@@ -63,12 +63,12 @@ extension SC {
         /// - Parameters:
         ///   - direction: Determines the cutting direction, such as climb or
         ///     conventional milling.
-        ///   - pocketType: Defines the pocket-clearing pattern or geometry strategy.
+        ///   - pattern: Defines the pocket-clearing pattern or geometry strategy.
         ///   - entry: Defines how the tool enters the pocket, such as a ramp or
         ///     helical entry. Helical entry is useful for reducing the impact of
         ///     plunging directly into solid material.
         case pocket(direction: CutDirection,
-                    pocketType: PocketType,
+                    pattern: ClearingPattern,
                     entry: EntryStrategy)
 
         /// Drills one or more holes at the specified locations.

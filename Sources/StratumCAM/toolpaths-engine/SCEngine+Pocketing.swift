@@ -21,7 +21,7 @@ extension SCEngine {
                              tool: SC.ToolParams,
                              settings: SC.MachineSettings,
                              direction: SC.CutDirection,
-                             pocketType: SC.PocketType,
+                             pattern: SC.ClearingPattern,
                              entry: SC.EntryStrategy,
                              operation: SC.MachiningOperation) -> SC.OutputToolpath? {
 
@@ -36,7 +36,7 @@ extension SCEngine {
 
         let toolpathSegments: [SC.Segment]
 
-        switch pocketType {
+        switch pattern {
             case .offsetPattern:
                 // 1. Orient the chain so travel direction matches the requested cut
                 // direction. Pocket walls are inside cuts, so use `.inside` for the same
@@ -74,6 +74,14 @@ extension SCEngine {
                 // another ordered stack of segment groups needing connecting transitions
                 // between them.
                 toolpathSegments = chainedRingSegments(rows)
+            case .adaptive:
+                fatalError("Not implemented yet")
+            case .spiral:
+                fatalError("Not implemented yet")
+            case .morph:
+                fatalError("Not implemented yet")
+            case .trochoidal:
+                fatalError("Not implemented yet")
         }
 
         guard !toolpathSegments.isEmpty else {

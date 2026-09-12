@@ -53,7 +53,7 @@ struct Raster_Tests {
     }
 
     private func rasterStrategy(direction: SC.CutDirection) -> SC.MachiningOperation {
-        .pocket(direction: direction, pocketType: .raster, entry: .plunge)
+        .pocket(direction: direction, pattern: .raster, entry: .plunge)
     }
 
     // MARK: - Scanline generation + stepover

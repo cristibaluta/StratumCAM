@@ -99,7 +99,7 @@ public final class SCEngine {
                     tool: tool,
                     settings: settings,
                     direction: direction,
-                    pocketType: pocketType,
+                    pattern: pocketType,
                     entry: entry,
                     operation: operation
                 )

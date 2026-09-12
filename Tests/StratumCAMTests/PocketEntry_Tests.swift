@@ -33,8 +33,8 @@ struct PocketEntry_Tests {
         ], isClosed: true)
     }
 
-    private func pocketStrategy(pocketType: SC.PocketType, entry: SC.EntryStrategy, direction: SC.CutDirection = .climb) -> SC.MachiningOperation {
-        .pocket(direction: direction, pocketType: pocketType, entry: entry)
+    private func pocketStrategy(pattern: SC.ClearingPattern, entry: SC.EntryStrategy, direction: SC.CutDirection = .climb) -> SC.MachiningOperation {
+        .pocket(direction: direction, pattern: pattern, entry: entry)
     }
 
     private func isArcMotion(_ motion: SC.MotionType) -> Bool {
@@ -57,7 +57,7 @@ struct PocketEntry_Tests {
             from: [ccwRectangleContour()],
             tool: tool,
             settings: settings,
-            operation: pocketStrategy(pocketType: .offsetPattern, entry: .ramp(angleDegrees: 30))
+            operation: pocketStrategy(pattern: .offsetPattern, entry: .ramp(angleDegrees: 30))
         )
 
         #expect(toolpaths.count == 1, "Test Failed: expected 1 pocket toolpath")
@@ -108,7 +108,7 @@ struct PocketEntry_Tests {
             from: [ccwRectangleContour()],
             tool: tool,
             settings: settings,
-            operation: pocketStrategy(pocketType: .offsetPattern, entry: .ramp(angleDegrees: 30))
+            operation: pocketStrategy(pattern: .offsetPattern, entry: .ramp(angleDegrees: 30))
         )
 
         let waypoints = toolpaths[0].passes[0].waypoints
@@ -135,7 +135,7 @@ struct PocketEntry_Tests {
             from: [ccwRectangleContour()],
             tool: tool,
             settings: settings,
-            operation: pocketStrategy(pocketType: .offsetPattern, entry: .helix(radius: 1.0, rampAngleDegrees: 30))
+            operation: pocketStrategy(pattern: .offsetPattern, entry: .helix(radius: 1.0, rampAngleDegrees: 30))
         )
 
         let waypoints = toolpaths[0].passes[0].waypoints
@@ -168,7 +168,7 @@ struct PocketEntry_Tests {
             from: [ccwRectangleContour()],
             tool: tool,
             settings: settings,
-            operation: pocketStrategy(pocketType: .offsetPattern, entry: .helix(radius: 1.0, rampAngleDegrees: 30))
+            operation: pocketStrategy(pattern: .offsetPattern, entry: .helix(radius: 1.0, rampAngleDegrees: 30))
         )
 
         let waypoints = toolpaths[0].passes[0].waypoints
@@ -193,7 +193,7 @@ struct PocketEntry_Tests {
             from: [ccwRectangleContour()],
             tool: tool,
             settings: settings,
-            operation: pocketStrategy(pocketType: .raster, entry: .ramp(angleDegrees: 30))
+            operation: pocketStrategy(pattern: .raster, entry: .ramp(angleDegrees: 30))
         )
 
         #expect(toolpaths.count == 1, "Test Failed: expected 1 raster pocket toolpath")
@@ -233,7 +233,7 @@ struct PocketEntry_Tests {
             from: [ccwRectangleContour()],
             tool: tool,
             settings: settings,
-            operation: pocketStrategy(pocketType: .raster, entry: .helix(radius: 1.0, rampAngleDegrees: 30))
+            operation: pocketStrategy(pattern: .raster, entry: .helix(radius: 1.0, rampAngleDegrees: 30))
         )
 
         let waypoints = toolpaths[0].passes[0].waypoints
@@ -261,7 +261,7 @@ struct PocketEntry_Tests {
             from: [ccwRectangleContour()],
             tool: tool,
             settings: settings,
-            operation: pocketStrategy(pocketType: .offsetPattern, entry: .plunge)
+            operation: pocketStrategy(pattern: .offsetPattern, entry: .plunge)
         )
 
         let waypoints = toolpaths[0].passes[0].waypoints
