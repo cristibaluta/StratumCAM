@@ -71,11 +71,15 @@ struct PocketSpiral_Tests {
         #expect(toolpaths.count == 1, "Test Failed: expected 1 pocket toolpath")
         let waypoints = toolpaths[0].passes[0].waypoints
 
-        // rapid + plunge + (4 rings x 72 steps/turn) + retract. 72 steps/turn is an
-        // internal tessellation choice (5 degrees/step) -- if that constant ever
-        // changes, this count is expected to move with it.
-        #expect(waypoints.count == 2 + 4 * 72 + 1,
-                "Test Failed: expected 291 waypoints (rapid, plunge, 288 spiral steps, retract), got \(waypoints.count)")
+        // rapid + plunge + (4 rings + 1 bookend turn, x 72 steps/turn) + retract. The
+        // spiral has one interpolating turn per ring-to-ring transition (3, for 4 rings)
+        // plus two constant-radius bookend turns: one holding the outermost (wall) ring's
+        // radius so that ring is actually swept all the way round before the path starts
+        // moving inward, and one holding the innermost ring's radius to close the pocket
+        // floor. 72 steps/turn is an internal tessellation choice (5 degrees/step) -- if
+        // that constant ever changes, this count is expected to move with it.
+        #expect(waypoints.count == 2 + 5 * 72 + 1,
+                "Test Failed: expected 363 waypoints (rapid, plunge, 360 spiral steps, retract), got \(waypoints.count)")
 
         func radius(_ waypoint: SC.Waypoint) -> Double {
             hypot(waypoint.position.x, waypoint.position.y)
@@ -87,24 +91,34 @@ struct PocketSpiral_Tests {
         #expect(abs(radius(waypoints[1]) - 8.0) < 1e-6, "Test Failed: plunge should land on the outermost ring's radius")
         #expect(waypoints[1].position.z == -1.0, "Test Failed: plunge should land at target depth")
 
-        // Radius at each full-turn boundary matches that ring's own radius exactly --
-        // proof the spiral is genuinely passing through the same rings `pocketRings`
-        // computed, not some independently-derived curve.
-        #expect(abs(radius(waypoints[73]) - 6.0) < 1e-6, "Test Failed: end of turn 1 should land exactly on ring 1's radius (6)")
-        #expect(abs(radius(waypoints[145]) - 4.0) < 1e-6, "Test Failed: end of turn 2 should land exactly on ring 2's radius (4)")
-        #expect(abs(radius(waypoints[217]) - 2.0) < 1e-6, "Test Failed: end of turn 3 should land exactly on ring 3's (innermost) radius (2)")
+        // The opening turn (steps 0-71, i.e. waypoints[1]...[73]) must hold at the
+        // outermost ring's own radius (8) all the way round -- not just at the start
+        // angle. This is the regression guard for the bug where an interpolating first
+        // turn only ever touched the true wall-offset radius once, at the start angle,
+        // then immediately drifted inward, leaving up to a full stepover's width of the
+        // outermost band never swept.
+        #expect(abs(radius(waypoints[1 + 18]) - 8.0) < 1e-6, "Test Failed: quarter-way round the opening turn should still be at the outermost radius")
+        #expect(abs(radius(waypoints[1 + 54]) - 8.0) < 1e-6, "Test Failed: three-quarters round the opening turn should still be at the outermost radius")
+        #expect(abs(radius(waypoints[1 + 72]) - 8.0) < 1e-6, "Test Failed: the opening turn should close back on itself at the outermost radius")
 
-        // Midway through the first turn, the radius should sit halfway between ring 0
-        // and ring 1 (8 -> 6, so 7) -- proof of genuine continuous interpolation
-        // mid-turn, not a discrete jump that only happens to land correctly at the
-        // turn boundaries checked above.
-        #expect(abs(radius(waypoints[37]) - 7.0) < 1e-6,
-                "Test Failed: expected the midpoint of turn 1 to be halfway between ring 0 and ring 1's radius")
+        // Radius at each subsequent full-turn boundary matches that ring's own radius
+        // exactly -- proof the spiral is genuinely passing through the same rings
+        // `pocketRings` computed, not some independently-derived curve.
+        #expect(abs(radius(waypoints[1 + 144]) - 6.0) < 1e-6, "Test Failed: end of the first interpolating turn should land exactly on ring 1's radius (6)")
+        #expect(abs(radius(waypoints[1 + 216]) - 4.0) < 1e-6, "Test Failed: end of the second interpolating turn should land exactly on ring 2's radius (4)")
+        #expect(abs(radius(waypoints[1 + 288]) - 2.0) < 1e-6, "Test Failed: end of the third interpolating turn should land exactly on ring 3's (innermost) radius (2)")
+
+        // Midway through the first interpolating turn (steps 72-144), the radius should
+        // sit halfway between ring 0 and ring 1 (8 -> 6, so 7) -- proof of genuine
+        // continuous interpolation mid-turn, not a discrete jump that only happens to
+        // land correctly at the turn boundaries checked above.
+        #expect(abs(radius(waypoints[1 + 108]) - 7.0) < 1e-6,
+                "Test Failed: expected the midpoint of the first interpolating turn to be halfway between ring 0 and ring 1's radius")
 
         // The final turn is the "closes on itself" pass the `.spiral` case's own doc
         // comment describes -- it holds at the innermost radius rather than
         // interpolating toward anything further.
-        #expect(abs(radius(waypoints[289]) - 2.0) < 1e-6,
+        #expect(abs(radius(waypoints[1 + 360]) - 2.0) < 1e-6,
                 "Test Failed: expected the final turn to stay at the innermost ring's radius")
 
         // No two consecutive trace waypoints should ever jump by anywhere near a full

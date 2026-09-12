@@ -398,13 +398,19 @@ extension SCEngine {
     }
 
     /// Turns a concentric ring stack (as `pocketRings` produces, outside-in) into one
-    /// continuous spiral: one full turn per ring, radius interpolating linearly from
-    /// that ring's radius to the next ring's radius over the turn, so the path never
-    /// closes on itself the way `chainedRingSegments`' discrete rings-plus-transitions
-    /// does. The final turn holds at the innermost ring's radius rather than
-    /// interpolating toward anything, fully closing out the pocket floor at depth --
-    /// the "final pass" the `.spiral` case's own doc comment describes as the one place
-    /// the path does close.
+    /// continuous spiral: one full turn per ring-to-ring transition, radius interpolating
+    /// linearly from that ring's radius to the next ring's radius over the turn, so the
+    /// path never closes on itself the way `chainedRingSegments`' discrete
+    /// rings-plus-transitions does. The opening turn holds at the outermost (wall) ring's
+    /// radius, and the final turn holds at the innermost ring's radius, rather than
+    /// interpolating -- symmetric bookends, each fully closing a true circle: the opening
+    /// one so the wall-side ring actually gets swept all the way round instead of the path
+    /// peeling away from it after only a single instant at the start angle (an interpolating
+    /// first turn only touches the true wall offset once, at step 0 -- by the time it's back
+    /// around to that angle, one full stepover later, up to a stepover's width of that
+    /// outermost band never had the cutter reach it), and the closing one for the "final
+    /// pass" the `.spiral` case's own doc comment describes as the one place the path does
+    /// close, fully closing out the pocket floor at depth.
     ///
     /// `SC.Segment` has no primitive for an arc of continuously-changing radius, so the
     /// spiral is approximated as a polyline of short `.line` chords -- the same kind of
@@ -429,21 +435,26 @@ extension SCEngine {
         }
 
         let stepsPerTurn = 72
-        let turnCount = radii.count // one turn per ring: `radii.count - 1` transitions, plus one closing turn at the innermost radius.
+        // Bookend turns (hold at the outer wall radius, hold at the inner closing radius)
+        // plus one interpolating turn per ring-to-ring transition.
+        let turnCount = radii.count + 1
+        let lastTurnIndex = turnCount - 1
         let totalSteps = turnCount * stepsPerTurn
         let angleStep = (2 * Double.pi / Double(stepsPerTurn)) * (isCCW ? 1.0 : -1.0)
 
         func point(atStep step: Int) -> CGPoint {
-            let turnIndex = min(step / stepsPerTurn, radii.count - 1)
+            let turnIndex = min(step / stepsPerTurn, lastTurnIndex)
             let angle = startAngle + angleStep * Double(step)
 
             let radius: Double
-            if turnIndex < radii.count - 1 {
+            if turnIndex == 0 {
+                radius = radii[0] // opening turn: constant, outermost (wall) radius.
+            } else if turnIndex == lastTurnIndex {
+                radius = radii[radii.count - 1] // final closing turn: constant, innermost radius.
+            } else {
                 let stepWithinTurn = step % stepsPerTurn
                 let t = Double(stepWithinTurn) / Double(stepsPerTurn)
-                radius = radii[turnIndex] + (radii[turnIndex + 1] - radii[turnIndex]) * t
-            } else {
-                radius = radii[radii.count - 1] // final closing turn: constant, innermost radius.
+                radius = radii[turnIndex - 1] + (radii[turnIndex] - radii[turnIndex - 1]) * t
             }
 
             return CGPoint(x: center.x + radius * cos(angle), y: center.y + radius * sin(angle))
