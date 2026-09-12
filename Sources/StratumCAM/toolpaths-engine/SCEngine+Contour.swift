@@ -205,6 +205,7 @@ extension SCEngine {
                                                     startTangent: startTangent,
                                                     side: side,
                                                     segments: segments,
+                                                    firstSegment: firstSegment,
                                                     radius: radius,
                                                     angleDegrees: angleDegrees,
                                                     fromZ: previousZ,
@@ -326,12 +327,27 @@ extension SCEngine {
     /// exactly on the circle. Always completes a whole number of turns, so it lands back on
     /// `contourStart` at `toZ`, tangent and ready to continue into the profile trace.
     ///
+    /// The perpendicular (normal) offset alone only keeps the circle clear of the wall
+    /// that runs *along* `startTangent` -- it says nothing about the direction *behind*
+    /// `contourStart` (the `-startTangent` side). For a point that sits exactly on a wall
+    /// running parallel to the tangent right where the tool is about to enter -- which is
+    /// exactly what a raster row's start point is, since each row is clipped to end
+    /// precisely on the wall offset boundary -- the full circle still extends `radius`
+    /// behind `contourStart` along `-startTangent`, straight through that wall, no matter
+    /// which way the perpendicular offset is signed. `rampWaypoints` above sidesteps this
+    /// by never stepping backward past its anchor point at all; the helix borrows the same
+    /// idea: it spirals tangent to a point shifted `radius` *forward* along the segment
+    /// (clamped to the segment's own length, so it never runs off the far end either) and
+    /// finishes with a short linear cut from there back to the true `contourStart` -- so
+    /// the circle's backward extent lands exactly on `contourStart`'s wall, not past it.
+    ///
     /// Internal rather than `private` so `SCEngine+Pocketing.swift` can reuse it for
     /// pocket entry (Step 1.2) instead of duplicating the helix geometry.
     func helixEntryWaypoints(contourStart: CGPoint,
                                      startTangent: CGPoint,
                                      side: SC.CutSide,
                                      segments: [SC.Segment],
+                                     firstSegment: SC.Segment,
                                      radius: Double,
                                      angleDegrees: Double,
                                      fromZ: Double,
@@ -345,11 +361,21 @@ extension SCEngine {
             return [SC.Waypoint(position: SIMD3(contourStart.x, contourStart.y, toZ), motion: .linear, feedRate: settings.cutting.plungeRate)]
         }
 
+        // Shift the circle's tangent point `radius` forward along the segment -- clamped
+        // to the segment's own length, same clamp `rampWaypoints` applies to `legRun` --
+        // so the circle's backward reach lands exactly on `contourStart` instead of
+        // punching through whatever wall it sits on.
+        let anchorEnd = firstSegment.endPoint
+        let spanLength = hypot(anchorEnd.x - contourStart.x, anchorEnd.y - contourStart.y)
+        let forwardDistance = min(radius, spanLength)
+        let tangentPoint = CGPoint(x: contourStart.x + startTangent.x * forwardDistance,
+                                    y: contourStart.y + startTangent.y * forwardDistance)
+
         let signedOffset = offsetDistance(for: side, toolRadius: radius, segments: segments)
         let normal = CGPoint(x: -startTangent.y, y: startTangent.x)
-        let center = CGPoint(x: contourStart.x + normal.x * signedOffset, y: contourStart.y + normal.y * signedOffset)
+        let center = CGPoint(x: tangentPoint.x + normal.x * signedOffset, y: tangentPoint.y + normal.y * signedOffset)
         let isCCW = signedOffset > 0
-        let startAngle = atan2(contourStart.y - center.y, contourStart.x - center.x)
+        let startAngle = atan2(tangentPoint.y - center.y, tangentPoint.x - center.x)
 
         let circumference = 2 * .pi * radius
         let horizontalRunNeeded = totalDrop / tan(angleRad)
@@ -372,6 +398,19 @@ extension SCEngine {
                             feedRate: settings.cutting.plungeRate)
             )
         }
+
+        // The spiral itself lands on `tangentPoint`, not `contourStart` -- bridge the
+        // small gap between them (a no-op when the segment was too short to shift at
+        // all) so callers can keep relying on the helix landing exactly on `contourStart`
+        // at `toZ`, ready to hand off into the trace.
+        if forwardDistance > 1e-9 {
+            waypoints.append(
+                SC.Waypoint(position: SIMD3(contourStart.x, contourStart.y, toZ),
+                            motion: .linear,
+                            feedRate: settings.cutting.plungeRate)
+            )
+        }
+
         return waypoints
     }
 

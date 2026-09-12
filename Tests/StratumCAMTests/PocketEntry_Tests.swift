@@ -263,7 +263,7 @@ struct PocketEntry_Tests {
         ], isClosed: true)
     }
 
-    @Test("Raster helix entry never spirals past the pocket's own stock boundary")
+    @Test("Raster helix entry never spirals past the pocket's own wall-offset boundary")
     func testRasterHelixEntryStaysWithinStockBoundary() {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 6.0)
@@ -284,14 +284,20 @@ struct PocketEntry_Tests {
         #expect(toolpaths.count == 1, "Test Failed: expected 1 raster pocket toolpath")
         let waypoints = toolpaths[0].passes[0].waypoints
 
-        // No waypoint -- helix entries included -- should ever land outside the stock
-        // the contour describes. A helix that offsets to the wrong side pokes its arc
-        // through the wall, well past [0, 40] x [0, 24].
+        // The real limit that matters is the wall-offset boundary the raster rows are
+        // clipped to -- [3, 37] x [3, 21] for a 40x24 rectangle with a 6mm (3mm-radius)
+        // tool -- not the outer [0, 40] x [0, 24] stock rectangle. A helix that only
+        // overshoots by up to its own radius (2mm here) can still land comfortably
+        // inside the stock while cutting well outside the raster's own boundary, which
+        // is exactly the bug: checking against the stock rectangle alone would not have
+        // caught it.
+        let wallMinX = 3.0, wallMaxX = 37.0, wallMinY = 3.0, wallMaxY = 21.0
         let outOfBounds = waypoints.first { wp in
-            wp.position.x < -1e-6 || wp.position.x > 40 + 1e-6 || wp.position.y < -1e-6 || wp.position.y > 24 + 1e-6
+            wp.position.x < wallMinX - 1e-6 || wp.position.x > wallMaxX + 1e-6 ||
+            wp.position.y < wallMinY - 1e-6 || wp.position.y > wallMaxY + 1e-6
         }
         #expect(outOfBounds == nil,
-                "Test Failed: expected every waypoint to stay within the [0, 40] x [0, 24] stock boundary, found \(String(describing: outOfBounds?.position))")
+                "Test Failed: expected every waypoint to stay within the [3, 37] x [3, 21] wall-offset boundary, found \(String(describing: outOfBounds?.position))")
     }
 
     // MARK: - Regression: plunge entry stays untouched

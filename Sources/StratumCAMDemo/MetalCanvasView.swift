@@ -60,20 +60,20 @@ struct MetalCanvasView: NSViewRepresentable {
             let translation = gesture.translation(in: gesture.view)
             
             if NSEvent.modifierFlags.contains(.shift) {
-                // Pan Camera (Shift + Drag)
-                let scale: Float = 0.05
-                camera.target.x -= Float(translation.x) * scale
-                camera.target.y -= Float(translation.y) * scale
-            } else {
                 // Orbit Camera (Drag)
                 let sensitivity: Float = 0.005
                 camera.rotation.y -= Float(translation.x) * sensitivity
-                camera.rotation.x = max(-.pi/2 + 0.1, min(.pi/2 - 0.1, camera.rotation.x + Float(translation.y) * sensitivity))
+                camera.rotation.x = max(-.pi/2 + 0.0, min(.pi/2 - 0.0, camera.rotation.x + Float(translation.y) * sensitivity))
 
                 // --- PRINT ROTATION VALUES ---
                 let pitchDeg = camera.rotation.x * 180 / .pi
                 let yawDeg = camera.rotation.y * 180 / .pi
-                print(String(format: "🎥 Pitch (X): %.2f rad (%.1f°) | Yaw (Y): %.2f rad (%.1f°)", camera.rotation.x, pitchDeg, camera.rotation.y, yawDeg))
+//                print(String(format: "🎥 Pitch (X): %.2f rad (%.1f°) | Yaw (Y): %.2f rad (%.1f°)", camera.rotation.x, pitchDeg, camera.rotation.y, yawDeg))
+            } else {
+                // Pan Camera (Shift + Drag)
+                let scale: Float = 0.05
+                camera.target.x -= Float(translation.x) * scale
+                camera.target.y -= Float(translation.y) * scale
             }
             gesture.setTranslation(.zero, in: gesture.view)
         }

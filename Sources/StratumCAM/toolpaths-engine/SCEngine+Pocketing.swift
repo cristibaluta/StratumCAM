@@ -200,6 +200,7 @@ extension SCEngine {
                                                     startTangent: startTangent,
                                                     side: .inside,
                                                     segments: boundary,
+                                                    firstSegment: firstSegment,
                                                     radius: radius,
                                                     angleDegrees: angleDegrees,
                                                     fromZ: previousZ,
