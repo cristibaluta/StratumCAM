@@ -71,6 +71,21 @@ struct ContentView: View {
                     Button("Rounded Rectangle") {
                         show(DemoPocketing().demoPocketRoundedRectangle())
                     }
+                    Button("Multi-pass Z Stepdown") {
+                        show(DemoPocketing().demoMultiPassZStepdown())
+                    }
+                    Button("Raster Multi-pass Z Stepdown") {
+                        show(DemoPocketing().demoRasterMultiPassZStepdown())
+                    }
+                    Button("Ring Geometry Reused Across Passes") {
+                        show(DemoPocketing().demoRingGeometryReusedAcrossPasses())
+                    }
+                    Button("Ramp Entry (Multi-pass)") {
+                        show(DemoPocketing().demoRampEntryMultiPass())
+                    }
+                    Button("Helix Entry (Multi-pass)") {
+                        show(DemoPocketing().demoHelixEntryMultiPass())
+                    }
                 }
             }
             .navigationTitle("StratumCAM Demo")

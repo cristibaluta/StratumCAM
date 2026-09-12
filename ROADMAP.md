@@ -54,6 +54,77 @@ pattern, entry integration, Z stepdown, and rounding out test coverage.
 
 ---
 
+## Track 1B — New `ClearingPattern` cases (`.spiral`, `.trochoidal`, `.morph`, `.adaptive`)
+
+`SC+ClearingPattern.swift` picked up four new cases that `buildPocketToolpath`'s
+`switch` in `SCEngine+Pocketing.swift` already has stubbed out as
+`fatalError("Not implemented yet")` for each — no roadmap history yet. Same track
+as `.offsetPattern`/`.raster` above because they're the same switch, the same
+`buildPocketWaypoints` entry/Z-pass wrapper, and the same file — just four more
+ways to produce `toolpathSegments` before that wrapper runs. Do these in the
+order below; each is progressively harder to slot into the existing shape.
+
+> Naming heads-up: this track's `.adaptive` is a `ClearingPattern` case used by
+> `.pocket`. It is **not** the same thing as Track 3's `.adaptiveClearing`
+> `MachiningOperation` (which takes an `AdaptiveType`, not a `ClearingPattern`).
+> They're conceptually related — both chase constant radial engagement — which
+> is exactly why `.adaptive` here should reuse Track 3's core algorithm rather
+> than growing a second, divergent implementation. See 1B.4.
+
+- **1B.1 — `spiral` pocket: continuous inward/outward spiral**
+  Closest relative of the two done patterns: like `offsetPattern`'s ring stack,
+  but instead of chaining discrete closed rings with connecting transitions
+  (`chainedRingSegments`), interpolate each ring's radius/offset continuously
+  from one ring to the next so the path never closes on itself until the final
+  pass. `pocketRings` already gives the discrete ring stack (Step 1.1's
+  boundary-offset machinery) — reuse its ring geometry as the interpolation
+  control points rather than recomputing offsets. Only well-defined for
+  boundaries close to circular/elliptical/near-symmetrical, per the enum's own
+  doc comment — for anything else, fall back to `.offsetPattern`'s ring-and-chain
+  behavior (flag this fallback rule rather than silently producing a bad spiral
+  on odd shapes).
+
+- **1B.2 — `trochoidal` pocket: overlapping circular loop clearing**
+  Advance along the pocket's centerline/boundary (reuse the same oriented
+  chain `.offsetPattern` builds via `orientedForDirection`) while looping the
+  cutter in small overlapping circles rather than a straight or offset pass —
+  same shape of problem as Track 2B's slotting, so this is a reasonable one to
+  pair with that step if working both tracks. Loop diameter/overlap driven off
+  `tool.diameter` and `settings.cutting.stepoverPercentage`, same inputs raster
+  already reads.
+
+- **1B.3 — `morph` pocket: interpolated inner/outer boundary transition**
+  Per the enum doc, this morphs passes between two differing boundary curves
+  (e.g. an outer wall and an inner island) rather than offsetting one boundary
+  repeatedly — which means it depends on the same island/inner-boundary
+  relationship flagged as missing at the end of Track 1 above. Until `Contour`
+  can express "this loop is nested inside that one," `morph` has no second
+  boundary to interpolate toward. Treat this as blocked on that model change,
+  not as a pure algorithm step — flag it again here so it isn't quietly
+  attempted against a single flat boundary.
+
+- **1B.4 — `adaptive` pocket: constant-engagement fill**
+  Do this last in the sub-track, and ideally after Track 3.1 lands. Track 3.1
+  builds the trochoidal/constant-engagement core algorithm for
+  `.adaptiveClearing`'s `.clearing2D` case against the same "concentric rings as
+  safe corridor" input this track already has from Step 1.1/2.2. `.adaptive`
+  here should call into that same core (parameterized by
+  `settings.cutting.stepoverPercentage` in place of `optimalLoad`, since
+  `ClearingPattern` has no load parameter of its own to pass in) rather than
+  re-deriving constant-radial-load geometry a second time. If Track 3 hasn't
+  landed yet when this is picked up, flag that dependency rather than building
+  a parallel adaptive engine here.
+
+- **1B.5 — Tests**
+  New cases in `Pocket_Tests.swift` (or a new `PocketClearingPatterns_Tests.swift`
+  if `Pocket_Tests.swift` is getting large): spiral continuity on a circular
+  pocket, spiral fallback behavior on a non-circular one, trochoidal loop
+  overlap honors stepover, `adaptive` pattern matches Track 3's core output on
+  the same input geometry once 1B.4 lands. No test for `morph` until 1B.3's
+  model-change blocker is resolved.
+
+---
+
 ## Track 2 — New operations from the `MachiningOperation` model
 
 Four cases exist on `SC.MachiningOperation` (`facing`, `slotting`, `tapping`,

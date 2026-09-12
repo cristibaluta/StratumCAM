@@ -11,12 +11,14 @@ import CoreGraphics
 extension SCEngine {
 
     /// Builds the pocket toolpath for either `PocketType`. Both patterns share the same
-    /// closed-contour validation and single-Z-pass waypoint wrapper -- they only differ
-    /// in how they produce `toolpathSegments`. `entry` (plunge/ramp/helix) is wired into
-    /// the first plunge point for both pattern types as of Step 1.2, reusing the same
+    /// closed-contour validation and Z-stepdown/waypoint wrapper -- they only differ in
+    /// how they produce `toolpathSegments`. `entry` (plunge/ramp/helix) is wired into the
+    /// first plunge point for both pattern types as of Step 1.2, reusing the same
     /// `rampWaypoints`/`helixEntryWaypoints` machinery `.contour` uses -- see
-    /// `buildPocketWaypoints` below. Multi-pass Z stepdown is still Step 1.3 -- this
-    /// remains single-pass at `targetDepth`.
+    /// `buildPocketWaypoints` below. As of Step 1.3, `toolpathSegments` (the ring stack or
+    /// raster rows) is computed exactly once outside the Z loop and reused for every pass
+    /// -- re-deriving rings/scanlines per depth would be wasted work and risks two passes
+    /// silently diverging in geometry.
     func buildPocketToolpath(for contour: SC.Contour,
                              tool: SC.ToolParams,
                              settings: SC.MachineSettings,
@@ -88,19 +90,28 @@ extension SCEngine {
             return nil
         }
 
-        let z = settings.targetDepth
-        let waypoints = buildPocketWaypoints(for: toolpathSegments,
-                                             atZ: z,
-                                             settings: settings,
-                                             entry: entry)
-        let pass = SC.ToolpathPass(passIndex: 0,
-                                   depthZ: z,
-                                   waypoints: waypoints)
+        // Step 1.3: multi-pass Z stepdown, same `calculateZPasses` reuse as `.contour`.
+        // The ring/scanline geometry above was computed once and is reused unchanged
+        // for every pass -- only the Z depth (and, for ramp/helix, the previous pass's
+        // depth) changes per iteration.
+        let zDepths = calculateZPasses(targetDepth: settings.targetDepth, stepdown: settings.cutting.stepdown)
+
+        var passes: [SC.ToolpathPass] = []
+        var previousZ = 0.0 // top of stock -- pass 0 ramps/helixes down from here, same convention `.contour` uses.
+        for (i, z) in zDepths.enumerated() {
+            let waypoints = buildPocketWaypoints(for: toolpathSegments,
+                                                 atZ: z,
+                                                 previousZ: previousZ,
+                                                 settings: settings,
+                                                 entry: entry)
+            passes.append(SC.ToolpathPass(passIndex: i, depthZ: z, waypoints: waypoints))
+            previousZ = z
+        }
 
         return SC.OutputToolpath(operation: operation,
                                  tool: tool,
                                  settings: settings,
-                                 passes: [pass])
+                                 passes: passes)
     }
 
     // MARK: - Pocket entry
@@ -111,11 +122,14 @@ extension SCEngine {
     /// machinery pocketing doesn't have.
     ///
     /// `.plunge` is exactly the existing straight-down wrapper (`buildWaypoints`) --
-    /// nothing to change there. `.ramp` and `.helix` are a thin reuse of
-    /// `SCEngine+Contour.swift`'s `rampWaypoints`/`helixEntryWaypoints`: since pocketing
-    /// is still single-pass (Step 1.3 hasn't landed yet), both always descend from
-    /// top-of-stock (`fromZ: 0`) to `z` in one shot, the same way profile's first pass
-    /// ramps/helixes from `previousZ == 0`.
+    /// nothing to change there; like `.contour`'s plunge entry, it always retracts to
+    /// safeZ and re-plunges fresh on every pass rather than reading `previousZ`. `.ramp`
+    /// and `.helix` are a thin reuse of `SCEngine+Contour.swift`'s
+    /// `rampWaypoints`/`helixEntryWaypoints`: as of Step 1.3, each pass ramps/helixes only
+    /// from `previousZ` (the depth the previous pass already reached) down to `z`, not
+    /// from top-of-stock every time -- the same "only cover this pass's fresh stepdown"
+    /// convention `.contour`'s ramp/helix entry already uses. The first pass's
+    /// `previousZ` is `0` (top of stock), matching `.contour`'s own first-pass behavior.
     ///
     /// `side` is hardcoded to `.inside` for the helix's signed-offset calculation --
     /// pocketing has no separate inside/outside concept the way `.contour` does (the
@@ -123,6 +137,7 @@ extension SCEngine {
     /// convention `orientedForDirection`/`pocketRings` already use elsewhere in this file.
     private func buildPocketWaypoints(for segments: [SC.Segment],
                                       atZ z: Double,
+                                      previousZ: Double,
                                       settings: SC.MachineSettings,
                                       entry: SC.EntryStrategy) -> [SC.Waypoint] {
 
@@ -151,7 +166,7 @@ extension SCEngine {
                 waypoints.append(
                     contentsOf: rampWaypoints(firstSegment: firstSegment,
                                               angleDegrees: angleDegrees,
-                                              fromZ: 0,
+                                              fromZ: previousZ,
                                               toZ: z,
                                               settings: settings)
                 )
@@ -164,7 +179,7 @@ extension SCEngine {
                                                     segments: segments,
                                                     radius: radius,
                                                     angleDegrees: angleDegrees,
-                                                    fromZ: 0,
+                                                    fromZ: previousZ,
                                                     toZ: z,
                                                     settings: settings)
                 )
