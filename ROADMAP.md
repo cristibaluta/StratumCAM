@@ -1,7 +1,10 @@
 # StratumCAM — Implementation Roadmap
 
 Last updated after: Track 1 (Pocketing) test coverage complete + raster
-concave-row bug fix (`SCEngine+Pocketing.swift`, `Raster_Tests.swift`)
+concave-row bug fix (`SCEngine+Pocketing.swift`, `Raster_Tests.swift`) + raster
+helix-entry bounding fixes (`SCEngine+Contour.swift`, `SCEngine+Pocketing.swift`,
+`PocketEntry_Tests.swift`) + Track 1C added (raster multi-span rows +
+selectable axis, not yet started)
 
 ## How to use this doc with Claude
 
@@ -20,9 +23,9 @@ Suggested prompt shape per step:
 Track 1 is complete. Boundary offsetting and the concentric ring stack
 (`pocketRings` / `chainedRingSegments`), the raster pattern, entry integration
 (plunge/ramp/helix for both pattern types), Z stepdown, and test coverage are
-all done -- see 1.1-1.4 below. Next up is Track 1B (new `ClearingPattern`
-cases) or Track 2 (new `MachiningOperation` cases), whichever you'd rather
-pick up.
+all done -- see 1.1-1.4 below. Next up is Track 1C (raster multi-span rows +
+selectable axis), Track 1B (new `ClearingPattern` cases), or Track 2 (new
+`MachiningOperation` cases), whichever you'd rather pick up.
 
 - DONE **1.1 — `raster` pocket: parallel scanline clearing**
   Independent algorithm from the ring stack — bounding-box scanlines clipped against
@@ -67,6 +70,83 @@ pick up.
 > that boundary" relationship. That's a model change, bigger than pocketing itself.
 > Worth a separate conversation before finishing this track if islands matter to
 > you — flagging again so it doesn't get silently assumed away.
+
+---
+
+## Track 1C — Raster pattern: multi-span rows + selectable axis
+
+Follow-up to 1.1/1.4 above, prompted by `demoRasterConcaveStapleSkipsBridgingRows`:
+`rasterScanlines` currently only handles the single-span case (exactly 2 boundary
+crossings per row) and only rasters along X. A concave boundary with a
+re-entrant notch (the staple demo -- two prongs joined by a wide base, no
+island/model-change needed to reproduce it) correctly *skips* re-entrant rows
+rather than bridging them wrong (that was 1.4's bug fix), but skipping means
+the two prongs above the notch are never cleared by the raster pass at all.
+Both pieces below are about closing that gap for real, plus letting the user
+pick which axis rasters better for a given shape.
+
+- **1C.1 — Multi-span scanline generation**
+  Generalize `rasterScanlines`' per-row crossing logic from "expect exactly 2,
+  skip otherwise" to the general scanline-fill rule: collect *all* crossings
+  with the boundary, sort them, and pair them up sequentially (0↔1, 2↔3, 4↔5,
+  ...) into N/2 independent spans for that row, rather than assuming one span
+  or none. Each row's output becomes `[SC.Segment]` (already the per-row
+  element type `chainedRingSegments` expects) instead of always exactly one
+  `.line`. This is the same rule that'll be needed for islands later (an
+  island's two edges just contribute two more crossings that carve a gap out
+  of whatever span they land inside) -- worth writing it generally now even
+  though islands themselves are still blocked on the `Contour` model change
+  noted above.
+
+- **1C.2 — Span-linking: rapid across already-cleared material, retract/re-enter otherwise**
+  Once a row can produce multiple spans, chaining them (in `chainedRingSegments`
+  or a raster-specific variant) needs to decide *how* to move from the end of
+  one span to the start of the next, and that decision depends on whether the
+  gap between them has already been cut away by an earlier row:
+  - Track the X-range(s) actually cut by each row as rows accumulate top-to-
+    bottom (or bottom-to-top, per `direction`) -- a running "cleared so far"
+    interval set, not just the current row's own spans.
+  - If the gap between two spans on the *current* row falls entirely inside
+    the cleared-so-far region (i.e. a previous row already passed straight
+    through what's now a notch, like the staple's base), link with a plain
+    feed move through it at depth -- no retract needed, that space is open air.
+  - If it doesn't (nothing below has cleared it yet -- this is exactly the
+    first-row case flagged in conversation, but also any row whose gap is the
+    *first* row to reach a given lobe, e.g. the very first row that enters
+    each of the staple's two prongs), retract to `safeZ`, rapid to the next
+    span's start, and re-enter with the operation's own `entry` strategy
+    (plunge/ramp/helix, same `helixEntryWaypoints`/`rampWaypoints` reuse 1.2
+    already established) rather than assuming a feed move is safe.
+  - Reuse/extend `boundarySegments` (added in the helix-entry-offset fix) as
+    the source of truth for "inside the pocket" -- the cleared-tracking above
+    is a separate, additional bookkeeping structure, not a replacement for it.
+
+- **1C.3 — Selectable raster axis (X or Y)**
+  `rasterScanlines` hardcodes horizontal (X-direction) rows; add the option to
+  raster along Y instead (vertical rows, stepping across in X) so the user can
+  pick whichever axis suits a given pocket's shape better -- e.g. a long
+  narrow pocket rasters far more efficiently (fewer rows, fewer entries/
+  retracts) along its long axis than across it, and 1C.2's span-splitting
+  above is itself axis-sensitive (a shape re-entrant along X may be simple
+  along Y, like the staple: rastering along Y instead of X would clear both
+  prongs and the base with zero multi-span rows at all). Likely surfaces as a
+  new `axis: .x | .y` parameter on `.raster` (`SC+ClearingPattern.swift`) with
+  `.x` as the default so existing callers/demos are unaffected; `rasterScanlines`
+  internally transposes X/Y (scan along the chosen axis, step along the other)
+  rather than duplicating the whole function for each axis.
+
+- **1C.4 — Tests**
+  New coverage in `Raster_Tests.swift`: multi-span row count/geometry matches
+  a known re-entrant boundary (the staple shape makes a natural fixture,
+  reused from the demo), the staple's two prongs are now actually cut (not
+  just skipped) after 1C.1, span-linking picks feed-through vs.
+  retract-and-re-enter correctly for both the "already cleared below" and
+  "first row into a lobe" cases from 1C.2, and raster-along-Y produces the
+  transposed geometry of the equivalent X-axis raster on a rotated fixture.
+  Also worth a regression test asserting the now-fixed helix-entry bounding
+  behavior (Step 1.2's follow-up fix, `PocketEntry_Tests.testRasterHelixEntryStaysWithinStockBoundary`)
+  still holds once entries can happen per-span rather than only at the very
+  first row.
 
 ---
 
