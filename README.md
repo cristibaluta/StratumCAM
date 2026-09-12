@@ -1,5 +1,5 @@
-# StratumCAM
-Swift Lib to create toolpaths anf G-Code for CAM softwares.
+![Stratum CAM](https://myimgs.org/storage/images/37816/stratum.png)
+Swift Lib to create toolpaths and G-Code for CAM softwares.
 
 All the models are under the SC namespace and it uses also the models from the DXF lib.
 
