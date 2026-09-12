@@ -10,12 +10,10 @@ import CoreGraphics
 
 extension SCEngine {
 
-    /// Builds the `.offsetPattern` pocket toolpath: a boundary wall ring plus
-    /// successive concentric stepover rings, chained into one continuous pass.
-    ///
-    /// Step 2.1 covered the first ring (the boundary offset). Step 2.2 adds the
-    /// stepover ring stack on top of it. Z stepdown and pocket entry (helix/ramp)
-    /// are still separate roadmap steps (2.4, 2.5) -- this always plunges/retracts
+    /// Builds the pocket toolpath for either `PocketType`. Both patterns share the same
+    /// closed-contour validation and single-Z-pass waypoint wrapper -- they only differ
+    /// in how they produce `toolpathSegments`. Z stepdown and pocket entry (helix/ramp)
+    /// are still separate roadmap steps (1.2, 1.3) -- this always plunges/retracts
     /// straight down at `targetDepth` via the shared `buildWaypoints` behavior.
     func buildPocketToolpath(for contour: SC.Contour,
                              tool: SC.ToolParams,
@@ -29,35 +27,53 @@ extension SCEngine {
             return nil
         }
 
-        guard pocketType == .offsetPattern else {
-            // Raster clearing is a separate algorithm covered by Step 2.3.
-            return nil
-        }
-
         let baseSegments = linearize(contour: contour)
         guard !baseSegments.isEmpty else {
             return nil
         }
 
-        // 1. Orient the chain so travel direction matches the requested cut direction.
-        // Pocket walls are inside cuts, so use `.inside` for the same climb/conventional
-        // convention already established by profile.
-        let oriented = orientedForDirection(baseSegments,
-                                            side: .inside,
-                                            direction: direction)
+        let toolpathSegments: [SC.Segment]
 
-        // 2. Generate the concentric ring stack, geometry only (Step 2.2a).
-        let rings = pocketRings(from: oriented, tool: tool, stepoverPercentage: settings.cutting.stepoverPercentage)
-        guard !rings.isEmpty else {
-            return nil
+        switch pocketType {
+            case .offsetPattern:
+                // 1. Orient the chain so travel direction matches the requested cut
+                // direction. Pocket walls are inside cuts, so use `.inside` for the same
+                // climb/conventional convention already established by profile.
+                let oriented = orientedForDirection(baseSegments, side: .inside, direction: direction)
+
+                // 2. Generate the concentric ring stack, geometry only (Step 2.2a, done).
+                let rings = pocketRings(from: oriented, tool: tool, stepoverPercentage: settings.cutting.stepoverPercentage)
+                guard !rings.isEmpty else {
+                    return nil
+                }
+
+                // 3. Chain the rings into one continuous cut path with connecting
+                // transitions between them (Step 2.2b, done).
+                toolpathSegments = chainedRingSegments(rings)
+
+            case .raster:
+                // Raster clips its scanlines against the same tool-radius wall offset
+                // the ring stack starts from (Step 2.1's boundary) -- reuse it rather
+                // than offsetting the contour twice. Direction here doesn't need
+                // `orientedForDirection`: it only decides which way the first scanline
+                // row travels, not the wall's own winding.
+                let wallOffset = offsetContour(baseSegments, side: .inside, toolRadius: tool.diameter / 2.0, isClosed: true)
+                guard !wallOffset.isEmpty else {
+                    return nil
+                }
+
+                let stepover = settings.cutting.stepoverPercentage * tool.diameter
+                let rows = rasterScanlines(within: wallOffset, stepover: stepover, direction: direction)
+                guard !rows.isEmpty else {
+                    return nil
+                }
+
+                // Same chaining helper the ring stack uses -- a raster row list is just
+                // another ordered stack of segment groups needing connecting transitions
+                // between them.
+                toolpathSegments = chainedRingSegments(rows)
         }
 
-        // 3. Chain the rings into one continuous cut path with connecting
-        // transitions between them (Step 2.2b), then hand the whole thing to
-        // the shared waypoint builder exactly like a single ring would use --
-        // it already produces the rapid/plunge/retract wrapper around
-        // whatever flat segment chain it's given.
-        let toolpathSegments = chainedRingSegments(rings)
         guard !toolpathSegments.isEmpty else {
             return nil
         }
@@ -156,7 +172,9 @@ extension SCEngine {
 
     /// Chains a ring stack (ordered outside-in, as `pocketRings` produces them)
     /// into one flat segment list, inserting a straight connecting move between
-    /// the end of each ring and the start of the next.
+    /// the end of each ring and the start of the next. Generic enough that
+    /// `rasterScanlines`' row list reuses it too -- a stack of segment groups
+    /// needing connecting transitions is the same shape either way.
     ///
     /// Each ring is already a closed loop on its own (its last segment's end
     /// point coincides with its first segment's start point), so the only new
@@ -182,5 +200,176 @@ extension SCEngine {
         }
 
         return chained
+    }
+
+    // MARK: - Step 1.1a: raster scanline geometry
+
+    /// Generates the raster scanline geometry for `.raster` pocketing: parallel
+    /// horizontal cuts spaced `stepover` apart, each clipped to where it crosses
+    /// `boundary` -- geometry only, no waypoints yet (that's `chainedRingSegments`
+    /// + `buildWaypoints`, same as the ring stack).
+    ///
+    /// Rows run bottom-to-top and alternate direction (boustrophedon) so the
+    /// connecting move `chainedRingSegments` inserts between rows is always a
+    /// short vertical step rather than a long retrace across the pocket. Which
+    /// way the *first* row travels is `direction`'s only say here -- `.climb`
+    /// starts left-to-right, `.conventional` starts right-to-left -- since
+    /// there's no wall cut in a pure raster fill for climb/conventional to
+    /// otherwise apply to.
+    ///
+    /// The last row is snapped exactly onto `boundary`'s top edge rather than
+    /// landing short or overshooting, the same fencepost convention
+    /// `calculateZPasses` uses for Z stepdown.
+    ///
+    /// - Note: assumes exactly one cut span per row -- correct for the closed,
+    ///   island-free boundaries currently in scope (see the islands note on
+    ///   Track 1 in the roadmap). A concave boundary that re-enters the same
+    ///   row more than once would need per-span chaining this doesn't attempt
+    ///   yet; such a row is skipped rather than cut wrong.
+    func rasterScanlines(within boundary: [SC.Segment], stepover: Double, direction: SC.CutDirection) -> [[SC.Segment]] {
+        guard stepover > 1e-6, !boundary.isEmpty else {
+            return []
+        }
+
+        let box = boundingBox(of: boundary)
+        let span = box.maxY - box.minY
+        guard span > 1e-9 else {
+            return []
+        }
+
+        // Same whole-number snapping `calculateZPasses` uses: a span that divides
+        // evenly by `stepover` shouldn't gain a spurious extra row from float drift.
+        let rawSteps = span / stepover
+        let epsilon = 1e-9
+        let stepCount: Int
+        if abs(rawSteps.rounded() - rawSteps) < epsilon {
+            stepCount = max(1, Int(rawSteps.rounded()))
+        } else {
+            stepCount = max(1, Int(rawSteps.rounded(.up)))
+        }
+        let rowCount = stepCount + 1
+
+        var rows: [[SC.Segment]] = []
+        var leftToRight = (direction == .climb)
+
+        for i in 0..<rowCount {
+            let y = (i == rowCount - 1) ? box.maxY : box.minY + stepover * Double(i)
+            let xs = horizontalIntersections(y: y, with: boundary).sorted()
+
+            guard let x0 = xs.first, let x1 = xs.last, xs.count >= 2 else {
+                continue // Row misses the boundary, or only grazes a single point.
+            }
+
+            let row: SC.Segment = leftToRight
+                ? .line(start: CGPoint(x: x0, y: y), end: CGPoint(x: x1, y: y))
+                : .line(start: CGPoint(x: x1, y: y), end: CGPoint(x: x0, y: y))
+
+            rows.append([row])
+            leftToRight.toggle()
+        }
+
+        return rows
+    }
+
+    /// Every x where the infinite horizontal line `y` crosses `segments`, bounded to
+    /// each segment's own extent (its `[0,1]` parametric range for a line, its angular
+    /// sweep for an arc) -- unlike `SCEngine+Offset.swift`'s intersection helpers, which
+    /// treat lines as infinite and arcs as full circles because they only need the point
+    /// nearest a known vertex. A scanline clip has no such vertex to anchor on, so it
+    /// needs the true bounded crossings.
+    private func horizontalIntersections(y: Double, with segments: [SC.Segment]) -> [Double] {
+        var xs: [Double] = []
+
+        for segment in segments {
+            switch segment {
+                case .line(let start, let end):
+                    let dy = end.y - start.y
+                    guard abs(dy) > 1e-9 else {
+                        continue // Horizontal edge: coincides with at most a whole row, no single crossing.
+                    }
+                    let t = (y - start.y) / dy
+                    guard t >= -1e-9, t <= 1 + 1e-9 else {
+                        continue
+                    }
+                    let clampedT = min(max(t, 0), 1)
+                    xs.append(start.x + clampedT * (end.x - start.x))
+
+                case .arc(let center, let radius, let startAngle, let endAngle, let isCCW):
+                    let dy = y - center.y
+                    guard abs(dy) <= radius else {
+                        continue
+                    }
+                    let dx = (radius * radius - dy * dy).squareRoot()
+                    let candidateXs = dx > 1e-9 ? [center.x - dx, center.x + dx] : [center.x]
+
+                    for cx in candidateXs {
+                        let angle = atan2(y - center.y, cx - center.x)
+                        if angleWithinSweep(angle, start: startAngle, end: endAngle, isCCW: isCCW) {
+                            xs.append(cx)
+                        }
+                    }
+            }
+        }
+
+        return xs
+    }
+
+    /// The true bounding box of a segment chain, sampling each arc's angular sweep for
+    /// its axis-aligned extremes (0/90/180/270 degrees) rather than just its two
+    /// endpoints -- the top of a semicircle, for example, doesn't lie on either endpoint.
+    /// A safe superset is enough for scanline generation (an over-wide box just probes a
+    /// few rows that come back empty and get skipped), but not an under-wide one.
+    func boundingBox(of segments: [SC.Segment]) -> (minX: Double, maxX: Double, minY: Double, maxY: Double) {
+        var minX = Double.infinity, maxX = -Double.infinity
+        var minY = Double.infinity, maxY = -Double.infinity
+
+        func include(_ point: CGPoint) {
+            minX = min(minX, point.x)
+            maxX = max(maxX, point.x)
+            minY = min(minY, point.y)
+            maxY = max(maxY, point.y)
+        }
+
+        for segment in segments {
+            include(segment.startPoint)
+            include(segment.endPoint)
+
+            if case .arc(let center, let radius, let startAngle, let endAngle, let isCCW) = segment {
+                for extremeAngle in stride(from: 0.0, to: 2 * .pi, by: .pi / 2) {
+                    if angleWithinSweep(extremeAngle, start: startAngle, end: endAngle, isCCW: isCCW) {
+                        include(CGPoint(x: center.x + radius * cos(extremeAngle), y: center.y + radius * sin(extremeAngle)))
+                    }
+                }
+            }
+        }
+
+        return (minX, maxX, minY, maxY)
+    }
+
+    /// Whether `angle` falls within the arc sweep from `start` to `end`, travelling in
+    /// the direction `isCCW` says -- all three normalized into the same wraparound-safe
+    /// space first, since raw `atan2` results and stored sweep angles can straddle the
+    /// -pi/pi or 0/2pi seam independently of each other.
+    private func angleWithinSweep(_ angle: Double, start: Double, end: Double, isCCW: Bool) -> Bool {
+        let twoPi = 2 * Double.pi
+        func normalized(_ a: Double) -> Double {
+            let m = a.truncatingRemainder(dividingBy: twoPi)
+            return m < 0 ? m + twoPi : m
+        }
+
+        let a = normalized(angle)
+        let s = normalized(start)
+        var e = normalized(end)
+        var probe = a
+
+        if isCCW {
+            if e < s { e += twoPi }
+            if probe < s { probe += twoPi }
+            return probe >= s - 1e-9 && probe <= e + 1e-9
+        } else {
+            if e > s { e -= twoPi }
+            if probe > s { probe -= twoPi }
+            return probe <= s + 1e-9 && probe >= e - 1e-9
+        }
     }
 }
