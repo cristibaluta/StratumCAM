@@ -228,17 +228,27 @@ struct ContentView: View {
 
     /// Step 5.4: rebuilds `renderBatches` as `[contour batch, sliced toolpath batch
     /// (5.2), marker batch (5.3)]` from the current `scrubIndex` -- called once from
-    /// `show(_:)` after a new demo loads, and again on every slider change.
+    /// `show(_:)` after a new demo loads, and again on every slider change. Step 5.5:
+    /// the drawn prefix stays index-based (floored to the last fully-reached point),
+    /// but the marker's own position now interpolates between that point and the
+    /// next one, so it glides smoothly ahead of the drawn line on coarse paths
+    /// instead of jumping point-to-point.
     private func rebuildRenderBatches() {
         var batches = staticBatches
         if !toolpathPoints.isEmpty {
-            let index = Int(scrubIndex.rounded())
-            let prefix = Demo.pointsPrefix(toolpathPoints, upTo: index)
+            // Floor, not nearest-rounding, so the drawn prefix always ends exactly
+            // where the interpolated marker starts interpolating *from* -- with
+            // nearest-rounding the prefix could round up past the marker's current
+            // fractional position, making the marker appear to trail behind the end
+            // of the drawn line instead of riding its leading edge.
+            let prefixIndex = Int(scrubIndex.rounded(.down))
+            let prefix = Demo.pointsPrefix(toolpathPoints, upTo: prefixIndex)
 
             if let slicedBatch = previewDemo.renderBatch(forPoints: prefix, color: SIMD4<Float>(1.0, 0.8, 0.0, 1.0)) {
                 batches.append(slicedBatch)
             }
-            if let lastPoint = prefix.last, let marker = previewDemo.markerBatch(at: lastPoint) {
+            if let markerPoint = Demo.interpolatedPoint(toolpathPoints, at: scrubIndex),
+               let marker = previewDemo.markerBatch(at: markerPoint) {
                 batches.append(marker)
             }
         }

@@ -98,6 +98,36 @@ class Demo {
         return Array(points[0...clampedIndex])
     }
 
+    // MARK: - Step 5.5: smooth marker interpolation between points
+
+    /// Linearly interpolates a position between `points[floor(index)]` and
+    /// `points[ceil(index)]` for a fractional `index` -- lets the marker glide
+    /// smoothly between points on coarse paths (e.g. a rectangle's 4 corners)
+    /// instead of jumping point-to-point, without changing the underlying point
+    /// density or the drawn toolpath prefix, which stays index-based (see
+    /// `pointsPrefix` above -- that one's unaffected by this). Pure function, no
+    /// Metal/device dependency, same reasoning as `pointsPrefix`: testable on its
+    /// own once Step 5.8 adds coverage (e.g. index 0.5 between two known points
+    /// returns their midpoint; a whole-number index returns that point exactly).
+    ///
+    /// `index` is clamped into `0...(points.count - 1)` the same way
+    /// `pointsPrefix` clamps its own `index`, so a scrub value past either end of
+    /// the array still returns a sensible position instead of crashing. Returns
+    /// `nil` only for an empty `points` array, where there's nothing to
+    /// interpolate between.
+    static func interpolatedPoint(_ points: [SIMD3<Float>], at index: Double) -> SIMD3<Float>? {
+        guard !points.isEmpty else {
+            return nil
+        }
+        let clampedIndex = max(0, min(index, Double(points.count - 1)))
+        let lowerIndex = Int(clampedIndex.rounded(.down))
+        let upperIndex = Int(clampedIndex.rounded(.up))
+        let lower = points[lowerIndex]
+        let upper = points[upperIndex]
+        let t = Float(clampedIndex - Double(lowerIndex))
+        return lower + (upper - lower) * t
+    }
+
     /// Builds a single `.lineStrip` `RenderBatch` from an arbitrary point array --
     /// the same buffer-building steps `run(contours:...)` above already repeats
     /// once for the blue contour and once for the full yellow toolpath, pulled out
