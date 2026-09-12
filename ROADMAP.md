@@ -1,6 +1,7 @@
 # StratumCAM — Implementation Roadmap
 
-Last updated after: pocket ring stepping/chaining (`SCEngine+Pocketing.swift`)
+Last updated after: Track 1 (Pocketing) test coverage complete + raster
+concave-row bug fix (`SCEngine+Pocketing.swift`, `Raster_Tests.swift`)
 
 ## How to use this doc with Claude
 
@@ -16,9 +17,12 @@ Suggested prompt shape per step:
 
 ## Track 1 — Pocketing (`.pocket`) — Phase 3
 
-Boundary offsetting and the concentric ring stack are done (`pocketRings` /
-`chainedRingSegments`, covered by `Pocket_Tests.swift`). Remaining: the raster
-pattern, entry integration, Z stepdown, and rounding out test coverage.
+Track 1 is complete. Boundary offsetting and the concentric ring stack
+(`pocketRings` / `chainedRingSegments`), the raster pattern, entry integration
+(plunge/ramp/helix for both pattern types), Z stepdown, and test coverage are
+all done -- see 1.1-1.4 below. Next up is Track 1B (new `ClearingPattern`
+cases) or Track 2 (new `MachiningOperation` cases), whichever you'd rather
+pick up.
 
 - DONE **1.1 — `raster` pocket: parallel scanline clearing**
   Independent algorithm from the ring stack — bounding-box scanlines clipped against
@@ -35,16 +39,28 @@ pattern, entry integration, Z stepdown, and rounding out test coverage.
   `buildPocketToolpath` currently plunges/retracts straight down via the shared
   `buildWaypoints` default — this replaces that for the pocket case specifically.
 
-- **1.3 — Multi-pass Z stepdown for pockets**
+- DONE **1.3 — Multi-pass Z stepdown for pockets**
   Same `calculateZPasses` reuse as profile — confirm pocket geometry (rings or
   scanlines) is only computed once and Z-passes reuse it (don't regenerate per Z
   pass, that's wasted work and a source of divergent bugs between passes).
   `buildPocketToolpath` is currently single-pass at `settings.targetDepth`.
 
-- **1.4 — Tests**
-  Extend `Pocket_Tests.swift`: raster coverage on a rectangle, stepover honored
-  within tolerance for raster, entry-strategy waypoints present for both pattern
-  types, multi-pass Z depths correct.
+- DONE **1.4 — Tests**
+  Coverage landed across four files rather than one extended `Pocket_Tests.swift`
+  (`Raster_Tests.swift`, `PocketEntry_Tests.swift`, `PocketZPasses_Tests.swift`,
+  plus the original `Pocket_Tests.swift`): raster coverage on a rectangle,
+  stepover honored for raster (including the fencepost/uneven-stepover case and
+  a direct `rasterScanlines` unit test), entry-strategy waypoints present for
+  both pattern types (ramp + helix, single-pass and multi-pass `previousZ`
+  threading), multi-pass Z depths correct for both pattern types.
+  While extending this coverage, found and fixed a real bug: `rasterScanlines`
+  took `xs.first`/`xs.last` regardless of how many times a row crossed the
+  boundary, so a concave (non-convex) single-boundary contour with a re-entrant
+  row -- e.g. a notch, no island/model-change needed -- would bridge straight
+  across the empty gap as one wrong cut instead of being skipped, contradicting
+  the function's own doc comment. Now guards on exactly 2 crossings (deduping
+  crossings that land on a shared segment vertex first). Regression test:
+  `Raster_Tests.testRasterSkipsConcaveReentrantRows`.
 
 > Note: islands (pockets with interior obstacles to avoid) aren't in the current
 > `Contour` model at all — it's a flat entity list with no "this is an island inside

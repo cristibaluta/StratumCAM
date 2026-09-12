@@ -374,10 +374,29 @@ extension SCEngine {
 
         for i in 0..<rowCount {
             let y = (i == rowCount - 1) ? box.maxY : box.minY + stepover * Double(i)
-            let xs = horizontalIntersections(y: y, with: boundary).sorted()
+            var xs = horizontalIntersections(y: y, with: boundary).sorted()
 
-            guard let x0 = xs.first, let x1 = xs.last, xs.count >= 2 else {
-                continue // Row misses the boundary, or only grazes a single point.
+            // Two adjacent segments that share a vertex exactly on this row (e.g. a
+            // straight edge ending exactly where an arc begins) each independently
+            // register a crossing at that shared point -- collapse those into one
+            // logical crossing rather than letting them masquerade as a second span.
+            var deduped: [Double] = []
+            for x in xs {
+                if let last = deduped.last, abs(x - last) < 1e-6 {
+                    continue
+                }
+                deduped.append(x)
+            }
+            xs = deduped
+
+            // Exactly 2 crossings is the single-span case this function supports (see
+            // the doc comment above). 0 or 1 means the row misses the boundary or only
+            // grazes it. More than 2 means the row re-enters the boundary more than
+            // once -- a concave row -- which needs per-span chaining this doesn't
+            // attempt yet, so it's skipped rather than cut wrong (bridging a gap that
+            // isn't actually inside the pocket).
+            guard xs.count == 2, let x0 = xs.first, let x1 = xs.last else {
+                continue
             }
 
             let row: SC.Segment = leftToRight

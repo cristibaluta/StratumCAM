@@ -52,6 +52,25 @@ struct Raster_Tests {
         return (xs.min()!, xs.max()!, ys.min()!, ys.max()!)
     }
 
+    /// A concave "staple" shape: a 20x10 base with a rectangular notch removed from
+    /// the top-middle (x: 8-12, y: 4-10), leaving two upward prongs. Any row above
+    /// y=4 crosses the boundary four times -- two real spans ([0,8] and [12,20])
+    /// separated by a genuine gap where there's no material at all. Used to prove
+    /// `rasterScanlines` skips those rows instead of bridging the gap with a single
+    /// wrong-geometry cut, per its own "assumes exactly one cut span per row" doc note.
+    private func staplePolygonContour() -> SC.Contour {
+        SC.Contour(entities: [
+            .init(entity: .line(a: DXF.Point(0, 0), b: DXF.Point(20, 0), layer: "0", color: 7), reversed: false),
+            .init(entity: .line(a: DXF.Point(20, 0), b: DXF.Point(20, 10), layer: "0", color: 7), reversed: false),
+            .init(entity: .line(a: DXF.Point(20, 10), b: DXF.Point(12, 10), layer: "0", color: 7), reversed: false),
+            .init(entity: .line(a: DXF.Point(12, 10), b: DXF.Point(12, 4), layer: "0", color: 7), reversed: false),
+            .init(entity: .line(a: DXF.Point(12, 4), b: DXF.Point(8, 4), layer: "0", color: 7), reversed: false),
+            .init(entity: .line(a: DXF.Point(8, 4), b: DXF.Point(8, 10), layer: "0", color: 7), reversed: false),
+            .init(entity: .line(a: DXF.Point(8, 10), b: DXF.Point(0, 10), layer: "0", color: 7), reversed: false),
+            .init(entity: .line(a: DXF.Point(0, 10), b: DXF.Point(0, 0), layer: "0", color: 7), reversed: false)
+        ], isClosed: true)
+    }
+
     private func rasterStrategy(direction: SC.CutDirection) -> SC.MachiningOperation {
         .pocket(direction: direction, pattern: .raster, entry: .plunge)
     }
@@ -216,6 +235,68 @@ struct Raster_Tests {
         #expect(abs(topRowEnd.position.y - 8.5) < 1e-5, "Test Failed: expected the top row at y=8.5")
         #expect(abs(topRowEnd.position.x - 2.0) < 1e-5,
                 "Test Failed: top row should end at x=2.0 (the corner arc's tangent point), not the bbox edge at 1.5")
+    }
+
+    // MARK: - Fencepost: uneven stepover snaps the last row to the boundary
+
+    @Test("Raster snaps its last row to the boundary edge on an unevenly divisible stepover")
+    func testRasterSnapsLastRowOnUnevenStepover() {
+        let engine = SCEngine()
+
+        // 6mm-tall wall offset span (y: 2-8) at a 2.5mm stepover doesn't divide
+        // evenly (6 / 2.5 = 2.4), so it rounds up to 3 steps -> 4 rows, with the
+        // final gap (7 -> 8) narrower than the other 2 (each exactly 2.5mm) -- the
+        // same fencepost rule `calculateZPasses` already applies to Z stepdown.
+        let tool = SC.ToolParams(diameter: 4.0)
+        let boundary = engine.offsetContour(engine.linearize(contour: ccwRectangleContour()),
+                                            side: .inside,
+                                            toolRadius: tool.diameter / 2.0,
+                                            isClosed: true)
+
+        let rows = engine.rasterScanlines(within: boundary, stepover: 2.5, direction: .climb)
+
+        #expect(rows.count == 4, "Test Failed: expected 4 rows (2 even steps + 1 snapped remainder), got \(rows.count)")
+
+        let rowYs = rows.map { $0[0].startPoint.y }
+        let expectedYs = [2.0, 4.5, 7.0, 8.0]
+        for (actual, expected) in zip(rowYs, expectedYs) {
+            #expect(abs(actual - expected) < 1e-5,
+                    "Test Failed: expected row at y=\(expected), got y=\(actual)")
+        }
+
+        // The last gap (7 -> 8 = 1.0mm) is narrower than the honored 2.5mm stepover
+        // between every other row -- proof the last row was snapped to the boundary
+        // rather than overshooting past it.
+        let lastGap = rowYs[3] - rowYs[2]
+        #expect(lastGap < 2.5 - 1e-5,
+                "Test Failed: expected the final row's gap to be narrower than the honored stepover")
+    }
+
+    // MARK: - Concave rows: skip rather than bridge a real gap
+
+    @Test("Raster skips a row that re-enters the boundary more than once instead of bridging the gap")
+    func testRasterSkipsConcaveReentrantRows() {
+        let engine = SCEngine()
+        let boundary = engine.linearize(contour: staplePolygonContour())
+
+        // Stepover 2 over the full 0-10 height -> rows at y = 0, 2, 4, 6, 8, 10.
+        // Only y=0 and y=2 sit below the notch (full-width single span); y=4, 6, 8,
+        // and 10 each cross the boundary 4 times (two spans either side of the empty
+        // notch) and must be skipped rather than produce one wrong span across it.
+        let rows = engine.rasterScanlines(within: boundary, stepover: 2.0, direction: .climb)
+
+        #expect(rows.count == 2,
+                "Test Failed: expected only the 2 full-width rows below the notch, got \(rows.count)")
+
+        for row in rows {
+            let y = row[0].startPoint.y
+            #expect(y < 4.0 - 1e-5,
+                    "Test Failed: no row above the notch's base (y=4) should have been generated -- got a row at y=\(y)")
+
+            let xs = [row[0].startPoint.x, row[0].endPoint.x].sorted()
+            #expect(abs(xs[0] - 0.0) < 1e-5 && abs(xs[1] - 20.0) < 1e-5,
+                    "Test Failed: expected the surviving rows to span the full 0-20 base width")
+        }
     }
 
     // MARK: - Validation

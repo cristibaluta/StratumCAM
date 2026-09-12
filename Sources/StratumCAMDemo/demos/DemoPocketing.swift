@@ -39,6 +39,24 @@ class DemoPocketing: Demo {
         ], isClosed: true)
     }
 
+    /// A concave "staple" shape: a wide base with a rectangular notch removed from
+    /// the top-middle, leaving two upward prongs -- matching the fixture in
+    /// `Raster_Tests.swift`'s concave-row regression test. Scales the 20x10/notch
+    /// 8-12x4-10 test fixture by `scale` so it reads clearly at demo tool sizes.
+    private func staplePolygonContour(scale: Double = 2.0) -> SC.Contour {
+        let s = scale
+        return SC.Contour(entities: [
+            SC.Contour.Chained(entity: .line(a: DXF.Point(0, 0), b: DXF.Point(20 * s, 0), layer: "0", color: 7), reversed: false),
+            SC.Contour.Chained(entity: .line(a: DXF.Point(20 * s, 0), b: DXF.Point(20 * s, 10 * s), layer: "0", color: 7), reversed: false),
+            SC.Contour.Chained(entity: .line(a: DXF.Point(20 * s, 10 * s), b: DXF.Point(12 * s, 10 * s), layer: "0", color: 7), reversed: false),
+            SC.Contour.Chained(entity: .line(a: DXF.Point(12 * s, 10 * s), b: DXF.Point(12 * s, 4 * s), layer: "0", color: 7), reversed: false),
+            SC.Contour.Chained(entity: .line(a: DXF.Point(12 * s, 4 * s), b: DXF.Point(8 * s, 4 * s), layer: "0", color: 7), reversed: false),
+            SC.Contour.Chained(entity: .line(a: DXF.Point(8 * s, 4 * s), b: DXF.Point(8 * s, 10 * s), layer: "0", color: 7), reversed: false),
+            SC.Contour.Chained(entity: .line(a: DXF.Point(8 * s, 10 * s), b: DXF.Point(0, 10 * s), layer: "0", color: 7), reversed: false),
+            SC.Contour.Chained(entity: .line(a: DXF.Point(0, 10 * s), b: DXF.Point(0, 0), layer: "0", color: 7), reversed: false)
+        ], isClosed: true)
+    }
+
     // MARK: - Concentric ring pocketing (Step 2.2)
 
     /// Clears a 40x24 rectangle with a 6mm tool at 40% stepover. Wide enough
@@ -153,5 +171,84 @@ class DemoPocketing: Demo {
         let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .offsetPattern, entry: .helix(radius: 1.0, rampAngleDegrees: 30))
 
         return self.run(contour: rectangleContour(width: 20, height: 10), tool: tool, settings: settings, operation: operation)
+    }
+
+    // MARK: - Raster clearing (Step 1.1)
+
+    /// Clears a 40x24 rectangle with parallel scanline rows instead of concentric
+    /// rings -- the direct visual contrast with `demoPocketRectangle()`'s ring
+    /// stack, both clearing the identical rectangle with the identical tool.
+    func demoRasterRectangle() -> Demo.DemoResult {
+        let tool = SC.ToolParams(diameter: 6.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4), safeZ: 5.0, targetDepth: -3.0)
+
+        let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .raster, entry: .plunge)
+
+        return self.run(contour: rectangleContour(width: 40, height: 24), tool: tool, settings: settings, operation: operation)
+    }
+
+    /// Same raster clearing as above but conventional direction, so the first
+    /// row's start corner and sweep direction can be compared side by side with
+    /// `demoRasterRectangle()`.
+    func demoRasterRectangleConventional() -> Demo.DemoResult {
+        let tool = SC.ToolParams(diameter: 6.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4), safeZ: 5.0, targetDepth: -3.0)
+
+        let operation: SC.MachiningOperation = .pocket(direction: .conventional, pattern: .raster, entry: .plunge)
+
+        return self.run(contour: rectangleContour(width: 40, height: 24), tool: tool, settings: settings, operation: operation)
+    }
+
+    /// Clears a rounded rectangle with scanlines, showing rows clip against the
+    /// true corner-arc sweep -- the bottom/top rows narrow inward at the rounded
+    /// corners instead of squaring off at the plain bounding box, same behavior
+    /// `Raster_Tests.testRasterClipsAgainstRoundedContour` locks in.
+    func demoRasterRoundedRectangle() -> Demo.DemoResult {
+        let tool = SC.ToolParams(diameter: 3.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.3), safeZ: 5.0, targetDepth: -2.0)
+
+        let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .raster, entry: .plunge)
+
+        return self.run(contour: roundedRectangleContour(width: 40, height: 24, cornerRadius: 5), tool: tool, settings: settings, operation: operation)
+    }
+
+    /// Raster clearing with a ramp entry into the first row -- mirrors
+    /// `demoRampEntryMultiPass()` but for `.raster` instead of `.offsetPattern`,
+    /// proving Step 1.2's entry integration isn't wired to only one pattern type.
+    func demoRasterRampEntry() -> Demo.DemoResult {
+        let tool = SC.ToolParams(diameter: 6.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4), safeZ: 5.0, targetDepth: -1.0)
+
+        let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .raster, entry: .ramp(angleDegrees: 30))
+
+        return self.run(contour: rectangleContour(width: 40, height: 24), tool: tool, settings: settings, operation: operation)
+    }
+
+    /// Raster clearing with a helix entry into the first row -- same pairing as
+    /// `demoRasterRampEntry()`, for the other non-plunge entry style.
+    func demoRasterHelixEntry() -> Demo.DemoResult {
+        let tool = SC.ToolParams(diameter: 6.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4), safeZ: 5.0, targetDepth: -1.0)
+
+        let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .raster, entry: .helix(radius: 2.0, rampAngleDegrees: 30))
+
+        return self.run(contour: rectangleContour(width: 40, height: 24), tool: tool, settings: settings, operation: operation)
+    }
+
+    /// Clears a concave "staple" shape (two prongs joined by a wide base) with
+    /// scanlines. Visualizes the fix for a real bug found while extending Step 1.4's
+    /// test coverage: rows crossing the notch used to bridge straight across the empty
+    /// gap between the prongs as one long (wrong) cut; `rasterScanlines` now skips any
+    /// row that re-enters the boundary more than once instead, per its own doc comment
+    /// -- so in this preview, only the rows below the notch are cut, and the two prongs
+    /// above it are left untouched by the raster pass. See
+    /// `Raster_Tests.testRasterSkipsConcaveReentrantRows`.
+    func demoRasterConcaveStapleSkipsBridgingRows() -> Demo.DemoResult {
+        let tool = SC.ToolParams(diameter: 4.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4), safeZ: 5.0, targetDepth: -1.0)
+
+        let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .raster, entry: .plunge)
+
+        return self.run(contour: staplePolygonContour(scale: 2.0), tool: tool, settings: settings, operation: operation)
     }
 }

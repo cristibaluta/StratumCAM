@@ -87,6 +87,26 @@ struct ContentView: View {
                         show(DemoPocketing().demoHelixEntryMultiPass())
                     }
                 }
+                Section("Pocketing — Raster") {
+                    Button("Raster Rectangle (Climb)") {
+                        show(DemoPocketing().demoRasterRectangle())
+                    }
+                    Button("Raster Rectangle (Conventional)") {
+                        show(DemoPocketing().demoRasterRectangleConventional())
+                    }
+                    Button("Raster Rounded Rectangle") {
+                        show(DemoPocketing().demoRasterRoundedRectangle())
+                    }
+                    Button("Raster Ramp Entry") {
+                        show(DemoPocketing().demoRasterRampEntry())
+                    }
+                    Button("Raster Helix Entry") {
+                        show(DemoPocketing().demoRasterHelixEntry())
+                    }
+                    Button("Concave Staple (Bridging Row Fix)") {
+                        show(DemoPocketing().demoRasterConcaveStapleSkipsBridgingRows())
+                    }
+                }
             }
             .navigationTitle("StratumCAM Demo")
         } content: {
