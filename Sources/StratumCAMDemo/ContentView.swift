@@ -102,6 +102,26 @@ struct ContentView: View {
                         show(DemoBoring().demoMultipleBores())
                     }
                 }
+                Section("Tapping") {
+                    demoButton("Internal (Climb)") {
+                        show(DemoTapping().demoInternalClimb())
+                    }
+                    demoButton("Internal (Conventional)") {
+                        show(DemoTapping().demoInternalConventional())
+                    }
+                    demoButton("External (Climb)") {
+                        show(DemoTapping().demoExternalClimb())
+                    }
+                    demoButton("External (Conventional)") {
+                        show(DemoTapping().demoExternalConventional())
+                    }
+                    demoButton("Deep Multi-Turn Thread") {
+                        show(DemoTapping().demoDeepMultiTurnThread())
+                    }
+                    demoButton("Multiple Holes") {
+                        show(DemoTapping().demoMultipleHoles())
+                    }
+                }
                 Section("Pocketing") {
                     demoButton("Rectangle (Climb)") {
                         show(DemoPocketing().demoPocketRectangle())

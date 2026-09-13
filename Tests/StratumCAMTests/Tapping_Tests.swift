@@ -246,4 +246,159 @@ struct Tapping_Tests {
                     "Test Failed: toolpath was assigned to the wrong hole")
         }
     }
+
+    // MARK: - Additional coverage (Step 2D.3)
+
+    @Test("A negative pitch is treated as its magnitude, same helix as the positive value")
+    func testNegativePitchTreatedAsMagnitude() {
+        let engine = SCEngine()
+        let tool = SC.ToolParams(type: .flatEndMill, diameter: 3.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -3.0)
+        let contour = circleContour(center: (0, 0), diameter: 10.0)
+
+        let positive = engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
+                                                 operation: .tapping(pitch: 1.0, isInternal: true, direction: .climb))
+        let negative = engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
+                                                 operation: .tapping(pitch: -1.0, isInternal: true, direction: .climb))
+
+        #expect(negative.count == 1, "Test Failed: a negative pitch should still produce a toolpath")
+        #expect(positive[0].passes[0].waypoints.count == negative[0].passes[0].waypoints.count,
+                "Test Failed: negative pitch should produce the same waypoint layout as its positive magnitude")
+        for (pw, nw) in zip(positive[0].passes[0].waypoints, negative[0].passes[0].waypoints) {
+            #expect(abs(pw.position.z - nw.position.z) < 1e-9, "Test Failed: negative pitch should step down identically to its magnitude")
+        }
+    }
+
+    @Test("A target depth that isn't an exact multiple of pitch ends the last turn early instead of overshooting")
+    func testPartialFinalTurnDepthDoesNotOvershoot() {
+        let engine = SCEngine()
+        let tool = SC.ToolParams(type: .flatEndMill, diameter: 3.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -3.5)
+        let contour = circleContour(center: (0, 0), diameter: 10.0)
+
+        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
+                                                  operation: .tapping(pitch: 1.0, isInternal: true, direction: .climb))
+
+        let waypoints = toolpaths[0].passes[0].waypoints
+        // 4 turns (-1, -2, -3, -3.5) + 1 closing lap, 8 waypoints each, plus 2 setup rapids and 1 retract.
+        #expect(waypoints.count == 2 + 5 * 8 + 1, "Test Failed: expected a shortened 4th turn instead of an extra full-pitch 5th turn")
+
+        // End of turn 4 (index 2 + 4*8 - 1 = 33) should land exactly at the target depth, not one pitch past it.
+        let endOfTurn4 = waypoints[33]
+        #expect(abs(endOfTurn4.position.z - (-3.5)) < 1e-9, "Test Failed: the shortened final turn should land exactly at target depth")
+    }
+
+    @Test("A target depth shallower than one full pitch still produces a single shortened turn plus closing lap")
+    func testSingleShortTurnWhenDepthLessThanPitch() {
+        let engine = SCEngine()
+        let tool = SC.ToolParams(type: .flatEndMill, diameter: 3.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -0.5)
+        let contour = circleContour(center: (0, 0), diameter: 10.0)
+
+        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
+                                                  operation: .tapping(pitch: 1.0, isInternal: true, direction: .climb))
+
+        let waypoints = toolpaths[0].passes[0].waypoints
+        #expect(waypoints.count == 2 + 2 * 8 + 1, "Test Failed: expected 1 shortened turn + 1 closing lap when depth < pitch")
+
+        let endOfTurn1 = waypoints[9]
+        #expect(abs(endOfTurn1.position.z - (-0.5)) < 1e-9, "Test Failed: the single turn should stop exactly at the shallow target depth")
+
+        for i in 10...17 {
+            #expect(abs(waypoints[i].position.z - (-0.5)) < 1e-9, "Test Failed: closing lap waypoint \(i) should stay flat at the shallow target depth")
+        }
+    }
+
+    @Test("Every cutting waypoint carries the machine settings' own feed rate")
+    func testAllWaypointsUseCuttingFeedRate() {
+        let engine = SCEngine()
+        let tool = SC.ToolParams(type: .flatEndMill, diameter: 3.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 733.0, plungeRate: 150.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -3.0)
+        let contour = circleContour(center: (0, 0), diameter: 10.0)
+
+        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
+                                                  operation: .tapping(pitch: 1.0, isInternal: true, direction: .climb))
+
+        for waypoint in toolpaths[0].passes[0].waypoints {
+            #expect(waypoint.feedRate == 733.0, "Test Failed: every waypoint, including rapids, should carry the cutting feed rate")
+        }
+    }
+
+    @Test("Every arc waypoint of the helix sits at the compensated mill radius from the hole/boss center")
+    func testHelixMaintainsConstantRadiusThroughout() {
+        let engine = SCEngine()
+        let tool = SC.ToolParams(type: .flatEndMill, diameter: 4.0) // tool radius 2.0
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -5.0)
+        let center = (5.0, 7.0)
+        let contour = circleContour(center: center, diameter: 20.0) // hole radius 10.0
+
+        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
+                                                  operation: .tapping(pitch: 1.0, isInternal: true, direction: .climb))
+
+        let expectedRadius = 10.0 - 2.0
+        // Skip the two setup rapids and the final retract -- every arc waypoint in between
+        // should sit at exactly the compensated mill radius from the hole's own center.
+        let waypoints = toolpaths[0].passes[0].waypoints
+        for waypoint in waypoints[2..<(waypoints.count - 1)] {
+            let dx = waypoint.position.x - center.0
+            let dy = waypoint.position.y - center.1
+            let radius = (dx * dx + dy * dy).squareRoot()
+            #expect(abs(radius - expectedRadius) < 1e-9, "Test Failed: arc waypoint drifted off the compensated mill radius")
+        }
+    }
+
+    @Test("The winding sense stays consistent across every turn of a multi-turn helix, not just the first")
+    func testWindingSenseConsistentAcrossAllTurns() {
+        let engine = SCEngine()
+        let tool = SC.ToolParams(type: .flatEndMill, diameter: 3.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -4.0)
+        let contour = circleContour(center: (0, 0), diameter: 10.0)
+
+        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
+                                                  operation: .tapping(pitch: 1.0, isInternal: true, direction: .climb))
+
+        let waypoints = toolpaths[0].passes[0].waypoints
+        // All arc waypoints (everything but the two leading rapids and the trailing retract)
+        // should keep winding CW for an internal + climb thread mill, turn after turn.
+        for waypoint in waypoints[2..<(waypoints.count - 1)] {
+            if case .arcCW = waypoint.motion {} else {
+                Issue.record("Test Failed: winding sense flipped mid-helix, should stay .arcCW throughout")
+            }
+        }
+    }
+
+    @Test("The output toolpath carries the same tool and settings the operation was generated with")
+    func testOutputToolpathCarriesToolAndSettings() {
+        let engine = SCEngine()
+        let tool = SC.ToolParams(type: .flatEndMill, diameter: 3.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -3.0)
+        let contour = circleContour(center: (0, 0), diameter: 10.0)
+
+        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
+                                                  operation: .tapping(pitch: 1.0, isInternal: true, direction: .climb))
+
+        #expect(toolpaths[0].tool == tool, "Test Failed: output toolpath should carry the exact tool used")
+        #expect(toolpaths[0].settings == settings, "Test Failed: output toolpath should carry the exact settings used")
+    }
+
+    @Test("A batch mixing circle and non-circle contours only produces toolpaths for the circles")
+    func testMixedBatchOnlyCirclesProduceToolpaths() {
+        let engine = SCEngine()
+        let tool = SC.ToolParams(type: .flatEndMill, diameter: 3.0) // tool radius 1.5
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -2.0)
+
+        let goodContour = circleContour(center: (0, 0), diameter: 10.0) // hole radius 5.0
+        let badContour = SC.Contour(entities: [
+            .init(entity: .point(at: DXF.Point(20, 20), layer: "0", color: 7), reversed: false)
+        ], isClosed: false)
+
+        let toolpaths = engine.generateToolpaths(from: [badContour, goodContour], tool: tool, settings: settings,
+                                                  operation: .tapping(pitch: 1.0, isInternal: true, direction: .climb))
+
+        #expect(toolpaths.count == 1, "Test Failed: only the circle contour should yield a tapping toolpath")
+        let millRadius = 5.0 - 1.5
+        let start = toolpaths[0].passes[0].waypoints[0]
+        #expect(abs(start.position.x - millRadius) < 1e-9 && abs(start.position.y) < 1e-9,
+                "Test Failed: the surviving toolpath should still be centered on the good contour's hole")
+    }
 }

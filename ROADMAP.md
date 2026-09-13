@@ -598,20 +598,28 @@ Closest in shape to drilling — reuse its structure.
 
 Most algorithmically involved of the four — do it last within this track.
 
-- **2D.1 — Helical thread-milling core**
+- DONE **2D.1 — Helical thread-milling core**
   `buildTappingToolpath`: generate a helical path stepping down by `pitch` per
   revolution around the hole (internal) or boss (external) at the tool's
   compensated radius. This is a genuinely new geometry shape, not a reuse of
   existing offset/helix code — expect sub-steps once you're in it.
 
-- **2D.2 — Internal vs external (`isInternal`) + direction**
+- DONE **2D.2 — Internal vs external (`isInternal`) + direction**
   Handle the offset sign difference between milling threads inside a hole vs. on
   an external boss, and wire `direction` (climb/conventional) to the helix's
   winding sense.
 
-- **2D.3 — Tests**
+- DONE **2D.3 — Tests**
   New `Tapping_Tests.swift`: Z increment per revolution matches `pitch`, internal
-  vs. external radius offset sign, winding direction matches `direction`.
+  vs. external radius offset sign, winding direction matches `direction`. Extended
+  with negative-pitch normalization, fencepost-safe partial final turns (both a
+  multi-turn overshoot check and a depth-shallower-than-pitch case), feed-rate
+  propagation, constant-radius/consistent-winding checks across an entire
+  multi-turn helix (not just the first waypoint), `OutputToolpath` carrying the
+  right tool/settings, and a mixed circle/non-circle contour batch. Demo app got
+  a matching "Tapping" section in `DemoTapping.swift` covering all four
+  internal/external x climb/conventional combinations, a deep multi-turn thread,
+  and a multi-hole batch.
   
   
 ### 2E --- buried holes for screws
