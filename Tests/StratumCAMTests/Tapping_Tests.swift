@@ -1,5 +1,5 @@
 //
-//  Tapping.swift
+//  Tapping_Tests.swift
 //  StratumCAM
 //
 //  Created by Cristian Baluta on 13.09.2026.
@@ -13,9 +13,10 @@ import simd
 
 // Covers Step 2D.1 (the helical thread-milling core -- a continuous helix stepping down
 // by `pitch` per revolution around a hole/boss's nominal diameter, radius-compensated for
-// `isInternal`, finishing with a flat closing lap) but not yet Step 2D.2 (wiring
-// `direction` into the helix's own winding sense -- see `buildTappingToolpath`'s own doc
-// comment on that split).
+// `isInternal`, finishing with a flat closing lap) and Step 2D.2 (wiring `direction` into
+// the helix's own winding sense, following the same climb/conventional convention
+// `orientedForDirection` uses for wall cuts -- see `buildTappingToolpath`'s own doc
+// comment on the exact mapping).
 
 struct Tapping_Tests {
 
@@ -75,8 +76,10 @@ struct Tapping_Tests {
         #expect(endOfTurn1.position.z == -1.0, "Test Failed: turn 1 should end exactly one pitch down")
         #expect(abs(endOfTurn1.position.x - millRadius) < 1e-9 && abs(endOfTurn1.position.y) < 1e-9,
                 "Test Failed: a full revolution should return to the start XY")
-        if case .arcCCW = endOfTurn1.motion {} else {
-            Issue.record("Test Failed: thread milling arcs should be .arcCCW")
+        // Internal + climb winds CW (mirrors `.inside`'s own climb/conventional mapping
+        // for wall cuts -- see Step 2D.2's coverage below for the other three combinations).
+        if case .arcCW = endOfTurn1.motion {} else {
+            Issue.record("Test Failed: internal threading milled with .climb should wind .arcCW")
         }
 
         // End of turn 2 and turn 3.
@@ -176,6 +179,50 @@ struct Tapping_Tests {
                                                   operation: .tapping(pitch: 0.0, isInternal: true, direction: .climb))
 
         #expect(toolpaths.isEmpty, "Test Failed: a zero pitch has no well-defined helix and shouldn't produce a toolpath")
+    }
+
+    // MARK: - Winding direction (Step 2D.2)
+
+    /// Reads the winding sense off the first arc waypoint (index 2 -- right after the
+    /// two setup rapids) for a single-turn thread mill, so each case below only needs
+    /// to check one waypoint rather than re-deriving the full waypoint layout.
+    private func firstArcIsCCW(isInternal: Bool, direction: SC.CutDirection) -> Bool {
+        let engine = SCEngine()
+        let tool = SC.ToolParams(type: .flatEndMill, diameter: 3.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -1.0)
+        let contour = circleContour(center: (0, 0), diameter: 10.0)
+
+        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
+                                                  operation: .tapping(pitch: 1.0, isInternal: isInternal, direction: direction))
+
+        guard case .arcCCW = toolpaths[0].passes[0].waypoints[2].motion else {
+            return false
+        }
+        return true
+    }
+
+    @Test("Internal threading milled climb winds CW, the same as an .inside wall cut")
+    func testInternalClimbWindsCW() {
+        #expect(firstArcIsCCW(isInternal: true, direction: .climb) == false,
+                "Test Failed: internal + climb should wind CW")
+    }
+
+    @Test("Internal threading milled conventional winds CCW, the same as an .inside wall cut")
+    func testInternalConventionalWindsCCW() {
+        #expect(firstArcIsCCW(isInternal: true, direction: .conventional) == true,
+                "Test Failed: internal + conventional should wind CCW")
+    }
+
+    @Test("External threading milled climb winds CCW, the same as an .outside cut")
+    func testExternalClimbWindsCCW() {
+        #expect(firstArcIsCCW(isInternal: false, direction: .climb) == true,
+                "Test Failed: external + climb should wind CCW")
+    }
+
+    @Test("External threading milled conventional winds CW, the same as an .outside cut")
+    func testExternalConventionalWindsCW() {
+        #expect(firstArcIsCCW(isInternal: false, direction: .conventional) == false,
+                "Test Failed: external + conventional should wind CW")
     }
 
     @Test("Tapping a batch of holes assigns each toolpath to its own hole location")

@@ -37,16 +37,17 @@ extension SCEngine {
     /// with one flat lap at full depth to clean up the last thread crest, then a
     /// retract to Safe Z.
     ///
-    /// This is Step 2D.1's scope -- the helical core itself, including the offset-sign
-    /// difference `isInternal` requires (an internal thread's mill radius eats *inward*
-    /// from the drawn diameter, the same direction an `.inside` profile cut offsets;
-    /// an external thread's mill radius sits *outward* from it, like `.outside`) since
-    /// the geometry has no sensible single-radius fallback without deciding that. What
-    /// Step 2D.1 does *not* do yet is wire `direction` (climb/conventional) into which
-    /// way the helix winds -- that's Step 2D.2, per the roadmap's own split -- so the
-    /// winding sense here is always CCW regardless of `direction`, the same "accepted
-    /// but not yet wired" flag `.trochoidal`'s own `TrochoidalSettings` carries for a
-    /// different parameter (see Step 1B.2's flag in `SCEngine+Pocketing.swift`).
+    /// Step 2D.1 built the helical core itself, including the offset-sign difference
+    /// `isInternal` requires (an internal thread's mill radius eats *inward* from the
+    /// drawn diameter, the same direction an `.inside` profile cut offsets; an external
+    /// thread's mill radius sits *outward* from it, like `.outside`). Step 2D.2 (this
+    /// step) wires `direction` (climb/conventional) into which way the helix actually
+    /// winds, using the exact same convention `orientedForDirection` already establishes
+    /// for wall cuts in `SCEngine+Contour.swift`: an internal thread is cut on the
+    /// *inside* wall of the hole, so it follows `.inside`'s own climb/conventional
+    /// mapping (climb -> CW, conventional -> CCW); an external thread is cut on the
+    /// *outside* of the boss, so it follows `.outside`'s mapping instead (climb -> CCW,
+    /// conventional -> CW).
     ///
     /// One `ToolpathPass`, same reasoning `buildBoringToolpath`/`buildDrillingToolpath`
     /// use -- the helix's own per-revolution stepdown is internal motion within a single
@@ -105,8 +106,12 @@ extension SCEngine {
             SC.Waypoint(position: SIMD3(start.x, start.y, 0), motion: .rapid, feedRate: settings.cutting.feedRate)
         ]
 
+        // Same climb/conventional convention `orientedForDirection` uses for wall cuts:
+        // internal threading cuts the *inside* wall of the hole (like `.inside`, where
+        // climb requires CW travel), external threading cuts the *outside* of the boss
+        // (like `.outside`, where climb requires CCW travel).
+        let isCCW = isInternal ? (direction == .conventional) : (direction == .climb)
         let stepsPerTurn = 8
-        let isCCW = true // Step 2D.2 wires `direction` into this; always CCW for now.
         let sweepPerStep = (2 * Double.pi / Double(stepsPerTurn)) * (isCCW ? 1.0 : -1.0)
 
         var previousZ = 0.0
