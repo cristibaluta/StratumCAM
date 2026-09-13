@@ -87,6 +87,7 @@ extension SCEngine {
                 // another ordered stack of segment groups needing connecting transitions
                 // between them.
                 toolpathSegments = chainedRingSegments(rows)
+
             case .spiral(let spiralDirection):
                 // Same climb/conventional wall orientation as `.offsetPattern` -- a
                 // spiral pocket is still, at heart, the same concentric-ring shape.
@@ -118,6 +119,7 @@ extension SCEngine {
                     // once a boundary is already spiral-eligible.
                     toolpathSegments = chainedRingSegments(rings)
                 }
+                
             case .trochoidal:
                 // Same climb/conventional wall orientation `.offsetPattern` and
                 // `.spiral` use -- trochoidal advances along this same oriented
@@ -503,7 +505,7 @@ extension SCEngine {
         return segments
     }
 
-    // MARK: - Step 1.1a: raster scanline geometry
+    // MARK: - Raster scanline geometry
 
     /// Generates the raster scanline geometry for `.raster` pocketing: parallel
     /// horizontal cuts spaced `stepover` apart, each clipped to where it crosses
@@ -532,7 +534,7 @@ extension SCEngine {
             return []
         }
 
-        let box = boundingBox(of: boundary)
+        let box = boundary.boundingBox
         let span = box.maxY - box.minY
         guard span > 1e-9 else {
             return []
@@ -624,7 +626,7 @@ extension SCEngine {
 
                     for cx in candidateXs {
                         let angle = atan2(y - center.y, cx - center.x)
-                        if angleWithinSweep(angle, start: startAngle, end: endAngle, isCCW: isCCW) {
+                        if EngineTools.angleWithinSweep(angle, start: startAngle, end: endAngle, isCCW: isCCW) {
                             xs.append(cx)
                         }
                     }
@@ -632,38 +634,6 @@ extension SCEngine {
         }
 
         return xs
-    }
-
-    /// The true bounding box of a segment chain, sampling each arc's angular sweep for
-    /// its axis-aligned extremes (0/90/180/270 degrees) rather than just its two
-    /// endpoints -- the top of a semicircle, for example, doesn't lie on either endpoint.
-    /// A safe superset is enough for scanline generation (an over-wide box just probes a
-    /// few rows that come back empty and get skipped), but not an under-wide one.
-    func boundingBox(of segments: [SC.Segment]) -> (minX: Double, maxX: Double, minY: Double, maxY: Double) {
-        var minX = Double.infinity, maxX = -Double.infinity
-        var minY = Double.infinity, maxY = -Double.infinity
-
-        func include(_ point: CGPoint) {
-            minX = min(minX, point.x)
-            maxX = max(maxX, point.x)
-            minY = min(minY, point.y)
-            maxY = max(maxY, point.y)
-        }
-
-        for segment in segments {
-            include(segment.startPoint)
-            include(segment.endPoint)
-
-            if case .arc(let center, let radius, let startAngle, let endAngle, let isCCW) = segment {
-                for extremeAngle in stride(from: 0.0, to: 2 * .pi, by: .pi / 2) {
-                    if angleWithinSweep(extremeAngle, start: startAngle, end: endAngle, isCCW: isCCW) {
-                        include(CGPoint(x: center.x + radius * cos(extremeAngle), y: center.y + radius * sin(extremeAngle)))
-                    }
-                }
-            }
-        }
-
-        return (minX, maxX, minY, maxY)
     }
 
     // MARK: - Step 1B.2: trochoidal pocket
@@ -818,33 +788,6 @@ extension SCEngine {
                 let sweep = isCCW ? (endAngle - startAngle) : (startAngle - endAngle)
                 let angle = startAngle + (isCCW ? 1.0 : -1.0) * abs(sweep) * t
                 return CGPoint(x: center.x + radius * cos(angle), y: center.y + radius * sin(angle))
-        }
-    }
-
-    /// Whether `angle` falls within the arc sweep from `start` to `end`, travelling in
-    /// the direction `isCCW` says -- all three normalized into the same wraparound-safe
-    /// space first, since raw `atan2` results and stored sweep angles can straddle the
-    /// -pi/pi or 0/2pi seam independently of each other.
-    private func angleWithinSweep(_ angle: Double, start: Double, end: Double, isCCW: Bool) -> Bool {
-        let twoPi = 2 * Double.pi
-        func normalized(_ a: Double) -> Double {
-            let m = a.truncatingRemainder(dividingBy: twoPi)
-            return m < 0 ? m + twoPi : m
-        }
-
-        let a = normalized(angle)
-        let s = normalized(start)
-        var e = normalized(end)
-        var probe = a
-
-        if isCCW {
-            if e < s { e += twoPi }
-            if probe < s { probe += twoPi }
-            return probe >= s - 1e-9 && probe <= e + 1e-9
-        } else {
-            if e > s { e -= twoPi }
-            if probe > s { probe -= twoPi }
-            return probe <= s + 1e-9 && probe >= e - 1e-9
         }
     }
 }

@@ -11,12 +11,19 @@ extension SC {
 
     public enum Segment: Sendable, Equatable {
         
-        case line(start: CGPoint, end: CGPoint)
-        case arc(center: CGPoint, radius: Double, startAngle: Double, endAngle: Double, isCCW: Bool)
+        case line(start: CGPoint,
+                  end: CGPoint)
+
+        case arc(center: CGPoint,
+                 radius: Double,
+                 startAngle: Double,
+                 endAngle: Double,
+                 isCCW: Bool)
 
         public var startPoint: CGPoint {
             switch self {
-                case .line(let start, _): return start
+                case .line(let start, _):
+                    return start
                 case .arc(let center, let radius, let startAngle, _, _):
                     return CGPoint(x: center.x + radius * cos(startAngle),
                                    y: center.y + radius * sin(startAngle))
@@ -25,7 +32,8 @@ extension SC {
 
         public var endPoint: CGPoint {
             switch self {
-                case .line(_, let end): return end
+                case .line(_, let end):
+                    return end
                 case .arc(let center, let radius, _, let endAngle, _):
                     return CGPoint(x: center.x + radius * cos(endAngle),
                                    y: center.y + radius * sin(endAngle))
@@ -111,5 +119,42 @@ extension SC.Segment {
             case .arc(let center, let radius, let startAngle, let endAngle, let isCCW):
                 return .arc(center: center, radius: radius, startAngle: endAngle, endAngle: startAngle, isCCW: !isCCW)
         }
+    }
+}
+
+extension [SC.Segment] {
+
+    /// The true bounding box of a segment chain, sampling each arc's angular sweep for
+    /// its axis-aligned extremes (0/90/180/270 degrees) rather than just its two
+    /// endpoints -- the top of a semicircle, for example, doesn't lie on either endpoint.
+    /// A safe superset is enough for scanline generation (an over-wide box just probes a
+    /// few rows that come back empty and get skipped), but not an under-wide one.
+    var boundingBox: (minX: Double, maxX: Double, minY: Double, maxY: Double) {
+
+        var minX = Double.infinity, maxX = -Double.infinity
+        var minY = Double.infinity, maxY = -Double.infinity
+
+        func include(_ point: CGPoint) {
+            minX = Swift.min(minX, point.x)
+            maxX = Swift.max(maxX, point.x)
+            minY = Swift.min(minY, point.y)
+            maxY = Swift.max(maxY, point.y)
+        }
+
+        for segment in self {
+            include(segment.startPoint)
+            include(segment.endPoint)
+
+            if case .arc(let center, let radius, let startAngle, let endAngle, let isCCW) = segment {
+                for extremeAngle in stride(from: 0.0, to: 2 * .pi, by: .pi / 2) {
+                    if EngineTools.angleWithinSweep(extremeAngle, start: startAngle, end: endAngle, isCCW: isCCW) {
+                        include(CGPoint(x: center.x + radius * cos(extremeAngle),
+                                        y: center.y + radius * sin(extremeAngle)))
+                    }
+                }
+            }
+        }
+
+        return (minX, maxX, minY, maxY)
     }
 }

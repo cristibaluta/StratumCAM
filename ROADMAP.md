@@ -180,7 +180,7 @@ order below; each is progressively harder to slot into the existing shape.
   chords, tessellated finer (5°/step) than `helixEntryWaypoints`' own circular
   entry move, since this is the whole cut rather than a short hop clear of a wall.
 
-- **1B.1b — `spiral` pocket: selectable direction (outside-in / inside-out)**
+- DONE **1B.1b — `spiral` pocket: selectable direction (outside-in / inside-out)**
   1B.1 only walks `pocketRings`' ring stack in the order it's produced -- outer
   wall ring first, shrinking inward -- with `spiralSegments`' opening turn held
   at the outer (wall) radius and its closing turn held at the innermost radius.
