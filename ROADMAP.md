@@ -409,13 +409,21 @@ as four small independent sub-tracks — none of them depend on each other.
 > second trochoidal implementation) is likely the intended path once this
 > track picks a direction.
 
-- **2B.1 — Basic slot toolpath (no entry)**
-  `buildSlottingToolpath`: follow the contour's centerline directly (no offset —
-  slotting cuts full width on the curve itself, unlike profile), single pass at
-  `depthPerPass` depth. Wire into the switch. If `.slotting` has grown a
-  `pattern: SlottingPattern` parameter by the time this is picked up (see the
-  note above), "follow the centerline directly" is the `.raster`-equivalent
-  default case in that switch, not a separate code path.
+- DONE **2B.1 — Basic slot toolpath (no entry)**
+  `buildSlottingToolpath` (`SCEngine+Slotting.swift`): `linearize`s the contour and
+  traces it directly via `buildWaypoints` -- no `offsetContour` call, since a slot
+  cuts full width on the curve itself rather than compensating to one side of it
+  (`CutSide.onContour`'s own doc comment already describes exactly this "slotting
+  grooves" case, even though `.slotting` doesn't take a `CutSide` parameter at
+  all -- there's only ever the one side). Single `ToolpathPass` at
+  `-abs(depthPerPass)`, same single-pass sign convention `buildDrillingToolpath`/
+  `buildFacingToolpath` use. `entry` is destructured in the switch but not read
+  yet (`case .slotting(let depthPerPass, _):`) -- every pass is a plain
+  straight-down plunge until 2B.2 wires it in. Didn't grow `.slotting` a
+  `pattern: SlottingPattern` parameter for this step (see the open note above) --
+  shipped the simple centerline-only version first, per that note's second
+  option, since this step is scoped to "no entry" and picking the pattern-vs-not
+  question isn't needed to land it.
 
 - **2B.2 — Multi-pass depth + entry integration**
   Repeat at successive `depthPerPass` increments down to target depth (reuse
