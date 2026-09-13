@@ -70,6 +70,10 @@ class Demo {
         // so rawPoints can legitimately be empty -- renderBatch(forPoints:...)
         // returns nil in that case and the batch is skipped entirely.
         var batches: [RenderBatch] = []
+        if let bbox = Demo.boundingBox(of: rawPoints, toolpathPoints),
+           let stockBatch = stockBatch(stock: Demo.syntheticStock(around: bbox, tool: tool, settings: settings)) {
+            batches.append(stockBatch)
+        }
         if let baseBatch = renderBatch(forPoints: rawPoints,
                                        color: SIMD4<Float>(0.2, 0.8, 1.0, 1.0),
                                        isDashed: true,
@@ -87,6 +91,123 @@ class Demo {
         let gcode = gcodeEngine.generateGCode(from: toolpaths, settings: settings)
 
         return DemoResult(batches: batches, gcode: gcode, toolpathPoints: toolpathPoints, tool: tool)
+    }
+
+    // MARK: - Stock volume (3D wireframe box)
+
+    /// Computes the combined XY bounding box across one or more point arrays --
+    /// used (Step: purple stock volume) to size a synthetic stock block for demos
+    /// that only work from a bare contour/toolpath, with no `SC.Stock` of their
+    /// own the way a `.facing` operation carries one. Takes plain point arrays
+    /// (rather than segments) so the same helper covers every pattern uniformly,
+    /// including drilling: a `.point` contour has no linearizable boundary at all
+    /// (see `run(contours:...)`'s own comment on that), but its toolpath's plunge
+    /// point still carries a real XY location worth centering a stock block on.
+    static func boundingBox(of pointArrays: [SIMD3<Float>]...) -> (minX: Float, maxX: Float, minY: Float, maxY: Float)? {
+        var minX = Float.greatestFiniteMagnitude
+        var maxX = -Float.greatestFiniteMagnitude
+        var minY = Float.greatestFiniteMagnitude
+        var maxY = -Float.greatestFiniteMagnitude
+        var found = false
+
+        for points in pointArrays {
+            for p in points {
+                found = true
+                minX = min(minX, p.x); maxX = max(maxX, p.x)
+                minY = min(minY, p.y); maxY = max(maxY, p.y)
+            }
+        }
+
+        guard found else { return nil }
+        return (minX, maxX, minY, maxY)
+    }
+
+    /// Builds a synthetic `SC.Stock` block around a contour-only demo's own
+    /// geometry -- sized to `boundingBox` plus a margin (scaled off the tool so a
+    /// bigger cutter gets visibly more clearance around its toolpath, with a
+    /// sensible floor for point-only geometry like a single drill hole, whose own
+    /// bounding box is a single point), spanning from Z=0 (the same "stock
+    /// surface" the engine's own Z passes already assume -- see
+    /// `calculateZPasses`'s `-abs(targetDepth)`) down past the deepest cut by a
+    /// fixed backing margin, so the cut floor never looks like it broke through
+    /// the bottom face.
+    static func syntheticStock(around boundingBox: (minX: Float, maxX: Float, minY: Float, maxY: Float),
+                               tool: SC.ToolParams,
+                               settings: SC.MachineSettings) -> SC.Stock {
+        let margin = max(4.0, tool.diameter * 1.5)
+        let backingMargin = 2.0
+
+        return SC.Stock(width: Double(boundingBox.maxX - boundingBox.minX) + margin * 2,
+                        height: Double(boundingBox.maxY - boundingBox.minY) + margin * 2,
+                        thickness: abs(settings.targetDepth) + backingMargin,
+                        origin: SIMD3<Double>(Double(boundingBox.minX) - margin, Double(boundingBox.minY) - margin, 0))
+    }
+
+    /// Generates a wireframe box's worth of `RenderVertex`s spanning `stock`'s full
+    /// volume -- unlike `run(facing:)`'s existing blue top-face rectangle (a flat
+    /// outline at Z=0 just for comparing the toolpath against the part boundary),
+    /// this draws all 12 edges of the actual material block so its physical extent
+    /// reads in 3D from any orbit angle, not just from directly above.
+    ///
+    /// `stock.origin.z` is the top face (matches the G54-style "Z=0 at the stock
+    /// surface" convention `targetDepth`'s negative values already assume
+    /// elsewhere), so the block extends downward from there by `thickness` rather
+    /// than upward.
+    ///
+    /// Built the same way `markerCylinderVertices` builds its rings/struts --
+    /// independent `.line` segment pairs, since a box's 12 edges can't be visited
+    /// by one continuous `.lineStrip` without retracing several of them.
+    static func stockBoxVertices(stock: SC.Stock,
+                                 color: SIMD4<Float> = SIMD4<Float>(0.6, 0.2, 0.85, 1.0)) -> [RenderVertex] {
+        let minX = Float(stock.origin.x)
+        let maxX = Float(stock.origin.x + stock.width)
+        let minY = Float(stock.origin.y)
+        let maxY = Float(stock.origin.y + stock.height)
+        let topZ = Float(stock.origin.z)
+        let bottomZ = Float(stock.origin.z - stock.thickness)
+
+        let c000 = SIMD3<Float>(minX, minY, bottomZ)
+        let c100 = SIMD3<Float>(maxX, minY, bottomZ)
+        let c110 = SIMD3<Float>(maxX, maxY, bottomZ)
+        let c010 = SIMD3<Float>(minX, maxY, bottomZ)
+        let c001 = SIMD3<Float>(minX, minY, topZ)
+        let c101 = SIMD3<Float>(maxX, minY, topZ)
+        let c111 = SIMD3<Float>(maxX, maxY, topZ)
+        let c011 = SIMD3<Float>(minX, maxY, topZ)
+
+        let edges: [(SIMD3<Float>, SIMD3<Float>)] = [
+            // Bottom face
+            (c000, c100), (c100, c110), (c110, c010), (c010, c000),
+            // Top face
+            (c001, c101), (c101, c111), (c111, c011), (c011, c001),
+            // Verticals joining the two faces
+            (c000, c001), (c100, c101), (c110, c111), (c010, c011)
+        ]
+
+        var vertices: [RenderVertex] = []
+        vertices.reserveCapacity(edges.count * 2)
+        for (start, end) in edges {
+            vertices.append(RenderVertex(position: start, color: color, dist: 0))
+            vertices.append(RenderVertex(position: end, color: color, dist: 0))
+        }
+        return vertices
+    }
+
+    /// Builds the stock-volume `RenderBatch` -- thin wrapper around
+    /// `stockBoxVertices(stock:color:)` that turns the vertices into a GPU buffer
+    /// the same way `markerBatch`/`renderBatch` do above.
+    func stockBatch(stock: SC.Stock,
+                    color: SIMD4<Float> = SIMD4<Float>(0.6, 0.2, 0.85, 1.0)) -> RenderBatch? {
+        let vertices = Demo.stockBoxVertices(stock: stock, color: color)
+        guard !vertices.isEmpty,
+              let buffer = device.makeBuffer(bytes: vertices,
+                                             length: vertices.count * MemoryLayout<RenderVertex>.stride,
+                                             options: .storageModeShared) else {
+            return nil
+        }
+        return RenderBatch(vertexBuffer: buffer,
+                           vertexCount: vertices.count,
+                           primitiveType: .line)
     }
 
     /// Same three-step shape as `run(contours:...)` above, but for `.facing`
@@ -123,9 +244,12 @@ class Demo {
             }
         }
 
-        // 3. Build batches the same way run(contours:...) does: blue dashed
-        // reference, yellow toolpath.
+        // 3. Build batches the same way run(contours:...) does: purple stock
+        // volume, blue dashed reference, yellow toolpath.
         var batches: [RenderBatch] = []
+        if let stockBatch = stockBatch(stock: stock) {
+            batches.append(stockBatch)
+        }
         if let baseBatch = renderBatch(forPoints: corners,
                                        color: SIMD4<Float>(0.2, 0.8, 1.0, 1.0),
                                        isDashed: true,

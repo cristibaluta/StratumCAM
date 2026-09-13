@@ -191,6 +191,10 @@ class DemoSlotting: Demo {
         }
 
         var batches: [RenderBatch] = []
+        if let bbox = Demo.boundingBox(of: boundaryPoints, toolpathPoints),
+           let stockBatch = stockBatch(stock: Demo.syntheticStock(around: bbox, tool: tool, settings: settings)) {
+            batches.append(stockBatch)
+        }
         if let baseBatch = renderBatch(forPoints: boundaryPoints,
                                        color: SIMD4<Float>(0.2, 0.8, 1.0, 1.0),
                                        isDashed: true,
