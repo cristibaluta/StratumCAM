@@ -4,7 +4,12 @@ Last updated after: spiral pocket clearing (`.spiral`, Step 1B.1)
 concave-row bug fix (`SCEngine+Pocketing.swift`, `Raster_Tests.swift`) + raster
 helix-entry bounding fixes (`SCEngine+Contour.swift`, `SCEngine+Pocketing.swift`,
 `PocketEntry_Tests.swift`) + Track 1C added (raster multi-span rows +
-selectable axis, not yet started)
+selectable axis, not yet started) + trochoidal pocket clearing (`.trochoidal`,
+Step 1B.2, `SC+ClearingPattern.swift`/`SCEngine+Pocketing.swift`/
+`Trochoidal_Tests.swift`/`DemoPocketing.swift`) + `SC+ClearingPattern.swift`
+and `SC+MachiningOperation.swift` picked up a `PocketClearingPattern` /
+`SlottingPattern` / `ClearingPattern` split (see Track 1B intro and Track 2B
+below)
 
 ## How to use this doc with Claude
 
@@ -153,12 +158,14 @@ pick which axis rasters better for a given shape.
 ## Track 1B — New `ClearingPattern` cases (`.spiral`, `.trochoidal`, `.morph`, `.adaptive`)
 
 `SC+ClearingPattern.swift` picked up four new cases that `buildPocketToolpath`'s
-`switch` in `SCEngine+Pocketing.swift` already has stubbed out as
-`fatalError("Not implemented yet")` for each — no roadmap history yet. Same track
-as `.offsetPattern`/`.raster` above because they're the same switch, the same
-`buildPocketWaypoints` entry/Z-pass wrapper, and the same file — just four more
-ways to produce `toolpathSegments` before that wrapper runs. Do these in the
-order below; each is progressively harder to slot into the existing shape.
+`switch` in `SCEngine+Pocketing.swift` had stubbed out as
+`fatalError("Not implemented yet")` for each. `.spiral` (1B.1/1B.1b) and now
+`.trochoidal` (1B.2, below) are wired up; `.adaptive` and `.morph` are still the
+`fatalError` stub. Same track as `.offsetPattern`/`.raster` above because
+they're the same switch, the same `buildPocketWaypoints` entry/Z-pass wrapper,
+and the same file — just four more ways to produce `toolpathSegments` before
+that wrapper runs. Do these in the order below; each is progressively harder to
+slot into the existing shape.
 
 > Naming heads-up: this track's `.adaptive` is a `ClearingPattern` case used by
 > `.pocket`. It is **not** the same thing as Track 3's `.adaptiveClearing`
@@ -166,6 +173,25 @@ order below; each is progressively harder to slot into the existing shape.
 > They're conceptually related — both chase constant radial engagement — which
 > is exactly why `.adaptive` here should reuse Track 3's core algorithm rather
 > than growing a second, divergent implementation. See 1B.4.
+
+> Model shape update: `SC.MachiningOperation.pocket` now takes a
+> `PocketClearingPattern` (offset/raster/spiral/morph/trochoidal/adaptive), not
+> the raw `ClearingPattern` enum directly, and a new `SC.SlottingPattern`
+> (raster/trochoidal/adaptive — the subset that makes sense on a slot's
+> centerline, no offset/spiral/morph) has been added alongside it for `.slotting`
+> to eventually use (see Track 2B). Both front-end enums expose a computed
+> `.strategy: ClearingPattern` that maps their cases onto the same shared
+> low-level enum — presumably so `.pocket` and `.slotting` can eventually share
+> one pattern-implementation switch instead of each engine function growing its
+> own copy. That indirection isn't wired up anywhere yet: `buildPocketToolpath`
+> still `switch`es on `PocketClearingPattern`'s own cases directly (never reads
+> `.strategy`), and `.slotting` doesn't take a pattern parameter at all yet. Flag
+> this for whoever picks up 1B.4/1B.5 or starts Track 2B — either wire
+> `buildPocketToolpath` to switch on `.strategy` so `buildSlottingToolpath` can
+> reuse the same cases later, or, if that's overkill for two callers, consider
+> whether the unused `ClearingPattern`/`.strategy` layer should be trimmed back
+> rather than carried forward unused. Worth a quick conversation before assuming
+> either way.
 
 - DONE **1B.1 — `spiral` pocket: continuous inward/outward spiral**
   Reuses `pocketRings`' ring stack as interpolation control points: one full turn
@@ -209,14 +235,32 @@ order below; each is progressively harder to slot into the existing shape.
     `.offsetPattern` ring-and-chain path) is unaffected either way; `direction`
     only matters once a boundary is already spiral-eligible.
 
-- **1B.2 — `trochoidal` pocket: overlapping circular loop clearing**
-  Advance along the pocket's centerline/boundary (reuse the same oriented
-  chain `.offsetPattern` builds via `orientedForDirection`) while looping the
-  cutter in small overlapping circles rather than a straight or offset pass —
-  same shape of problem as Track 2B's slotting, so this is a reasonable one to
-  pair with that step if working both tracks. Loop diameter/overlap driven off
-  `tool.diameter` and `settings.cutting.stepoverPercentage`, same inputs raster
-  already reads.
+- DONE **1B.2 — `trochoidal` pocket: overlapping circular loop clearing**
+  `trochoidalSegments` advances along the same oriented boundary chain
+  `.offsetPattern`/`.spiral` build via `orientedForDirection`, centering a loop
+  of radius `tool.diameter / 2` every `stepoverPercentage * tool.diameter`
+  along that chain (same fencepost convention as `rasterScanlines`' last row
+  and `calculateZPasses`' last depth — the final loop is pinned exactly at the
+  boundary's end rather than landing short of or past it), connecting
+  consecutive loops with a short straight move in `chainedRingSegments`'
+  one-move-per-transition style. Because every loop is centered directly on
+  the boundary, consecutive loops always overlap by construction, so unlike
+  raster's span-linking (1C.2) it never needs retract/re-entry bookkeeping
+  between loops. Wired into `buildPocketToolpath`'s `switch` and covered by
+  `Trochoidal_Tests.swift` (loop diameter/spacing on a straight boundary,
+  scaling with a different tool/stepover, entry/Z-pass wrapper reuse, geometry
+  reused unchanged across Z passes, rejects open contours) plus three demos in
+  `DemoPocketing.swift` (rectangle, conventional-direction rectangle, circle).
+  > Flag: `trochoidalSegments` currently ignores `PocketClearingPattern
+  > .trochoidal`'s own `TrochoidalSettings` payload (`radialEngagement`,
+  > `loopRadius`) entirely — the switch case doesn't even bind it
+  > (`case .trochoidal:`). Loop size and spacing are derived purely from
+  > `tool.diameter` and `settings.cutting.stepoverPercentage` instead, the same
+  > inputs raster/spiral already read. Either `TrochoidalSettings` needs wiring
+  > in (so a caller's explicit `radialEngagement`/`loopRadius` actually takes
+  > effect) or the struct's fields are redundant with the machine-settings-driven
+  > approach and should be reconsidered — worth resolving before more callers
+  > start passing settings that get silently ignored.
 
 - **1B.3 — `morph` pocket: interpolated inner/outer boundary transition**
   Per the enum doc, this morphs passes between two differing boundary curves
@@ -249,12 +293,12 @@ order below; each is progressively harder to slot into the existing shape.
   model-change blocker is resolved.
   > Spiral's two cases (continuity + fallback) are already covered, in their own
   > `PocketSpiral_Tests.swift` rather than `Pocket_Tests.swift` -- landed
-  > alongside 1B.1 itself rather than deferred here. What's left for this step
-  > is trochoidal (1B.2) and adaptive (1B.4)'s coverage, plus 1B.1b's
-  > `.insideOut` direction once that lands: same continuity check as
-  > `.outsideIn`'s but bookends swapped (opens at innermost radius, closes at
-  > outermost), and entry-point placement at the innermost ring instead of the
-  > outer wall ring.
+  > alongside 1B.1 itself rather than deferred here. 1B.1b's `.insideOut`
+  > direction is also already covered, in `PocketSpiralDirection_Tests.swift`
+  > (bookend swap vs. `.outsideIn`, innermost-ring entry placement, same ring
+  > radii visited in reverse, bare `.spiral` still defaulting to `.outsideIn`).
+  > Trochoidal (1B.2) is covered too, in `Trochoidal_Tests.swift`. What's left
+  > for this step is adaptive (1B.4)'s coverage once that lands.
 
 ---
 
@@ -285,10 +329,29 @@ as four small independent sub-tracks — none of them depend on each other.
 
 ### 2B — Slotting (`.slotting`)
 
+> Model shape update: `SC.SlottingPattern` (raster/trochoidal/adaptive) now
+> exists in `SC+ClearingPattern.swift`, but `MachiningOperation.slotting` still
+> only takes `(depthPerPass, entry)` — no pattern parameter yet, and
+> `SCEngine.swift`'s `.slotting` case is still the original `print(...); return
+> nil` stub, untouched by this. Before starting 2B.1, decide whether `.slotting`
+> should grow a `pattern: SlottingPattern` parameter now (so "follow the
+> centerline directly" becomes just one pattern case rather than the only
+> option) or whether `SlottingPattern` is intentionally ahead of the operation
+> it belongs to and 2B.1 should still ship the simple centerline-only version
+> first. Trochoidal slotting in particular was already flagged as related work
+> when 1B.2 (trochoidal *pocket*) landed — a slot is the same "advance along a
+> chain, loop the cutter" problem `trochoidalSegments` already solves, so
+> `SlottingPattern.trochoidal` reusing that function directly (rather than a
+> second trochoidal implementation) is likely the intended path once this
+> track picks a direction.
+
 - **2B.1 — Basic slot toolpath (no entry)**
   `buildSlottingToolpath`: follow the contour's centerline directly (no offset —
   slotting cuts full width on the curve itself, unlike profile), single pass at
-  `depthPerPass` depth. Wire into the switch.
+  `depthPerPass` depth. Wire into the switch. If `.slotting` has grown a
+  `pattern: SlottingPattern` parameter by the time this is picked up (see the
+  note above), "follow the centerline directly" is the `.raster`-equivalent
+  default case in that switch, not a separate code path.
 
 - **2B.2 — Multi-pass depth + entry integration**
   Repeat at successive `depthPerPass` increments down to target depth (reuse
@@ -444,4 +507,3 @@ step's plumbing isn't wired to UI yet.
 
 - **5.7 — different colors for different commands**
   I want to see fast moving segments with a more reddish color.
-
