@@ -142,7 +142,7 @@ public final class SCEngine {
                                              entry: entry,
                                              operation: operation)
 
-            case .threadMilling(pitch: let pitch, isInternal: let isInternal, direction: let direction, radialPasses: let radialPasses):
+            case .threadMilling(pitch: let pitch, isInternal: let isInternal, direction: let direction, radialPasses: let radialPasses, targetDiameter: let targetDiameter):
                 return buildThreadMillingToolpath(for: contour,
                                                   tool: tool,
                                                   settings: settings,
@@ -150,6 +150,7 @@ public final class SCEngine {
                                                   isInternal: isInternal,
                                                   direction: direction,
                                                   radialPasses: radialPasses,
+                                                  targetDiameter: targetDiameter,
                                                   operation: operation)
 
             case .boring(targetDiameter: let targetDiameter, dwellTime: _, shiftRetract: let shiftRetract):

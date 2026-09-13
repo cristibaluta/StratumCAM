@@ -212,22 +212,13 @@ struct ContentView: View {
                 }
                 Section("Thread Milling") {
                     demoButton("Internal M3") {
-                        show(DemoThreadMilling().demoM3())
+                        show(DemoThreadMilling().demoM3Internal())
                     }
-                    demoButton("Internal (Conventional)") {
-                        show(DemoThreadMilling().demoInternalConventional())
+                    demoButton("External M3") {
+                        show(DemoThreadMilling().demoM3External())
                     }
-                    demoButton("External (Climb)") {
-                        show(DemoThreadMilling().demoExternalClimb())
-                    }
-                    demoButton("External (Conventional)") {
-                        show(DemoThreadMilling().demoExternalConventional())
-                    }
-                    demoButton("Deep Multi-Turn Thread") {
-                        show(DemoThreadMilling().demoDeepMultiTurnThread())
-                    }
-                    demoButton("Multiple Holes") {
-                        show(DemoThreadMilling().demoMultipleHoles())
+                    demoButton("Multiple M3s") {
+                        show(DemoThreadMilling().demoMultipleM3s())
                     }
                 }
             }

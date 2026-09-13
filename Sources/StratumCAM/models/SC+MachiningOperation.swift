@@ -40,28 +40,38 @@ extension SC {
         ///   - entry: Strategy used to enter the slot material.
         case slotting(depthPerPass: Double, entry: EntryStrategy)
 
-        /// Mills threads into a pre-drilled hole or onto a boss.
+        /// Mills threads into a pre-drilled hole or onto a pre-turned boss.
         ///
-        /// The full thread depth is never cut in a single radial pass -- at full
-        /// engagement a thread mill is taking a very heavy cut around the entire
-        /// helix, which is a good way to snap it. Instead the operation mills the
-        /// thread `radialPasses` times, starting at a conservative radial
-        /// engagement and stepping outward toward the finished diameter, with only
-        /// the final pass cutting to true size.
+        /// The circle the person selects in CAD/CAM is the hole or boss as it
+        /// already exists -- e.g. the 2.5mm pilot hole already drilled for an M3
+        /// thread -- not the finished thread size. `targetDiameter` is the
+        /// finished (nominal/major) diameter the thread should reach, e.g. 3.0mm
+        /// for an M3.
+        ///
+        /// The full distance between the existing diameter and `targetDiameter`
+        /// is never cut in a single radial pass -- at full engagement a thread
+        /// mill is taking a very heavy cut around the entire helix, which is a
+        /// good way to snap it. Instead the operation mills the thread
+        /// `radialPasses` times, stepping the working diameter evenly from the
+        /// existing diameter toward `targetDiameter`, with only the final pass
+        /// landing exactly on it.
         ///
         /// - Parameters:
         ///   - pitch: Thread pitch.
         ///   - isInternal: Whether the thread is internal or external.
         ///   - direction: Cutting direction used for the threading motion.
-        ///   - radialPasses: Number of radial passes used to reach the finished
-        ///     thread diameter. Each pass retraces the full helix (bottom to top)
-        ///     at its own, progressively larger radial engagement, with the last
-        ///     pass landing exactly on the finished diameter. Usually 2 or 3;
-        ///     must be at least 1.
+        ///   - radialPasses: Number of radial passes used to step from the
+        ///     existing diameter (the selected circle) to `targetDiameter`. Each
+        ///     pass retraces the full helix (bottom to top) at its own diameter,
+        ///     with the last pass landing exactly on `targetDiameter`. Usually 2
+        ///     or 3; must be at least 1.
+        ///   - targetDiameter: Finished (nominal/major) thread diameter to reach
+        ///     on the last radial pass.
         case threadMilling(pitch: Double,
                      isInternal: Bool,
                      direction: CutDirection,
-                     radialPasses: Int)
+                     radialPasses: Int,
+                     targetDiameter: Double)
 
         /// Engraves geometry along curves, text, or other shallow features.
         ///

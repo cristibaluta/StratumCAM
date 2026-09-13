@@ -12,8 +12,12 @@ import simd
 
 extension SCEngine {
 
-    /// Extracts the hole (internal thread) or boss (external thread) circle that a
-    /// threadMilling operation mills threads onto.
+    /// Extracts the *existing* hole (internal thread) or boss (external thread) circle
+    /// that a threadMilling operation starts from -- the geometry the person actually
+    /// selects in the CAM software, e.g. an already-drilled 2.5mm pilot hole. This is
+    /// deliberately not the finished thread diameter; that's `targetDiameter` on the
+    /// `.threadMilling` operation itself, since the finished size isn't something drawn
+    /// in CAD, it's a property of the thread being cut.
     ///
     /// Unlike `drillPoint(for:)`, a bare `.point` marker isn't accepted here -- threadMilling
     /// needs an actual diameter to compensate the tool radius against, and a point alone
@@ -33,8 +37,9 @@ extension SCEngine {
     }
 
     /// Builds a thread-milling toolpath: a continuous helix stepping *up* by `pitch`
-    /// per full revolution, cutting from the bottom of the thread to the top, around
-    /// the nominal diameter drawn in `contour`.
+    /// per full revolution, cutting from the bottom of the thread to the top, working
+    /// outward/inward from the existing hole/boss diameter drawn in `contour` toward
+    /// `targetDiameter`, the finished thread size.
     ///
     /// Real thread milling cuts bottom-to-top, not top-to-bottom, and enters/exits
     /// through the hole's/boss's own center rather than at the cutting radius:
@@ -66,15 +71,16 @@ extension SCEngine {
     /// bottom-to-top rework doesn't change either mapping.
     ///
     /// Radial passes, one `ToolpathPass` per pass -- unlike `buildBoringToolpath`/
-    /// `buildDrillingToolpath`'s single pass, a thread mill can't take the full
-    /// radial engagement in one lap around the helix without risking breakage, so
-    /// each pass here retraces the whole bottom-to-top helix at its own,
-    /// progressively larger radial engagement (see `threadMillingPassRadius`).
-    /// The helix's own per-revolution stepdown, by contrast, stays internal motion
-    /// shared by every pass -- not the 2D-geometry Z stepdown `calculateZPasses` is
-    /// for at the per-pass level (it's reused here purely to derive per-revolution
-    /// depths, the same way `peckDrillingWaypoints` reuses it to derive per-peck
-    /// depths).
+    /// `buildDrillingToolpath`'s single pass, a thread mill can't jump straight from
+    /// the existing hole/boss diameter to the finished thread diameter in one lap
+    /// around the helix without risking breakage, so each pass here retraces the
+    /// whole bottom-to-top helix at its own, progressively larger (internal) or
+    /// smaller (external) working diameter, stepped evenly from the existing
+    /// diameter to `targetDiameter` (see `threadMillingPassRadius`). The helix's own
+    /// per-revolution stepdown, by contrast, stays internal motion shared by every
+    /// pass -- not the 2D-geometry Z stepdown `calculateZPasses` is for at the
+    /// per-pass level (it's reused here purely to derive per-revolution depths, the
+    /// same way `peckDrillingWaypoints` reuses it to derive per-peck depths).
     func buildThreadMillingToolpath(for contour: SC.Contour,
                                     tool: SC.ToolParams,
                                     settings: SC.MachineSettings,
@@ -82,6 +88,7 @@ extension SCEngine {
                                     isInternal: Bool,
                                     direction: SC.CutDirection,
                                     radialPasses: Int,
+                                    targetDiameter: Double,
                                     operation: SC.MachiningOperation) -> SC.OutputToolpath? {
 
         guard radialPasses >= 1 else {
@@ -93,17 +100,18 @@ extension SCEngine {
         }
 
         let toolRadius = tool.diameter / 2.0
-        let holeRadius = hole.diameter / 2.0
+        let existingDiameter = hole.diameter
 
-        // Internal threading (a pre-drilled hole) cuts on the inside of the drawn
+        // Internal threading (a pre-drilled hole) cuts on the inside of the target
         // diameter -- the mill's own radius eats inward from it, same direction an
         // `.inside` profile cut offsets. External threading is the mirror
-        // image: the mill orbits outside the drawn diameter, like `.outside`.
+        // image: the mill orbits outside the target diameter, like `.outside`.
         // This is the *finished* radius -- the one the final radial pass lands on.
-        let finalMillRadius = isInternal ? (holeRadius - toolRadius) : (holeRadius + toolRadius)
+        let finalMillRadius = isInternal ? (targetDiameter / 2.0 - toolRadius) : (targetDiameter / 2.0 + toolRadius)
         guard finalMillRadius > 1e-6 else {
-            // Tool doesn't fit -- e.g. thread-milling a hole not much bigger than the
-            // tool itself. Mirrors `Segment.offset(by:)`'s own "tool doesn't fit" guard.
+            // Tool doesn't fit -- e.g. thread-milling down to a target diameter not
+            // much bigger than the tool itself. Mirrors `Segment.offset(by:)`'s own
+            // "tool doesn't fit" guard.
             return nil
         }
 
@@ -140,17 +148,18 @@ extension SCEngine {
         let stepsPerTurn = 8
         let sweepPerStep = (2 * Double.pi / Double(stepsPerTurn)) * (isCCW ? 1.0 : -1.0)
 
-        // One full lap of the helix, taken at full radial engagement, is what a
-        // thread mill can safely bite off in one go -- more than that risks
-        // snapping the tool. So every pass below retraces the *entire* bottom-to-top
-        // helix, but at its own radius: pass 0 stays furthest from `finalMillRadius`
-        // (lightest cut) and each subsequent pass steps closer, with the last pass
-        // (index `radialPasses - 1`) landing exactly on `finalMillRadius` -- the true
-        // thread size. See `threadMillingPassRadius` for how that radius is derived.
+        // Jumping straight from the existing diameter to the finished thread size in
+        // one lap around the helix is what risks snapping the tool. So every pass
+        // below retraces the *entire* bottom-to-top helix, but at its own working
+        // diameter: pass 0 sits closest to the existing (already-drilled/turned)
+        // diameter and each subsequent pass steps toward `targetDiameter`, with the
+        // last pass (index `radialPasses - 1`) landing exactly on it. See
+        // `threadMillingPassRadius` for how that radius is derived.
         let passes: [SC.ToolpathPass] = (0..<radialPasses).map { passIndex in
             let radius = threadMillingPassRadius(passIndex: passIndex,
                                                  radialPasses: radialPasses,
-                                                 finalMillRadius: finalMillRadius,
+                                                 existingDiameter: existingDiameter,
+                                                 targetDiameter: targetDiameter,
                                                  toolRadius: toolRadius,
                                                  isInternal: isInternal)
 
@@ -168,33 +177,35 @@ extension SCEngine {
         return SC.OutputToolpath(operation: operation, tool: tool, settings: settings, passes: passes)
     }
 
-    /// Radial engagement for one thread-milling pass, stepping from a conservative
-    /// first pass out to the true thread size on the last one.
+    /// Radial engagement for one thread-milling pass: the working *diameter* steps
+    /// evenly from `existingDiameter` (the hole/boss as it already exists, selected
+    /// in the CAM software) to `targetDiameter` (the finished thread size) over
+    /// `radialPasses` passes, e.g. for an M3's 2.5mm pilot hole stepping to a 3.0mm
+    /// major diameter in 3 passes: step = (3.0 - 2.5) / 3 = 0.1667mm, so the passes'
+    /// working diameters are 2.667, 2.833, then exactly 3.0 on the last pass.
     ///
-    /// `toolRadius` doubles as the natural scale for "how conservative": at zero
-    /// engagement the tool's cutting edge would sit exactly on the nominal thread
-    /// diameter without removing anything, which happens when the toolpath radius
-    /// is a full `toolRadius` short of `finalMillRadius`'s own offset. Passes step
-    /// that shortfall down linearly to zero, e.g. for 3 passes the cutting edge
-    /// reaches 1/3, 2/3, then the full nominal diameter.
-    ///
-    /// Internal and external threads step in opposite directions for the same
-    /// reason `finalMillRadius` itself is computed with opposite signs: an internal
-    /// thread's cutting edge approaches the wall from inside (radius grows outward,
-    /// toward `finalMillRadius`), an external thread's approaches the boss from
-    /// outside (radius shrinks inward, toward `finalMillRadius`).
+    /// Each pass's working diameter is then compensated for the tool radius the
+    /// same way `finalMillRadius` is: an internal thread's cutting edge approaches
+    /// that pass's wall from inside (mill radius = workingRadius - toolRadius), an
+    /// external thread's approaches its wall from outside (mill radius =
+    /// workingRadius + toolRadius).
     private func threadMillingPassRadius(passIndex: Int,
                                          radialPasses: Int,
-                                         finalMillRadius: Double,
+                                         existingDiameter: Double,
+                                         targetDiameter: Double,
                                          toolRadius: Double,
                                          isInternal: Bool) -> Double {
-        let fraction = Double(passIndex + 1) / Double(radialPasses)
-        let shortfall = toolRadius * (1.0 - fraction)
-        let radius = isInternal ? (finalMillRadius - shortfall) : (finalMillRadius + shortfall)
-        // Guard against a degenerate early pass on a hole/boss barely bigger than
-        // the tool -- keeps every pass a valid, positive radius even though only
-        // `finalMillRadius` itself is checked against the tool-fits-at-all guard
-        // above.
+        let step = (targetDiameter - existingDiameter) / Double(radialPasses)
+        // Fencepost-safe: on the last pass (passIndex == radialPasses - 1) this
+        // reduces to exactly `targetDiameter`, regardless of rounding, since
+        // `existingDiameter + step * radialPasses == targetDiameter` algebraically.
+        let workingDiameter = existingDiameter + step * Double(passIndex + 1)
+        let workingRadius = workingDiameter / 2.0
+        let radius = isInternal ? (workingRadius - toolRadius) : (workingRadius + toolRadius)
+        // Guard against a degenerate early pass where the existing diameter is
+        // barely bigger than the tool itself -- keeps every pass a valid, positive
+        // radius even though only the final pass (via `finalMillRadius`) is checked
+        // against the tool-fits-at-all guard above.
         return max(radius, 1e-6)
     }
 
