@@ -31,12 +31,20 @@ extension SCEngine {
     ///
     /// One `ToolpathPass`, same reasoning as `buildDrillingToolpath` -- a boring cycle's
     /// own bottom-of-hole circular pass isn't the 2D-geometry Z stepdown `calculateZPasses`
-    /// is for. Dwell (`dwellTime`) and the off-center retract shift (`shiftRetract`) are
-    /// Step 2C.2's concern, not this one.
+    /// is for.
+    ///
+    /// `dwellTime` isn't handled here -- like drilling's own dwell, it doesn't change the
+    /// waypoint geometry at all, just pauses in place, so it's injected purely at G-code
+    /// text generation time (`SCGCodeEngine`) rather than as a waypoint in this array. See
+    /// that file for where it lands relative to these waypoints.
+    ///
+    /// `shiftRetract`, by contrast, does change the geometry -- it moves where the retract
+    /// actually happens -- so it's handled here, not in the G-code layer.
     func buildBoringToolpath(for contour: SC.Contour,
                              tool: SC.ToolParams,
                              settings: SC.MachineSettings,
                              targetDiameter: Double,
+                             shiftRetract: Bool,
                              operation: SC.MachiningOperation) -> SC.OutputToolpath? {
 
         guard let point = drillPoint(for: contour) else {
@@ -52,13 +60,29 @@ extension SCEngine {
         let start = CGPoint(x: point.x + radius, y: point.y)
         let opposite = CGPoint(x: point.x - radius, y: point.y)
 
-        let waypoints: [SC.Waypoint] = [
+        var waypoints: [SC.Waypoint] = [
             SC.Waypoint(position: SIMD3(start.x, start.y, settings.safeZ), motion: .rapid, feedRate: settings.cutting.feedRate),
             SC.Waypoint(position: SIMD3(start.x, start.y, z), motion: .linear, feedRate: settings.cutting.plungeRate),
             SC.Waypoint(position: SIMD3(opposite.x, opposite.y, z), motion: .arcCCW(center: point), feedRate: settings.cutting.feedRate),
-            SC.Waypoint(position: SIMD3(start.x, start.y, z), motion: .arcCCW(center: point), feedRate: settings.cutting.feedRate),
-            SC.Waypoint(position: SIMD3(start.x, start.y, settings.safeZ), motion: .rapid, feedRate: settings.cutting.feedRate)
+            SC.Waypoint(position: SIMD3(start.x, start.y, z), motion: .arcCCW(center: point), feedRate: settings.cutting.feedRate)
         ]
+
+        // Step 2C.2: shift off the freshly bored wall before retracting, at depth, so the
+        // rapid retract that follows doesn't drag the tool's edge straight back across the
+        // finished bore -- the reason a plain drill cycle's straight-up retract isn't good
+        // enough here. Shifted inward toward `point` by the tool's own radius (clamped so
+        // it never overshoots past the hole's center on a bore not much wider than the
+        // tool itself), along the same side the circular pass finished on.
+        let retractPoint: CGPoint
+        if shiftRetract {
+            let shiftDistance = min(tool.diameter / 2.0, radius)
+            retractPoint = CGPoint(x: start.x - shiftDistance, y: start.y)
+            waypoints.append(SC.Waypoint(position: SIMD3(retractPoint.x, retractPoint.y, z), motion: .linear, feedRate: settings.cutting.feedRate))
+        } else {
+            retractPoint = start
+        }
+
+        waypoints.append(SC.Waypoint(position: SIMD3(retractPoint.x, retractPoint.y, settings.safeZ), motion: .rapid, feedRate: settings.cutting.feedRate))
 
         let pass = SC.ToolpathPass(passIndex: 0, depthZ: z, waypoints: waypoints)
         return SC.OutputToolpath(operation: operation, tool: tool, settings: settings, passes: [pass])

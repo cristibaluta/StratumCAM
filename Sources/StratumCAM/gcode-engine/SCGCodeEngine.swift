@@ -35,6 +35,16 @@ public struct SCGCodeEngine {
                 return false
             }()
 
+            // Step 2C.2: boring's dwell lives on the operation itself (`dwellTime`), not
+            // on `MachineSettings.dwell` the way drilling's does, since it's specific to
+            // this one bore rather than a machine-wide default.
+            let boringDwellTime: Double? = {
+                if case .boring(_, let dwellTime, _) = toolpath.operation {
+                    return dwellTime
+                }
+                return nil
+            }()
+
             // Step 1.5 intentionally handles only the drilling spindle override. Each
             // toolpath carries its own `settings.cutting.spindleSpeed` (set per-operation
             // when the toolpath was generated); if that differs from the machine-wide
@@ -51,6 +61,21 @@ public struct SCGCodeEngine {
             for pass in toolpath.passes {
 
                 lines.append("(--- Pass Depth: \(pass.depthZ) ---)")
+
+                // Step 2C.2: boring's dwell happens at the bottom of the bore -- right
+                // after the circular interpolation finishes cutting, before any
+                // shift-off-center or retract move. Unlike drilling's dwell (always the
+                // penultimate waypoint, since a drill cycle never inserts anything after
+                // its last cutting move), boring's shift-off-center move (when
+                // `shiftRetract` is on) sits between the last cutting move and the final
+                // retract, so "penultimate" isn't reliable here -- find the actual last
+                // arc waypoint instead.
+                let lastArcIndex = pass.waypoints.lastIndex { waypoint in
+                    switch waypoint.motion {
+                        case .arcCW, .arcCCW: return true
+                        default: return false
+                    }
+                }
 
                 for (index, wp) in pass.waypoints.enumerated() {
 
@@ -77,6 +102,12 @@ public struct SCGCodeEngine {
                             "G04 P\(String(format: "%.3f", dwell)) (Drilling dwell)"
                         )
                     }
+
+                    if let boringDwellTime, boringDwellTime > 0, index == lastArcIndex {
+                        lines.append(
+                            "G04 P\(String(format: "%.3f", boringDwellTime)) (Boring dwell)"
+                        )
+                    }
                 }
             }
         }
@@ -89,7 +120,7 @@ public struct SCGCodeEngine {
 
         return lines.joined(separator: "\n")
     }
-    
+
     private func formatWaypoint(_ wp: SC.Waypoint) -> String {
 
         let x = String(format: "%.3f", wp.position.x)

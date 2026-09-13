@@ -1,5 +1,5 @@
 //
-//  Boring.swift
+//  Boring_Tests.swift
 //  StratumCAM
 //
 //  Created by Cristian Baluta on 13.09.2026.
@@ -11,8 +11,10 @@ import CoreGraphics
 import simd
 @testable import StratumCAM
 
-// Covers Step 2C.1: the basic boring cycle -- rapid to the hole's edge, plunge, circular
-// interpolation at targetDiameter / 2 around the hole center, retract.
+// Covers Step 2C.1 (the basic boring cycle -- rapid to the hole's edge, plunge, circular
+// interpolation at targetDiameter / 2 around the hole center, retract) and Step 2C.2's
+// shiftRetract half (the off-center shift before the final retract move; dwellTime is a
+// G-code-only concern and is covered separately in GCode_Boring_Tests.swift).
 
 struct Boring_Tests {
 
@@ -159,5 +161,84 @@ struct Boring_Tests {
             #expect(abs(waypoints[1].position.x - (expected.0 + 3.0)) < 1e-9 && abs(waypoints[1].position.y - expected.1) < 1e-9,
                     "Test Failed: toolpath was assigned to the wrong hole")
         }
+    }
+
+    // MARK: - Shift retract (Step 2C.2)
+
+    @Test("shiftRetract off keeps the retract straight above the bore's edge")
+    func testShiftRetractFalseRetractsStraightUp() {
+        let engine = SCEngine()
+        let tool = SC.ToolParams(type: .flatEndMill, diameter: 6.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -8.0)
+
+        let contour = SC.Contour(entities: [
+            .init(entity: .point(at: DXF.Point(0, 0), layer: "0", color: 7), reversed: false)
+        ], isClosed: false)
+
+        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
+                                                  operation: .boring(targetDiameter: 10.0, dwellTime: nil, shiftRetract: false))
+
+        let waypoints = toolpaths[0].passes[0].waypoints
+        #expect(waypoints.count == 5, "Test Failed: with shiftRetract off there should be no extra shift waypoint")
+
+        // Retract should sit directly above the bore's edge (5.0, 0) where the circular pass finished.
+        let retract = waypoints[4]
+        #expect(abs(retract.position.x - 5.0) < 1e-9 && abs(retract.position.y - 0.0) < 1e-9, "Test Failed: retract should stay at the bore's edge")
+        #expect(retract.position.z == 5.0, "Test Failed: retract Z mismatch")
+        if case .rapid = retract.motion {} else {
+            Issue.record("Test Failed: retract motion must be .rapid")
+        }
+    }
+
+    @Test("shiftRetract on inserts a linear move off the wall, toward center, before retracting")
+    func testShiftRetractTrueInsertsShiftBeforeRetract() {
+        let engine = SCEngine()
+        let tool = SC.ToolParams(type: .flatEndMill, diameter: 6.0) // tool radius 3.0
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -8.0)
+
+        let contour = SC.Contour(entities: [
+            .init(entity: .point(at: DXF.Point(0, 0), layer: "0", color: 7), reversed: false)
+        ], isClosed: false)
+
+        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
+                                                  operation: .boring(targetDiameter: 10.0, dwellTime: nil, shiftRetract: true)) // bore radius 5.0
+
+        let waypoints = toolpaths[0].passes[0].waypoints
+        // [0] rapid, [1] plunge, [2] arc, [3] arc, [4] shift, [5] retract
+        #expect(waypoints.count == 6, "Test Failed: expected an extra shift waypoint before the retract, got \(waypoints.count) waypoints")
+
+        // [4] Shift inward by the tool's radius (3.0), still at depth
+        let shift = waypoints[4]
+        #expect(abs(shift.position.x - 2.0) < 1e-9 && abs(shift.position.y - 0.0) < 1e-9, "Test Failed: shift should move inward by the tool radius")
+        #expect(shift.position.z == -8.0, "Test Failed: shift should stay at target depth")
+        if case .linear = shift.motion {} else {
+            Issue.record("Test Failed: shift motion must be .linear")
+        }
+
+        // [5] Retract up from the shifted point, not the bore's edge
+        let retract = waypoints[5]
+        #expect(abs(retract.position.x - 2.0) < 1e-9 && abs(retract.position.y - 0.0) < 1e-9, "Test Failed: retract should lift from the shifted point")
+        #expect(retract.position.z == 5.0, "Test Failed: retract Z mismatch")
+        if case .rapid = retract.motion {} else {
+            Issue.record("Test Failed: retract motion must be .rapid")
+        }
+    }
+
+    @Test("shiftRetract clamps to the hole center when the tool radius exceeds the bore radius")
+    func testShiftRetractClampsToHoleCenter() {
+        let engine = SCEngine()
+        let tool = SC.ToolParams(type: .flatEndMill, diameter: 20.0) // tool radius 10.0, wider than the bore
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -8.0)
+
+        let contour = SC.Contour(entities: [
+            .init(entity: .point(at: DXF.Point(0, 0), layer: "0", color: 7), reversed: false)
+        ], isClosed: false)
+
+        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
+                                                  operation: .boring(targetDiameter: 6.0, dwellTime: nil, shiftRetract: true)) // bore radius 3.0
+
+        let shift = toolpaths[0].passes[0].waypoints[4]
+        // Clamped to the hole's own center (0, 0) rather than overshooting past it.
+        #expect(abs(shift.position.x - 0.0) < 1e-9 && abs(shift.position.y - 0.0) < 1e-9, "Test Failed: shift should clamp to the hole center, not overshoot past it")
     }
 }
