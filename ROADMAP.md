@@ -612,6 +612,11 @@ Most algorithmically involved of the four — do it last within this track.
 - **2D.3 — Tests**
   New `Tapping_Tests.swift`: Z increment per revolution matches `pitch`, internal
   vs. external radius offset sign, winding direction matches `direction`.
+  
+  
+### 2E --- buried holes for screws
+
+Explore the idea of introducing a buried hole operation. it can be done with a special bit, but i don't think desktop cnc users have, so instead should be a pocketing operation with a normal bit. the advantage of having this operation is that we don't have to draw it in cad, we just tell it to what depth to go and the diameter. it should start from the middle and go sideways in a heliecal move to the desired depth.
 
 ---
 
