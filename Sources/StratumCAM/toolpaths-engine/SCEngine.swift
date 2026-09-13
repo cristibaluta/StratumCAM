@@ -127,11 +127,7 @@ public final class SCEngine {
                 )
 
             case .facing:
-                // `.facing` clears a `Stock`'s whole top-face footprint, not this
-                // per-contour `contour` -- there's nothing here for it to act on.
-                // Use `generateToolpaths(from operations: [SC.FacingOperation])`
-                // instead (Step 2A.2), which builds the real toolpath via
-                // `buildFacingToolpath`.
+                print("Use `generateToolpaths(from operations: [SC.FacingOperation])` instead.")
                 return nil
 
             case .slotting(let depthPerPass, let entry):

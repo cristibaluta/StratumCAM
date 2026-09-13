@@ -30,7 +30,7 @@ import simd
 // i.e. total waypoint count == 5 + (turnCount + 1) * 8, where turnCount is however many
 // full-pitch (or one shortened, fencepost) revolutions `calculateZPasses` produces.
 
-struct threadMilling_Tests {
+struct ThreadMilling_Tests {
 
     /// Handy small helper: a closed circle contour marking a hole/boss of `diameter`,
     /// centered at `center` -- the same "closed circle marks the feature" shape
@@ -52,7 +52,7 @@ struct threadMilling_Tests {
         let contour = circleContour(center: (0, 0), diameter: 10.0) // hole radius 5.0
 
         let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
-                                                  operation: .threadMilling(pitch: 1.0, isInternal: true, direction: .climb, radialPasses: 1, targetDiameter: 10.0))
+                                                 operation: .threadMilling(pitch: 1.0, isInternal: true, direction: .climb, radialPasses: 1, targetDiameter: 10.0))
 
         #expect(toolpaths.count == 1, "Test Failed: expected 1 output toolpath")
         let toolpath = toolpaths[0]
@@ -142,7 +142,7 @@ struct threadMilling_Tests {
         let contour = circleContour(center: (10, 20), diameter: 12.0) // hole radius 6.0
 
         let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
-                                                  operation: .threadMilling(pitch: 2.0, isInternal: true, direction: .climb, radialPasses: 1, targetDiameter: 12.0))
+                                                 operation: .threadMilling(pitch: 2.0, isInternal: true, direction: .climb, radialPasses: 1, targetDiameter: 12.0))
 
         // waypoints[2] is the wall-engage move -- the first waypoint actually offset to
         // the compensated mill radius (waypoints 0-1 are the center entry).
@@ -161,7 +161,7 @@ struct threadMilling_Tests {
         let contour = circleContour(center: (10, 20), diameter: 12.0) // boss radius 6.0
 
         let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
-                                                  operation: .threadMilling(pitch: 2.0, isInternal: false, direction: .climb, radialPasses: 1, targetDiameter: 12.0))
+                                                 operation: .threadMilling(pitch: 2.0, isInternal: false, direction: .climb, radialPasses: 1, targetDiameter: 12.0))
 
         let engage = toolpaths[0].passes[0].waypoints[2]
         // Expected mill radius: 6.0 + 2.0 = 8.0, offset from the boss's own center.
@@ -178,7 +178,7 @@ struct threadMilling_Tests {
         let contour = circleContour(center: (0, 0), diameter: 8.0) // hole radius 4.0, smaller than the tool radius
 
         let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
-                                                  operation: .threadMilling(pitch: 1.0, isInternal: true, direction: .climb, radialPasses: 1, targetDiameter: 8.0))
+                                                 operation: .threadMilling(pitch: 1.0, isInternal: true, direction: .climb, radialPasses: 1, targetDiameter: 8.0))
 
         #expect(toolpaths.isEmpty, "Test Failed: a tool wider than the hole radius shouldn't produce a thread-milling toolpath")
     }
@@ -194,7 +194,7 @@ struct threadMilling_Tests {
         ], isClosed: false)
 
         let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
-                                                  operation: .threadMilling(pitch: 1.0, isInternal: true, direction: .climb, radialPasses: 1, targetDiameter: 10.0))
+                                                 operation: .threadMilling(pitch: 1.0, isInternal: true, direction: .climb, radialPasses: 1, targetDiameter: 10.0))
 
         #expect(toolpaths.isEmpty, "Test Failed: threadMilling needs a diameter to compensate against, so a bare point shouldn't produce a toolpath")
     }
@@ -208,7 +208,7 @@ struct threadMilling_Tests {
         let contour = circleContour(center: (0, 0), diameter: 10.0)
 
         let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
-                                                  operation: .threadMilling(pitch: 0.0, isInternal: true, direction: .climb, radialPasses: 1, targetDiameter: 10.0))
+                                                 operation: .threadMilling(pitch: 0.0, isInternal: true, direction: .climb, radialPasses: 1, targetDiameter: 10.0))
 
         #expect(toolpaths.isEmpty, "Test Failed: a zero pitch has no well-defined helix and shouldn't produce a toolpath")
     }
@@ -226,7 +226,7 @@ struct threadMilling_Tests {
         let contour = circleContour(center: (0, 0), diameter: 10.0)
 
         let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
-                                                  operation: .threadMilling(pitch: 1.0, isInternal: isInternal, direction: direction, radialPasses: 1, targetDiameter: 10.0))
+                                                 operation: .threadMilling(pitch: 1.0, isInternal: isInternal, direction: direction, radialPasses: 1, targetDiameter: 10.0))
 
         guard case .arcCCW = toolpaths[0].passes[0].waypoints[3].motion else {
             return false
@@ -268,7 +268,7 @@ struct threadMilling_Tests {
         let contours = centers.map { circleContour(center: $0, diameter: 10.0) } // hole radius 5.0
 
         let toolpaths = engine.generateToolpaths(from: contours, tool: tool, settings: settings,
-                                                  operation: .threadMilling(pitch: 1.0, isInternal: true, direction: .climb, radialPasses: 1, targetDiameter: 10.0))
+                                                 operation: .threadMilling(pitch: 1.0, isInternal: true, direction: .climb, radialPasses: 1, targetDiameter: 10.0))
 
         #expect(toolpaths.count == 4, "Test Failed: expected one thread-milling toolpath per hole contour")
 
@@ -294,9 +294,9 @@ struct threadMilling_Tests {
         let contour = circleContour(center: (0, 0), diameter: 10.0)
 
         let positive = engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
-                                                 operation: .threadMilling(pitch: 1.0, isInternal: true, direction: .climb, radialPasses: 1, targetDiameter: 10.0))
+                                                operation: .threadMilling(pitch: 1.0, isInternal: true, direction: .climb, radialPasses: 1, targetDiameter: 10.0))
         let negative = engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
-                                                 operation: .threadMilling(pitch: -1.0, isInternal: true, direction: .climb, radialPasses: 1, targetDiameter: 10.0))
+                                                operation: .threadMilling(pitch: -1.0, isInternal: true, direction: .climb, radialPasses: 1, targetDiameter: 10.0))
 
         #expect(negative.count == 1, "Test Failed: a negative pitch should still produce a toolpath")
         #expect(positive[0].passes[0].waypoints.count == negative[0].passes[0].waypoints.count,
@@ -314,7 +314,7 @@ struct threadMilling_Tests {
         let contour = circleContour(center: (0, 0), diameter: 10.0)
 
         let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
-                                                  operation: .threadMilling(pitch: 1.0, isInternal: true, direction: .climb, radialPasses: 1, targetDiameter: 10.0))
+                                                 operation: .threadMilling(pitch: 1.0, isInternal: true, direction: .climb, radialPasses: 1, targetDiameter: 10.0))
 
         let waypoints = toolpaths[0].passes[0].waypoints
         // Bottom-to-top boundaries: -3.5 -> -3 (shortened, 0.5 pitch) -> -2 -> -1 -> 0,
@@ -340,7 +340,7 @@ struct threadMilling_Tests {
         let contour = circleContour(center: (0, 0), diameter: 10.0)
 
         let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
-                                                  operation: .threadMilling(pitch: 1.0, isInternal: true, direction: .climb, radialPasses: 1, targetDiameter: 10.0))
+                                                 operation: .threadMilling(pitch: 1.0, isInternal: true, direction: .climb, radialPasses: 1, targetDiameter: 10.0))
 
         let waypoints = toolpaths[0].passes[0].waypoints
         // 1 shortened helical turn (bottom -0.5 straight up to the top, 0.0) + 1 closing lap.
@@ -362,7 +362,7 @@ struct threadMilling_Tests {
         let contour = circleContour(center: (0, 0), diameter: 10.0)
 
         let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
-                                                  operation: .threadMilling(pitch: 1.0, isInternal: true, direction: .climb, radialPasses: 1, targetDiameter: 10.0))
+                                                 operation: .threadMilling(pitch: 1.0, isInternal: true, direction: .climb, radialPasses: 1, targetDiameter: 10.0))
 
         for waypoint in toolpaths[0].passes[0].waypoints {
             #expect(waypoint.feedRate == 733.0, "Test Failed: every waypoint, including rapids, should carry the cutting feed rate")
@@ -378,7 +378,7 @@ struct threadMilling_Tests {
         let contour = circleContour(center: center, diameter: 20.0) // hole radius 10.0
 
         let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
-                                                  operation: .threadMilling(pitch: 1.0, isInternal: true, direction: .climb, radialPasses: 1, targetDiameter: 20.0))
+                                                 operation: .threadMilling(pitch: 1.0, isInternal: true, direction: .climb, radialPasses: 1, targetDiameter: 20.0))
 
         let expectedRadius = 10.0 - 2.0
         // Waypoints 0-1 are the center entry (radius 0) and the last two (disengage +
@@ -402,7 +402,7 @@ struct threadMilling_Tests {
         let contour = circleContour(center: (0, 0), diameter: 10.0)
 
         let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
-                                                  operation: .threadMilling(pitch: 1.0, isInternal: true, direction: .climb, radialPasses: 1, targetDiameter: 10.0))
+                                                 operation: .threadMilling(pitch: 1.0, isInternal: true, direction: .climb, radialPasses: 1, targetDiameter: 10.0))
 
         let waypoints = toolpaths[0].passes[0].waypoints
         // Every arc waypoint (everything but the center entry, the wall-engage feed,
@@ -423,7 +423,7 @@ struct threadMilling_Tests {
         let contour = circleContour(center: (0, 0), diameter: 10.0)
 
         let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
-                                                  operation: .threadMilling(pitch: 1.0, isInternal: true, direction: .climb, radialPasses: 1, targetDiameter: 10.0))
+                                                 operation: .threadMilling(pitch: 1.0, isInternal: true, direction: .climb, radialPasses: 1, targetDiameter: 10.0))
 
         #expect(toolpaths[0].tool == tool, "Test Failed: output toolpath should carry the exact tool used")
         #expect(toolpaths[0].settings == settings, "Test Failed: output toolpath should carry the exact settings used")
@@ -441,7 +441,7 @@ struct threadMilling_Tests {
         ], isClosed: false)
 
         let toolpaths = engine.generateToolpaths(from: [badContour, goodContour], tool: tool, settings: settings,
-                                                  operation: .threadMilling(pitch: 1.0, isInternal: true, direction: .climb, radialPasses: 1, targetDiameter: 10.0))
+                                                 operation: .threadMilling(pitch: 1.0, isInternal: true, direction: .climb, radialPasses: 1, targetDiameter: 10.0))
 
         #expect(toolpaths.count == 1, "Test Failed: only the circle contour should yield a threadMilling toolpath")
 
@@ -465,7 +465,7 @@ struct threadMilling_Tests {
         let contour = circleContour(center: (0, 0), diameter: 8.0) // existing (pre-drilled) hole diameter
 
         let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
-                                                  operation: .threadMilling(pitch: 1.0, isInternal: true, direction: .climb, radialPasses: 3, targetDiameter: 10.0))
+                                                 operation: .threadMilling(pitch: 1.0, isInternal: true, direction: .climb, radialPasses: 3, targetDiameter: 10.0))
 
         #expect(toolpaths.count == 1, "Test Failed: expected 1 output toolpath")
         #expect(toolpaths[0].passes.count == 3, "Test Failed: expected 3 radial passes")
@@ -484,7 +484,7 @@ struct threadMilling_Tests {
         let contour = circleContour(center: (0, 0), diameter: 10.0)
 
         let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
-                                                  operation: .threadMilling(pitch: 1.0, isInternal: true, direction: .climb, radialPasses: 3, targetDiameter: 13.0))
+                                                 operation: .threadMilling(pitch: 1.0, isInternal: true, direction: .climb, radialPasses: 3, targetDiameter: 13.0))
 
         let finalMillRadius = 13.0 / 2.0 - 1.5 // target radius - tool radius
         // Each pass's own engage waypoint (index 2) sits at that pass's radius --
@@ -510,7 +510,7 @@ struct threadMilling_Tests {
         let contour = circleContour(center: (0, 0), diameter: 13.0)
 
         let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
-                                                  operation: .threadMilling(pitch: 2.0, isInternal: false, direction: .climb, radialPasses: 3, targetDiameter: 12.0))
+                                                 operation: .threadMilling(pitch: 2.0, isInternal: false, direction: .climb, radialPasses: 3, targetDiameter: 12.0))
 
         let finalMillRadius = 12.0 / 2.0 + 2.0 // target radius + tool radius
         var previousRadius = Double.infinity
@@ -534,6 +534,8 @@ struct threadMilling_Tests {
         let contour = circleContour(center: (0, 0), diameter: 6.0)
 
         let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
-                                                  operation: .threadMilling(pitch: 1.0, isInternal: true, direction: .climb, radialPasses: 1, targetDiameter: 10.0))
+                                                 operation: .threadMilling(pitch: 1.0, isInternal: true, direction: .climb, radialPasses: 1, targetDiameter: 10.0))
 
-        #expect(toolpaths[0].passes.count == 1, "Test Failed: radialPasses: 1
+        #expect(toolpaths[0].passes.count == 1, "Test Failed: radialPasses: 1")
+    }
+}
