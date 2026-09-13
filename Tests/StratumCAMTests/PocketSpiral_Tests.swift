@@ -65,7 +65,7 @@ struct PocketSpiral_Tests {
             from: [circleContour(radius: 10.0)],
             tool: tool,
             settings: settings,
-            operation: pocketStrategy(pattern: .spiral)
+            operation: pocketStrategy(pattern: .spiral(direction: .outsideIn))
         )
 
         #expect(toolpaths.count == 1, "Test Failed: expected 1 pocket toolpath")
@@ -149,7 +149,7 @@ struct PocketSpiral_Tests {
             from: [circleContour(radius: 10.0)],
             tool: tool,
             settings: settings,
-            operation: pocketStrategy(pattern: .spiral)
+            operation: pocketStrategy(pattern: .spiral(direction: .outsideIn))
         )
 
         let passes = toolpaths[0].passes
@@ -182,7 +182,7 @@ struct PocketSpiral_Tests {
             from: [ccwRectangleContour()],
             tool: tool,
             settings: settings,
-            operation: pocketStrategy(pattern: .spiral)
+            operation: pocketStrategy(pattern: .spiral(direction: .outsideIn))
         )[0].passes[0].waypoints
 
         let offsetPatternWaypoints = engine.generateToolpaths(
@@ -224,7 +224,7 @@ struct PocketSpiral_Tests {
             from: [roundedRectangleContour],
             tool: tool,
             settings: settings,
-            operation: pocketStrategy(pattern: .spiral)
+            operation: pocketStrategy(pattern: .spiral(direction: .outsideIn))
         )[0].passes[0].waypoints
 
         let offsetPatternWaypoints = engine.generateToolpaths(

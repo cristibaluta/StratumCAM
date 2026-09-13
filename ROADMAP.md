@@ -430,7 +430,7 @@ step's plumbing isn't wired to UI yet.
   always starts fully drawn rather than at a stale scrub position from whatever
   was previously selected.
 
-- DINE **5.5 — Smooth marker interpolation between points**
+- DONE **5.5 — Smooth marker interpolation between points**
   The marker currently jumps point-to-point, which is fine at the tessellation
   density most curved demos already produce, but looks chunky on coarse paths
   (e.g. a rectangle's 4 corners, or `demoPocketRectangle`'s straight ring
@@ -439,29 +439,9 @@ step's plumbing isn't wired to UI yet.
   between `floor(scrubIndex)` and `ceil(scrubIndex)` for smoother scrubbing
   without changing the underlying point density.
 
-- **5.6 — Multi-pass awareness**
-  If 5.1 flattened every Z pass into one array, scrubbing across a multi-pass
-  demo (e.g. `demoMultiPassZStepdown`, `demoHelixEntryMultiPass`) will jump in Z
-  when crossing from one pass's last point into the next pass's first point,
-  since consecutive passes retrace the same XY at different depths. Decide
-  whether that's acceptable as-is (it does reflect real machine motion --
-  retract, move to the next pass) or whether the slider should be pass-aware
-  (e.g. a segmented pass picker alongside the intra-pass slider). This is a
-  decision point, not an assumed follow-up -- flag it rather than picking
-  silently.
+- **5.6 — Split z layers**
+  Make a panel with a list of all layers and their z value. by default an option to see all layers will be selected. then i can select individual layers and preview them. the slider will scrub only the selected layer, i want to have finer control of the movement for long operations this way. the panel will open from the scrub bar in a tooltip
 
-- **5.7 — Optional: play/pause animation**
-  A play button that auto-increments `scrubIndex` on a timer for a hands-free
-  walkthrough. Nice-to-have on top of manual scrubbing, not required for the
-  core ask.
+- **5.7 — different colors for different commands**
+  I want to see fast moving segments with a more reddish color.
 
-- **5.8 — Tests**
-  This track lives in `StratumCAMDemo`, which currently has zero test coverage
-  of its own (all existing tests target the `StratumCAM` package). Only the
-  pure-geometry helpers from 5.2/5.3 are realistically unit-testable -- if
-  they're written as standalone functions/methods rather than inline closures,
-  add a small new test file for them (e.g. prefix-slice returns the right
-  point count and leaves later points untouched; circle-vertex generator
-  produces the requested point count centered on the given point). If they end
-  up as inline SwiftUI/Metal glue instead, note that as a deliberate trade-off
-  rather than silently skipping coverage.

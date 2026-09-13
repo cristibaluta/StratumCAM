@@ -129,7 +129,10 @@ struct ContentView: View {
                     }
                 }
                 Section("Pocketing — Spiral") {
-                    demoButton("Spiral Circle") {
+                    demoButton("Spiral Circle insideOut") {
+                        show(DemoPocketing().demoSpiralCircleInsideOut())
+                    }
+                    demoButton("Spiral Circle outsideIn") {
                         show(DemoPocketing().demoSpiralCircle())
                     }
                     demoButton("Spiral Fallback on Rectangle") {

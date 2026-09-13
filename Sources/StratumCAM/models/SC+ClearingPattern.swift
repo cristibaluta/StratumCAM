@@ -10,7 +10,25 @@ import Foundation
 extension SC {
 
     /// Defines the toolpath trajectory pattern used to clear material across pockets, facing passes, or open areas.
-    public enum ClearingPattern: String, Sendable, Codable, Equatable {
+    public enum ClearingPattern: Sendable, Codable, Equatable {
+
+        /// Which end of the ring stack a `.spiral` pocket starts and finishes at.
+        ///
+        /// - Standard Use: `.outsideIn` (the default) engages the wall first while the
+        ///   tool is fresh and clears the floor last; `.insideOut` enters near the center
+        ///   and finishes with a single, uninterrupted wall pass for jobs where wall
+        ///   finish matters most, mirroring canned circular-pocket cycles like Fanuc
+        ///   G12/G13.
+        public enum SpiralDirection: String, Sendable, Codable, Equatable {
+
+            /// Opening turn holds at the outer (wall) radius; closing turn holds at the
+            /// innermost radius. The tool engages the wall first and clears the floor last.
+            case outsideIn
+
+            /// Opening turn holds at the innermost radius; closing turn holds at the
+            /// outer (wall) radius, so nothing re-touches the wall after that final pass.
+            case insideOut
+        }
 
         /// Concentric paths mirroring the boundary shape, stepping inward or outward.
         ///
@@ -88,7 +106,12 @@ extension SC {
         /// - Pros: Extremely smooth machine motion; produces superior circular pocket floor finishes and minimizes machine chatter.
         /// - Cons: Limited applicability; only works well on circular, elliptical, or near-symmetrical smooth boundaries.
         /// - Standard Use: Circular bore clearing, circular pockets, and smooth circular facing operations.
-        case spiral
+        ///
+        /// - Parameter direction: Which end of the ring stack the spiral starts and
+        ///   finishes at -- see `SpiralDirection`. Only takes effect once a boundary is
+        ///   already spiral-eligible (see `isSpiralEligible`); the non-circular fallback
+        ///   path is the same regardless of `direction`.
+        case spiral(direction: SpiralDirection)
 
         /// Smoothly interpolates paths between two differing inner and outer boundaries.
         ///

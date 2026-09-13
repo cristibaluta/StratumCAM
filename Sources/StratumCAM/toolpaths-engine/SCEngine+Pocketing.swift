@@ -87,7 +87,7 @@ extension SCEngine {
                 // another ordered stack of segment groups needing connecting transitions
                 // between them.
                 toolpathSegments = chainedRingSegments(rows)
-            case .spiral:
+            case .spiral(let spiralDirection):
                 // Same climb/conventional wall orientation as `.offsetPattern` -- a
                 // spiral pocket is still, at heart, the same concentric-ring shape.
                 let oriented = orientedForDirection(baseSegments, side: .inside, direction: direction)
@@ -95,14 +95,17 @@ extension SCEngine {
 
                 // The discrete ring stack is reused either way: as the interpolation
                 // control points for a true spiral (below), or, on the fallback path,
-                // exactly as `.offsetPattern` already chains them.
+                // exactly as `.offsetPattern` already chains them. Always generated
+                // outside-in regardless of `spiralDirection` -- Step 1B.1b's direction
+                // only decides which end of this same stack `spiralSegments` starts and
+                // finishes at, not how the stack itself is built.
                 let rings = pocketRings(from: oriented, tool: tool, stepoverPercentage: settings.cutting.stepoverPercentage)
                 guard !rings.isEmpty else {
                     return nil
                 }
 
                 if isSpiralEligible(oriented) {
-                    toolpathSegments = spiralSegments(from: rings)
+                    toolpathSegments = spiralSegments(from: rings, direction: spiralDirection)
                 } else {
                     // Per the `.spiral` case's own doc comment, this only has a
                     // well-defined single center on a circular boundary -- anything
@@ -110,7 +113,9 @@ extension SCEngine {
                     // near-symmetrical shape this doesn't specifically detect) falls
                     // back to the exact ring-and-chain path `.offsetPattern` uses,
                     // rather than spiraling around a center that doesn't actually fit
-                    // the boundary. See `isSpiralEligible`.
+                    // the boundary. See `isSpiralEligible`. `spiralDirection` has no
+                    // say here either way -- per Step 1B.1b, direction only matters
+                    // once a boundary is already spiral-eligible.
                     toolpathSegments = chainedRingSegments(rings)
                 }
             case .adaptive:
@@ -401,16 +406,27 @@ extension SCEngine {
     /// continuous spiral: one full turn per ring-to-ring transition, radius interpolating
     /// linearly from that ring's radius to the next ring's radius over the turn, so the
     /// path never closes on itself the way `chainedRingSegments`' discrete
-    /// rings-plus-transitions does. The opening turn holds at the outermost (wall) ring's
-    /// radius, and the final turn holds at the innermost ring's radius, rather than
-    /// interpolating -- symmetric bookends, each fully closing a true circle: the opening
-    /// one so the wall-side ring actually gets swept all the way round instead of the path
-    /// peeling away from it after only a single instant at the start angle (an interpolating
-    /// first turn only touches the true wall offset once, at step 0 -- by the time it's back
-    /// around to that angle, one full stepover later, up to a stepover's width of that
-    /// outermost band never had the cutter reach it), and the closing one for the "final
-    /// pass" the `.spiral` case's own doc comment describes as the one place the path does
-    /// close, fully closing out the pocket floor at depth.
+    /// rings-plus-transitions does. The opening turn holds at one end's radius, and the
+    /// final turn holds at the other end's radius, rather than interpolating --
+    /// symmetric bookends, each fully closing a true circle: the opening one so that
+    /// ring actually gets swept all the way round instead of the path peeling away from
+    /// it after only a single instant at the start angle (an interpolating first turn
+    /// only touches that radius once, at step 0 -- by the time it's back around to that
+    /// angle, one full stepover later, up to a stepover's width of that band never had
+    /// the cutter reach it), and the closing one for the "final pass" the `.spiral`
+    /// case's own doc comment describes as the one place the path does close.
+    ///
+    /// As of Step 1B.1b, which end is which is `direction`'s call: `.outsideIn` (the
+    /// original Step 1B.1 behavior) opens on the outermost (wall) ring and closes on the
+    /// innermost, fully closing out the pocket floor at depth; `.insideOut` reverses the
+    /// ring order before doing anything else, so the exact same logic below opens on the
+    /// innermost ring and closes on a single, uninterrupted final pass around the wall.
+    /// Reversing the ring order up front (rather than branching the bookend logic
+    /// itself) is also what makes `.insideOut`'s entry come out correct for free: the
+    /// caller's first plunge point is always this function's first waypoint, and once
+    /// the rings are reversed that's already the innermost ring's own start point --
+    /// exactly where `.insideOut` needs to plunge, per the `.spiral` case's own doc
+    /// comment, without any separate "find the innermost ring" logic here.
     ///
     /// `SC.Segment` has no primitive for an arc of continuously-changing radius, so the
     /// spiral is approximated as a polyline of short `.line` chords -- the same kind of
@@ -422,12 +438,14 @@ extension SCEngine {
     /// Only called once `isSpiralEligible` has confirmed every ring shares one true
     /// center -- `rings` themselves are trusted to be concentric arcs here rather than
     /// re-checked.
-    private func spiralSegments(from rings: [[SC.Segment]]) -> [SC.Segment] {
-        guard case .arc(let center, let startRadius, let startAngle, _, let isCCW) = rings.first?.first else {
+    private func spiralSegments(from rings: [[SC.Segment]], direction: SC.ClearingPattern.SpiralDirection) -> [SC.Segment] {
+        let orderedRings: [[SC.Segment]] = direction == .insideOut ? Array(rings.reversed()) : rings
+
+        guard case .arc(let center, let startRadius, let startAngle, _, let isCCW) = orderedRings.first?.first else {
             return []
         }
 
-        let radii: [Double] = rings.map { ring -> Double in
+        let radii: [Double] = orderedRings.map { ring -> Double in
             guard case .arc(_, let r, _, _, _) = ring.first else {
                 return startRadius // unreachable once `isSpiralEligible` has passed.
             }
@@ -448,9 +466,9 @@ extension SCEngine {
 
             let radius: Double
             if turnIndex == 0 {
-                radius = radii[0] // opening turn: constant, outermost (wall) radius.
+                radius = radii[0] // opening turn: constant, at `orderedRings`' first radius.
             } else if turnIndex == lastTurnIndex {
-                radius = radii[radii.count - 1] // final closing turn: constant, innermost radius.
+                radius = radii[radii.count - 1] // final closing turn: constant, at `orderedRings`' last radius.
             } else {
                 let stepWithinTurn = step % stepsPerTurn
                 let t = Double(stepWithinTurn) / Double(stepsPerTurn)

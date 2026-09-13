@@ -271,7 +271,16 @@ class DemoPocketing: Demo {
         let tool = SC.ToolParams(diameter: 6.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4), safeZ: 5.0, targetDepth: -3.0)
 
-        let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .spiral, entry: .plunge)
+        let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .spiral(direction: .outsideIn), entry: .plunge)
+
+        return self.run(contour: circleContour(radius: 20), tool: tool, settings: settings, operation: operation)
+    }
+
+    func demoSpiralCircleInsideOut() -> Demo.DemoResult {
+        let tool = SC.ToolParams(diameter: 6.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4), safeZ: 5.0, targetDepth: -3.0)
+
+        let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .spiral(direction: .insideOut), entry: .plunge)
 
         return self.run(contour: circleContour(radius: 20), tool: tool, settings: settings, operation: operation)
     }
@@ -286,7 +295,7 @@ class DemoPocketing: Demo {
         let tool = SC.ToolParams(diameter: 6.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4), safeZ: 5.0, targetDepth: -3.0)
 
-        let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .spiral, entry: .plunge)
+        let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .spiral(direction: .outsideIn), entry: .plunge)
 
         return self.run(contour: rectangleContour(width: 40, height: 24), tool: tool, settings: settings, operation: operation)
     }
