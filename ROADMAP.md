@@ -504,20 +504,95 @@ as four small independent sub-tracks — none of them depend on each other.
 
 Closest in shape to drilling — reuse its structure.
 
-- **2C.1 — Basic boring cycle**
-  `buildBoringToolpath`: rapid to XY at safeZ, plunge to depth, then circular
-  interpolation at `targetDiameter / 2` radius (unlike drilling's straight plunge,
-  boring cuts a circle at the bottom), retract. Wire into the switch.
+- DONE **2C.1 — Basic boring cycle**
+  `buildBoringToolpath` (`SCEngine+Boring.swift`): reuses `drillPoint(for:)` for
+  hole-location recognition, same as drilling. Rapid to the hole's 3 o'clock edge
+  (`point.x + targetDiameter / 2`) at safeZ, plunge straight down to depth at that
+  off-center edge point, then circular interpolation around `point` at
+  `targetDiameter / 2` radius back to the same edge point, then retract to safeZ.
+  The circle is swept as two 180° arcs (`arcCCW`) rather than one 360° arc, matching
+  `convert(entity:reversed:)`'s existing DXF-circle handling, since a single arc
+  command with identical start/end position is ambiguous on many controllers. One
+  `ToolpathPass`, same reasoning as drilling -- not 2D-geometry `calculateZPasses`
+  stepdown. Wired into `buildToolpath`'s switch; `dwellTime`/`shiftRetract` are
+  still ignored (`_`), deferred to 2C.2.
 
-- **2C.2 — Dwell + shift retract**
-  Add `dwellTime` (`G04`) at the bottom before retracting when non-nil, and offset
-  the tool off-center (`shiftRetract`) before the retract move when true, to avoid
-  dragging the tool across the finished bore wall.
+- DONE **2C.2 — Dwell + shift retract**
+  The two parameters split across two different layers, since only one of them
+  changes the actual toolpath geometry:
+  - `shiftRetract` (`SCEngine+Boring.swift`, `buildBoringToolpath`): when true,
+    inserts a `.linear` waypoint at depth between the final arc and the retract,
+    shifted from the bore's edge toward `point` by `min(tool.diameter / 2, radius)`
+    -- the tool's own radius, clamped so it can't overshoot past the hole's center
+    on a bore not much wider than the tool -- so the rapid retract that follows
+    lifts clear of the wall instead of dragging back across it. `false` keeps the
+    original straight-up retract from 2C.1 unchanged.
+  - `dwellTime` (`SCGCodeEngine.swift`): doesn't touch waypoint geometry at all
+    (a stationary pause, same as drilling's dwell), so it's injected purely at
+    G-code text generation time as a `G04 P...` line. Unlike drilling's dwell --
+    which lives on `MachineSettings.dwell` and can assume "always the penultimate
+    waypoint" since a drill cycle never inserts anything after its last cutting
+    move -- boring's dwell lives on the operation itself (`.boring`'s own
+    `dwellTime`, not machine-wide), and the shift waypoint above can sit between
+    the last cutting move and the final retract, so the penultimate-waypoint
+    shortcut isn't reliable here. Finds the pass's actual last `arcCW`/`arcCCW`
+    waypoint instead and emits the dwell right after it, before any shift/retract
+    move -- matching conventional fine-boring cycle order (cut -> dwell -> shift
+    off the wall -> retract).
 
-- **2C.3 — Tests**
-  New `Boring_Tests.swift`: circular interpolation radius matches
-  `targetDiameter / 2`, dwell emitted only when `dwellTime` is set, retract path
-  shifts off-center only when `shiftRetract` is true.
+- DONE **2C.3 — Tests**
+  `Boring_Tests.swift`: circular interpolation radius matches `targetDiameter / 2`
+  (both from a `.point` and a closed-circle contour), a non-drill-point contour
+  yields no toolpath, a batch of holes each get their own independent toolpath,
+  `shiftRetract` false leaves the retract straight above the bore's edge,
+  `shiftRetract` true inserts the inward shift waypoint before retracting, the
+  shift clamps to the hole's center rather than overshooting when the tool
+  radius exceeds the bore radius (plus the exact-match boundary case, tool
+  radius == bore radius), and the circular interpolation/retract cut at the
+  ordinary feed rate rather than the plunge rate. `GCode_Boring_Tests.swift`
+  (new, alongside `GCode_Drilling_Tests.swift`): dwell emitted after the final
+  arc and before the retract when `dwellTime` is set, no `G04` at all when it's
+  `nil` or exactly `0`, with both `dwellTime` and `shiftRetract` on together the
+  dwell still lands right after the final arc and strictly before the
+  shift-off-center move, and a batch of holes each gets its own independent
+  dwell line. `DemoBoring.swift` (new, alongside `DemoDrilling.swift`), wired
+  into `ContentView`'s sidebar under a new "Boring" section: plain bore (from
+  both a point and a closed-circle contour), dwell alone, shift retract alone,
+  both together, and a batch of four bores.
+
+- **2C.4 — Helical boring variant (plain end mill, no dedicated boring head)**
+  Flagged in conversation after reviewing the 2C.1-2C.3 demos: the current
+  `buildBoringToolpath` plunges straight down on-center-offset, then cuts one
+  flat circle at the bottom -- that's a real, named technique (the classic
+  Fanuc `G76`-style fine boring cycle), but it specifically assumes a dedicated
+  adjustable boring head, where the cutting edge sticks out at a fixed radius
+  and just spinning the spindle normally traces the circle -- no `G02`/`G03`
+  needed, hence the plain vertical plunge. That's a mismatch with what this
+  codebase's `ToolType` actually models: there's no `boringBar`/boring-head
+  case at all (only `flatEndMill`/`ballEndMill`/`vBit`/`drill`), so `.boring`
+  here implicitly means an ordinary end mill -- and an end mill can't trace a
+  circle by spinning in place, it needs continuous `G02`/`G03` motion. The
+  realistic technique for an end mill is helical interpolation: descend
+  continuously while sweeping the circle (corkscrewing from top to target
+  depth around `targetDiameter / 2`), finishing with one flat lap at the
+  bottom to clean up, rather than plunging first and circling only at the
+  bottom.
+  - Reuse the existing helix machinery (`helixEntryWaypoints`,
+    `SCEngine+Contour.swift`) rather than writing new spiral-descent math from
+    scratch -- same reasoning Step 1.2 already established for pocket entry.
+  - `shiftRetract` and `dwellTime` (2C.2) both still apply unchanged at the
+    bottom of the helical descent -- only the top-to-bottom entry motion
+    changes, not what happens once the tool reaches final depth.
+  - Open question worth resolving before starting: is this a variant of
+    `.boring` itself (e.g. a new parameter distinguishing "fine boring head"
+    vs. "helical end-mill boring"), or a genuinely separate
+    `MachiningOperation` case? They produce different G-code shapes for a
+    reason -- a real boring head literally cannot follow a helical path (its
+    cutting edge is fixed radius, no way to vary it mid-cut), so collapsing
+    both into one case with a mode flag may be modeling two different
+    machine/tooling realities as if they were one operation with options.
+  - Not started -- do this later, as its own session per the roadmap's usual
+    one-step-at-a-time shape.
 
 ### 2D — Tapping (`.tapping`)
 
@@ -645,4 +720,3 @@ step's plumbing isn't wired to UI yet.
 
 - **5.7 — different colors for different commands**
   I want to see fast moving segments with a more reddish color.
-

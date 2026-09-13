@@ -1,5 +1,5 @@
 //
-//  GCode.swift
+//  GCode_Boring_Tests.swift
 //  StratumCAM
 //
 //  Created by Cristian Baluta on 13.09.2026.
@@ -118,5 +118,60 @@ struct GCode_Boring_Tests {
             #expect(dwellIndex < shiftIndex, "Test Failed: dwell must occur before the shift-off-center move, not after it")
             #expect(shiftIndex < finalRetractIndex, "Test Failed: shift-off-center move must occur before the final retract")
         }
+    }
+
+    @Test("A dwellTime of exactly zero does not emit a G04 command")
+    func testBoringZeroDwellTimeDoesNotEmitDwell() {
+        let tool = SC.ToolParams(type: .flatEndMill, diameter: 6.0)
+        let settings = SC.MachineSettings(
+            cutting: SC.CuttingData(spindleSpeed: 9000.0, feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0),
+            safeZ: 5.0,
+            targetDepth: 5.0
+        )
+
+        let contour = SC.Contour(entities: [
+            .init(entity: .point(at: DXF.Point(5, 6), layer: "0", color: 7), reversed: false)
+        ], isClosed: false)
+
+        // A zero dwellTime carries no useful instruction for the controller -- same
+        // "dwell > 0" guard drilling's own G04 emission already applies.
+        let toolpaths = SCEngine().generateToolpaths(
+            from: [contour],
+            tool: tool,
+            settings: settings,
+            operation: .boring(targetDiameter: 8.0, dwellTime: 0.0, shiftRetract: false)
+        )
+
+        let gcode = SCGCodeEngine().generateGCode(from: toolpaths, settings: settings)
+
+        #expect(!gcode.contains("G04"), "Test Failed: G04 should not be emitted when dwellTime is exactly zero")
+    }
+
+    @Test("Each hole in a batch of bores gets its own independent dwell")
+    func testBoringBatchOfHolesEachGetsOwnDwell() {
+        let tool = SC.ToolParams(type: .flatEndMill, diameter: 6.0)
+        let settings = SC.MachineSettings(
+            cutting: SC.CuttingData(spindleSpeed: 9000.0, feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0),
+            safeZ: 5.0,
+            targetDepth: 8.0
+        )
+
+        let contours = [(0.0, 0.0), (20.0, 0.0)].map { x, y in
+            SC.Contour(entities: [
+                .init(entity: .point(at: DXF.Point(x, y), layer: "0", color: 7), reversed: false)
+            ], isClosed: false)
+        }
+
+        let toolpaths = SCEngine().generateToolpaths(
+            from: contours,
+            tool: tool,
+            settings: settings,
+            operation: .boring(targetDiameter: 10.0, dwellTime: 0.25, shiftRetract: false)
+        )
+
+        let gcode = SCGCodeEngine().generateGCode(from: toolpaths, settings: settings)
+        let dwellCount = gcode.components(separatedBy: "G04 P0.250 (Boring dwell)").count - 1
+
+        #expect(dwellCount == 2, "Test Failed: expected one dwell per hole in the batch, got \(dwellCount)")
     }
 }

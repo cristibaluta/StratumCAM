@@ -241,4 +241,44 @@ struct Boring_Tests {
         // Clamped to the hole's own center (0, 0) rather than overshooting past it.
         #expect(abs(shift.position.x - 0.0) < 1e-9 && abs(shift.position.y - 0.0) < 1e-9, "Test Failed: shift should clamp to the hole center, not overshoot past it")
     }
+
+    @Test("shiftRetract lands exactly on the hole center when the tool radius exactly matches the bore radius")
+    func testShiftRetractExactlyReachesHoleCenterAtBoundary() {
+        let engine = SCEngine()
+        let tool = SC.ToolParams(type: .flatEndMill, diameter: 10.0) // tool radius 5.0, exactly the bore radius
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -8.0)
+
+        let contour = SC.Contour(entities: [
+            .init(entity: .point(at: DXF.Point(0, 0), layer: "0", color: 7), reversed: false)
+        ], isClosed: false)
+
+        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
+                                                  operation: .boring(targetDiameter: 10.0, dwellTime: nil, shiftRetract: true)) // bore radius 5.0
+
+        let shift = toolpaths[0].passes[0].waypoints[4]
+        #expect(abs(shift.position.x - 0.0) < 1e-9 && abs(shift.position.y - 0.0) < 1e-9,
+                "Test Failed: an exactly-matching tool/bore radius should shift precisely to the hole center, not stop short or overshoot")
+    }
+
+    // MARK: - Feed rates
+
+    @Test("The circular interpolation cuts at the cutting feed rate, not the plunge rate")
+    func testCircularInterpolationUsesCuttingFeedRateNotPlungeRate() {
+        let engine = SCEngine()
+        let tool = SC.ToolParams(type: .flatEndMill, diameter: 6.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1200.0, plungeRate: 150.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -8.0)
+
+        let contour = SC.Contour(entities: [
+            .init(entity: .point(at: DXF.Point(0, 0), layer: "0", color: 7), reversed: false)
+        ], isClosed: false)
+
+        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
+                                                  operation: .boring(targetDiameter: 10.0, dwellTime: nil, shiftRetract: false))
+
+        let waypoints = toolpaths[0].passes[0].waypoints
+        #expect(waypoints[1].feedRate == 150.0, "Test Failed: the plunge should use the plunge feed rate")
+        #expect(waypoints[2].feedRate == 1200.0, "Test Failed: the first arc should cut at the ordinary feed rate")
+        #expect(waypoints[3].feedRate == 1200.0, "Test Failed: the second arc should cut at the ordinary feed rate")
+        #expect(waypoints[4].feedRate == 1200.0, "Test Failed: the retract move should carry the ordinary feed rate")
+    }
 }
