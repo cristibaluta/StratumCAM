@@ -9,7 +9,9 @@ Step 1B.2, `SC+ClearingPattern.swift`/`SCEngine+Pocketing.swift`/
 `Trochoidal_Tests.swift`/`DemoPocketing.swift`) + `SC+ClearingPattern.swift`
 and `SC+MachiningOperation.swift` picked up a `PocketClearingPattern` /
 `SlottingPattern` / `ClearingPattern` split (see Track 1B intro and Track 2B
-below)
+below) + facing footprint/scanline geometry (`facingArea`/`facingScanlines`,
+Step 2A.1, `SCEngine+Facing.swift`/`Facing_Tests.swift`, not yet wired into
+`buildToolpath`)
 
 ## How to use this doc with Claude
 
@@ -311,12 +313,45 @@ as four small independent sub-tracks — none of them depend on each other.
 
 ### 2A — Facing (`.facing`)
 
-- **2A.1 — Facing bounds + raster geometry**
-  Compute the area to clear from `SC.Stock` bounds expanded by `extensionLength`
-  (facing needs a footprint, not a contour — it cleans the whole top surface, not
-  a selected feature). Generate scanline geometry only, per `stepover`, no
-  waypoints yet. This likely wants a `Stock`-driven entry point separate from
-  `buildToolpath`'s per-contour signature — flag if so rather than forcing it in.
+- DONE **2A.1 — Facing bounds + raster geometry**
+  `SCEngine+Facing.swift`: `facingArea(stock:extensionLength:)` grows the stock's
+  own top-face rectangle by `extensionLength` on every side (no tool-radius
+  compensation folded in beyond that — `extensionLength` is the operation's own
+  explicit margin). `facingScanlines(stock:extensionLength:stepover:direction:)`
+  fills that rectangle with parallel rows spaced by `stepover`, boustrophedon
+  (alternating direction row to row, same convention as pocketing's
+  `rasterScanlines`), snapping the last row to the footprint's far edge on an
+  unevenly-divisible stepover (same fencepost rule as `rasterScanlines`/
+  `calculateZPasses`). Unlike pocketing's raster there's no boundary to clip
+  against — the footprint is already a plain rectangle — so no intersection math
+  is needed; every row spans the full width directly. Geometry only, returned as
+  `[[SC.Segment]]` (same per-row shape `rasterScanlines` uses) so a later
+  waypoint wrapper can reuse `chainedRingSegments` to link rows. Not wired into
+  `SCEngine.buildToolpath`'s switch yet — that's 2A.2 — and deliberately not
+  exposed as a new `Stock`-driven public entry point yet either, since there's
+  nothing to call it from until 2A.2 decides that shape (see the flag below).
+  Covered by `Facing_Tests.swift`: footprint expansion (zero and non-zero
+  `extensionLength`, non-zero stock `origin`), row count/spacing/full-width span,
+  climb-vs-conventional starting direction and per-row alternation, the uneven-
+  stepover fencepost case, and empty output for a zero-area stock or non-positive
+  stepover.
+  > Flag (assumption, since `Stock` had no prior consumer to confirm against):
+  > `facingArea` reads `stock.origin` as the top-face min-X/min-Y corner — the
+  > rectangle spans `origin.x ... origin.x + width` / `origin.y ... origin.y +
+  > height` — not a center-referenced stock. This matches `origin`'s own doc
+  > comment ("WCS G54 origin") under the common shop convention of touching off
+  > G54 at a stock corner, and is consistent with `targetDepth` treating Z=0 as
+  > the stock's top surface rather than its middle. Worth confirming before 2A.2
+  > builds waypoints on top of it — if stock is actually center-referenced, or
+  > `origin` marks a different corner, `facingArea` needs revisiting first.
+  > Also still open: `SCEngine.buildToolpath`/`generateToolpaths` are per-contour
+  > (one `SC.Contour` in, zero-or-one `OutputToolpath` out), but facing has no
+  > selected contour to iterate — it clears the whole stock footprint once. 2A.2
+  > still needs to decide the actual entry point shape: a `Stock`-taking overload
+  > of `generateToolpaths` (mirroring the existing `DrillingOperation` overload
+  > that already solves a similar per-strategy signature mismatch), or something
+  > else. Flagging again here so 2A.2 doesn't default into forcing `.facing`
+  > through the per-contour path just because that's what's already wired up.
 
 - **2A.2 — Facing toolpath + direction**
   Turn the scanlines into waypoints (rapid/retract wrapper, single Z pass — facing
@@ -507,3 +542,4 @@ step's plumbing isn't wired to UI yet.
 
 - **5.7 — different colors for different commands**
   I want to see fast moving segments with a more reddish color.
+
