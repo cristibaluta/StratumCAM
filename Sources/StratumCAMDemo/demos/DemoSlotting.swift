@@ -167,7 +167,7 @@ class DemoSlotting: Demo {
             // Shouldn't happen for this fixture -- the rectangle's own width
             // matches the tool exactly -- but a demo should never crash even if
             // the fixture above is ever edited to no longer qualify.
-            return Demo.DemoResult(batches: [], gcode: "", toolpathPoints: [])
+            return Demo.DemoResult(batches: [], gcode: "", toolpathPoints: [], tool: tool)
         }
 
         // Blue reference: the boundary itself (the physical slot walls), not the
@@ -204,6 +204,6 @@ class DemoSlotting: Demo {
 
         let gcode = gcodeEngine.generateGCode(from: toolpaths, settings: settings)
 
-        return Demo.DemoResult(batches: batches, gcode: gcode, toolpathPoints: toolpathPoints)
+        return Demo.DemoResult(batches: batches, gcode: gcode, toolpathPoints: toolpathPoints, tool: tool)
     }
 }

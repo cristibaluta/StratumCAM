@@ -23,6 +23,12 @@ struct ContentView: View {
     @State private var toolpathPoints: [SIMD3<Float>] = []
     @State private var scrubIndex: Double = 0
 
+    /// The tool used by the currently-shown demo (Step: marker sized to the real
+    /// tool) -- kept alongside `toolpathPoints` so `rebuildRenderBatches()` can size
+    /// the scrub marker's cylinder from the actual `SC.ToolParams` rather than a
+    /// fixed radius/height.
+    @State private var currentTool: SC.ToolParams = SC.ToolParams()
+
     /// The part of the current demo's `renderBatches` that *isn't* the toolpath --
     /// the blue base-contour batch, currently, though this doesn't assume there's
     /// exactly one. Kept separate from `renderBatches` so `rebuildRenderBatches()`
@@ -269,6 +275,7 @@ struct ContentView: View {
     private func show(_ result: Demo.DemoResult) {
         gcodeText = result.gcode
         toolpathPoints = result.toolpathPoints
+        currentTool = result.tool
 
         // The full toolpath batch is always the last one `run(contours:...)`
         // appends whenever `toolpathPoints` is non-empty (step 4 there) -- everything
@@ -302,7 +309,9 @@ struct ContentView: View {
                 batches.append(slicedBatch)
             }
             if let markerPoint = Demo.interpolatedPoint(toolpathPoints, at: scrubIndex),
-               let marker = previewDemo.markerBatch(at: markerPoint) {
+               let marker = previewDemo.markerBatch(at: markerPoint,
+                                                    diameter: Float(currentTool.diameter),
+                                                    height: Float(currentTool.fluteLength)) {
                 batches.append(marker)
             }
         }

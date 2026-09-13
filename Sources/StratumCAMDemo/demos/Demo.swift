@@ -28,6 +28,12 @@ class Demo {
         let batches: [RenderBatch]
         let gcode: String
         let toolpathPoints: [SIMD3<Float>]
+
+        /// The tool used to generate this result's toolpaths, kept around so the
+        /// UI layer's scrub marker (Step 5.3) can be sized from the *real* tool
+        /// geometry -- diameter for the marker's own diameter, `fluteLength` for
+        /// how tall to draw it -- instead of a fixed, arbitrary radius.
+        let tool: SC.ToolParams
     }
 
     func run(contour: SC.Contour, tool: SC.ToolParams, settings: SC.MachineSettings, operation: SC.MachiningOperation) -> DemoResult {
@@ -80,7 +86,7 @@ class Demo {
         // 5. Generate G-code for the same toolpaths
         let gcode = gcodeEngine.generateGCode(from: toolpaths, settings: settings)
 
-        return DemoResult(batches: batches, gcode: gcode, toolpathPoints: toolpathPoints)
+        return DemoResult(batches: batches, gcode: gcode, toolpathPoints: toolpathPoints, tool: tool)
     }
 
     /// Same three-step shape as `run(contours:...)` above, but for `.facing`
@@ -134,7 +140,7 @@ class Demo {
         // 4. Generate G-code for the same toolpaths.
         let gcode = gcodeEngine.generateGCode(from: toolpaths, settings: operation.settings)
 
-        return DemoResult(batches: batches, gcode: gcode, toolpathPoints: toolpathPoints)
+        return DemoResult(batches: batches, gcode: gcode, toolpathPoints: toolpathPoints, tool: operation.tool)
     }
 
     // MARK: - Step 5.2: prefix-slice + reusable batch builder
@@ -207,52 +213,90 @@ class Demo {
                            dashLength: dashLength)
     }
 
-    // MARK: - Step 5.3: marker circle geometry at a point
+    // MARK: - Step 5.3: marker cylinder geometry at a point
 
-    /// Generates a small flat circle's worth of `RenderVertex`s centered on `point`,
-    /// as a closed loop meant to be drawn `.lineStrip` -- a "you are here" marker,
-    /// visually distinct from the blue base contour and yellow toolpath rather than
-    /// looking like part of either. Pure geometry, no Metal/device dependency, same
-    /// reasoning as `pointsPrefix` above: testable on its own once Step 5.8 adds
-    /// coverage (right point count, centered on the given point).
+    /// Generates a wireframe cylinder's worth of `RenderVertex`s centered on `point`
+    /// -- a "you are here" marker sized to the actual tool doing the cutting, rather
+    /// than an arbitrary fixed radius: `diameter` matches `SC.ToolParams.diameter`
+    /// and `height` matches `SC.ToolParams.fluteLength`, so the marker reads as a
+    /// scale silhouette of the tool itself, not just an abstract pointer.
     ///
-    /// The loop is drawn flat in the XY plane at `point.z` -- toolpaths in this demo
-    /// app are already planar per Z pass, so a flat ring at the marker's own Z matches
-    /// what's actually being scrubbed through rather than adding a third dimension.
-    /// `dist` is left at 0 for every vertex since the marker is never dashed
-    /// (`isDashed` only matters for `.lineStrip` paths where distance-along-path is
-    /// used to compute the dash pattern in the fragment shader).
-    static func markerCircleVertices(at point: SIMD3<Float>,
-                                     radius: Float = 1.0,
-                                     segments: Int = 28,
-                                     color: SIMD4<Float> = SIMD4<Float>(1.0, 0.05, 0.05, 1.0)) -> [RenderVertex] {
+    /// The cylinder's base ring sits flat in the XY plane at `point.z` -- the
+    /// toolpath point being marked is where the tool's tip is, so the base is drawn
+    /// there and the cylinder extends upward (+Z) by `height` to represent the
+    /// flutes rising above the tip, matching a real end mill's geometry.
+    ///
+    /// Built as independent `.line` segments (two rings plus a handful of vertical
+    /// struts) rather than one continuous `.lineStrip`: a strip can't visit two
+    /// separate rings and the struts between them without doubling back over
+    /// itself, so disconnected segments are the simplest way to draw all three
+    /// pieces in a single vertex buffer/primitive call. `dist` is left at 0 for
+    /// every vertex since the marker is never dashed (`isDashed` only matters for
+    /// `.lineStrip` paths where distance-along-path drives the dash pattern in the
+    /// fragment shader).
+    static func markerCylinderVertices(at point: SIMD3<Float>,
+                                       diameter: Float = 2.0,
+                                       height: Float = 4.0,
+                                       segments: Int = 28,
+                                       strutCount: Int = 4,
+                                       color: SIMD4<Float> = SIMD4<Float>(1.0, 0.05, 0.05, 1.0)) -> [RenderVertex] {
         let clampedSegments = max(3, segments)
-        var vertices: [RenderVertex] = []
-        vertices.reserveCapacity(clampedSegments + 1)
+        let radius = max(0, diameter) / 2
+        let baseZ = point.z
+        let topZ = point.z + height
 
-        // 0...clampedSegments (inclusive) so the last vertex lands back on the
-        // first angle, closing the loop -- required for `.lineStrip` to draw a
-        // full ring instead of a ring with one open gap.
-        for i in 0...clampedSegments {
+        func ringPoint(_ i: Int, z: Float) -> SIMD3<Float> {
             let t = Float(i) / Float(clampedSegments)
             let angle = t * 2 * Float.pi
             let x = point.x + radius * cos(angle)
             let y = point.y + radius * sin(angle)
-            vertices.append(RenderVertex(position: SIMD3<Float>(x, y, point.z), color: color, dist: 0))
+            return SIMD3<Float>(x, y, z)
         }
+
+        var vertices: [RenderVertex] = []
+        vertices.reserveCapacity(clampedSegments * 4 + max(0, strutCount) * 2)
+
+        // Base and top rings, each as `.line` segment pairs (i -> i+1) rather than
+        // a closed strip, so both rings can share one buffer with the struts below.
+        for i in 0..<clampedSegments {
+            vertices.append(RenderVertex(position: ringPoint(i, z: baseZ), color: color, dist: 0))
+            vertices.append(RenderVertex(position: ringPoint(i + 1, z: baseZ), color: color, dist: 0))
+        }
+        for i in 0..<clampedSegments {
+            vertices.append(RenderVertex(position: ringPoint(i, z: topZ), color: color, dist: 0))
+            vertices.append(RenderVertex(position: ringPoint(i + 1, z: topZ), color: color, dist: 0))
+        }
+
+        // Vertical struts connecting the two rings, evenly spaced around the
+        // circumference, so the shape reads as a cylinder rather than two
+        // unconnected rings floating at different heights.
+        let clampedStruts = max(0, strutCount)
+        for s in 0..<clampedStruts {
+            let i = (s * clampedSegments) / max(1, clampedStruts)
+            vertices.append(RenderVertex(position: ringPoint(i, z: baseZ), color: color, dist: 0))
+            vertices.append(RenderVertex(position: ringPoint(i, z: topZ), color: color, dist: 0))
+        }
+
         return vertices
     }
 
     /// Builds the marker `RenderBatch` for a given point -- thin wrapper around
-    /// `markerCircleVertices(at:radius:segments:color:)` that turns the vertices into
-    /// a GPU buffer the same way `renderBatch(forPoints:...)` does above. Kept as an
-    /// instance method (not `static`) only because it needs `device` for the buffer,
-    /// same split as `pointsPrefix`/`renderBatch` above.
+    /// `markerCylinderVertices(at:diameter:height:segments:strutCount:color:)` that
+    /// turns the vertices into a GPU buffer the same way `renderBatch(forPoints:...)`
+    /// does above. Kept as an instance method (not `static`) only because it needs
+    /// `device` for the buffer, same split as `pointsPrefix`/`renderBatch` above.
     func markerBatch(at point: SIMD3<Float>,
-                     radius: Float = 1.0,
+                     diameter: Float = 2.0,
+                     height: Float = 4.0,
                      segments: Int = 28,
+                     strutCount: Int = 4,
                      color: SIMD4<Float> = SIMD4<Float>(1.0, 0.05, 0.05, 1.0)) -> RenderBatch? {
-        let vertices = Demo.markerCircleVertices(at: point, radius: radius, segments: segments, color: color)
+        let vertices = Demo.markerCylinderVertices(at: point,
+                                                    diameter: diameter,
+                                                    height: height,
+                                                    segments: segments,
+                                                    strutCount: strutCount,
+                                                    color: color)
         guard !vertices.isEmpty,
               let buffer = device.makeBuffer(bytes: vertices,
                                              length: vertices.count * MemoryLayout<RenderVertex>.stride,
@@ -261,7 +305,7 @@ class Demo {
         }
         return RenderBatch(vertexBuffer: buffer,
                            vertexCount: vertices.count,
-                           primitiveType: .lineStrip)
+                           primitiveType: .line)
     }
 
     /// `buildWaypoints`/toolpath passes only carry the *endpoints* of each move (plus a

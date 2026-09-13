@@ -104,9 +104,13 @@ class DemoFacing: Demo {
         let firstResult = self.run(facing: first)
         let secondResult = self.run(facing: second)
 
+        // The combined toolpathPoints run first's points then second's, so the scrub
+        // marker (which defaults to the very end) sits on `second`'s cut -- use its
+        // tool for the marker's size rather than `first`'s.
         return Demo.DemoResult(batches: firstResult.batches + secondResult.batches,
                                gcode: firstResult.gcode + "\n\n" + secondResult.gcode,
-                               toolpathPoints: firstResult.toolpathPoints + secondResult.toolpathPoints)
+                               toolpathPoints: firstResult.toolpathPoints + secondResult.toolpathPoints,
+                               tool: second.tool)
     }
 }
 
