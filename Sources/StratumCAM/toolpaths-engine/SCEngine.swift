@@ -138,7 +138,12 @@ public final class SCEngine {
                                              entry: entry,
                                              operation: operation)
 
-            case .threadMilling(pitch: let pitch, isInternal: let isInternal, direction: let direction, radialPasses: let radialPasses, targetDiameter: let targetDiameter):
+            case .threadMilling(pitch: let pitch,
+                                isInternal: let isInternal,
+                                direction: let direction,
+                                radialPasses: let radialPasses,
+                                targetDiameter: let targetDiameter):
+
                 return buildThreadMillingToolpath(for: contour,
                                                   tool: tool,
                                                   settings: settings,
