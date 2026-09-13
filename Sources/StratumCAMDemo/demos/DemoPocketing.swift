@@ -94,10 +94,11 @@ class DemoPocketing: Demo {
         return self.run(contour: rectangleContour(width: 40, height: 24), tool: tool, settings: settings, operation: operation)
     }
 
-    /// Clears a rounded rectangle, showing the ring stack's corner arcs
-    /// shrinking ring by ring until the corner radius collapses and stepping
-    /// stops -- the arc-collapse signal `pocketRings` relies on, rather than
-    /// the straight-edge winding-flip signal `demoPocketRectangle()` hits.
+    /// Clears a rounded rectangle, showing the ring stack's corner arcs shrinking
+    /// ring by ring until the corner radius collapses to a sharp point -- at which
+    /// point that corner just becomes a plain rectangle corner and stepping keeps
+    /// going on the straight edges, same as `demoPocketRectangle()`, until *those*
+    /// invert (the winding-flip signal both demos ultimately rely on).
     func demoPocketRoundedRectangle() -> Demo.DemoResult {
         let tool = SC.ToolParams(diameter: 3.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.3), safeZ: 5.0, targetDepth: -2.0)

@@ -119,7 +119,7 @@ extension SCEngine {
                     // once a boundary is already spiral-eligible.
                     toolpathSegments = chainedRingSegments(rings)
                 }
-                
+
             case .trochoidal:
                 // Same climb/conventional wall orientation `.offsetPattern` and
                 // `.spiral` use -- trochoidal advances along this same oriented
@@ -336,15 +336,20 @@ extension SCEngine {
         let winding = isCCWWinding(firstRing)
         var current = firstRing
 
-        // Safety cap: `offsetContour`'s collapse signal and the winding-flip
-        // check below are expected to end the loop first in every realistic
-        // case, but a cap keeps a pathological input from spinning forever.
+        // Safety cap: the full-collapse check and the winding-flip check below are
+        // expected to end the loop first in every realistic case, but a cap keeps
+        // a pathological input from spinning forever.
         let maxRings = 500
         while rings.count < maxRings {
             let next = offsetContour(current, side: .inside, toolRadius: stepover, isClosed: true)
 
             guard next != current else {
-                break // offsetContour's own arc-collapse signal.
+                // `offsetContour` only ever returns its input unchanged when every
+                // one of its segments failed to offset -- a corner fillet running
+                // out of radius on its own now degrades to a sharp corner instead
+                // (see `offsetContour`), so this only fires when the tool no
+                // longer fits *anywhere* on this ring.
+                break
             }
             guard isCCWWinding(next) == winding else {
                 break // Straight-edge collapse: the ring inverted through its own center.

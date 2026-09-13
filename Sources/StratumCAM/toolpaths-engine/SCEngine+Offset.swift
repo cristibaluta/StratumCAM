@@ -24,15 +24,41 @@ extension SCEngine {
         }
 
         let distance = offsetDistance(for: side, toolRadius: toolRadius, segments: segments)
-        let offsetSegments = segments.compactMap { $0.offset(by: distance) }
 
-        guard offsetSegments.count == segments.count else {
-            // A segment collapsed (tool too big for a feature) -- bail out to the
-            // un-offset path rather than emit a broken toolpath.
+        // Offset every segment on its own first, keeping a `nil` in place (rather
+        // than dropping it immediately) for any segment that can't offset by this
+        // distance -- in practice almost always a corner-fillet arc whose radius
+        // has run out before the rest of the shape has. `rawOffsets` stays the same
+        // length/index alignment as `segments` so the filtering below can tell
+        // exactly which original segment each collapse belongs to.
+        let rawOffsets: [SC.Segment?] = segments.map { $0.offset(by: distance) }
+
+        // Drop collapsed segments from both the offset list and its matching
+        // original list together, so a corner that can no longer offset simply
+        // vanishes from the chain -- its two former neighbors become directly
+        // adjacent and `joinOffsetChain` below joins them into a sharp corner
+        // (trimmed to their intersection, the same way it already handles any
+        // other corner) instead of the whole offset bailing out just because one
+        // local feature ran out of room. Only when *every* segment collapses
+        // (guard below) does that mean the tool doesn't fit this shape at all.
+        var filteredOriginal: [SC.Segment] = []
+        var filteredOffset: [SC.Segment] = []
+        filteredOriginal.reserveCapacity(segments.count)
+        filteredOffset.reserveCapacity(segments.count)
+        for (index, offsetSegment) in rawOffsets.enumerated() {
+            guard let offsetSegment else { continue }
+            filteredOriginal.append(segments[index])
+            filteredOffset.append(offsetSegment)
+        }
+
+        guard !filteredOffset.isEmpty else {
+            // Every segment collapsed -- the tool doesn't fit this shape at all,
+            // not just one corner of it. Bail out to the un-offset path rather
+            // than emit a broken (empty) toolpath.
             return segments
         }
 
-        return joinOffsetChain(original: segments, offset: offsetSegments, distance: distance, isClosed: isClosed)
+        return joinOffsetChain(original: filteredOriginal, offset: filteredOffset, distance: distance, isClosed: isClosed)
     }
 
     /// Resolves `.inside` / `.outside` into a signed offset distance (positive = left of
@@ -216,7 +242,7 @@ extension SCEngine {
         let sq = discriminant.squareRoot()
         let t1 = (-b - sq) / (2 * a)
         let t2 = (-b + sq) / (2 * a)
-        
+
         return [
             CGPoint(x: p1.x + t1 * dx, y: p1.y + t1 * dy),
             CGPoint(x: p1.x + t2 * dx, y: p1.y + t2 * dy)
