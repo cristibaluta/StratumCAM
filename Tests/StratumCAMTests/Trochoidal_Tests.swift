@@ -33,7 +33,8 @@ struct Trochoidal_Tests {
     }
 
     private func pocketStrategy(entry: SC.EntryStrategy = .plunge, direction: SC.CutDirection = .climb) -> SC.MachiningOperation {
-        .pocket(direction: direction, pattern: .trochoidal, entry: entry)
+        let settings = SC.TrochoidalSettings(radialEngagement: 4, loopRadius: 0.5)
+        return .pocket(direction: direction, pattern: .trochoidal(settings: settings), entry: entry)
     }
 
     // MARK: - Geometry: loop diameter + advance honored

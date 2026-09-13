@@ -41,7 +41,7 @@ struct PocketSpiral_Tests {
         ], isClosed: true)
     }
 
-    private func pocketStrategy(pattern: SC.ClearingPattern, entry: SC.EntryStrategy = .plunge, direction: SC.CutDirection = .climb) -> SC.MachiningOperation {
+    private func pocketStrategy(pattern: SC.PocketClearingPattern, entry: SC.EntryStrategy = .plunge, direction: SC.CutDirection = .climb) -> SC.MachiningOperation {
         .pocket(direction: direction, pattern: pattern, entry: entry)
     }
 
@@ -189,7 +189,7 @@ struct PocketSpiral_Tests {
             from: [ccwRectangleContour()],
             tool: tool,
             settings: settings,
-            operation: pocketStrategy(pattern: .offsetPattern)
+            operation: pocketStrategy(pattern: .offset)
         )[0].passes[0].waypoints
 
         // A rectangle has no single center to spiral around, so `.spiral` should
@@ -231,7 +231,7 @@ struct PocketSpiral_Tests {
             from: [roundedRectangleContour],
             tool: tool,
             settings: settings,
-            operation: pocketStrategy(pattern: .offsetPattern)
+            operation: pocketStrategy(pattern: .offset)
         )[0].passes[0].waypoints
 
         #expect(spiralWaypoints == offsetPatternWaypoints,

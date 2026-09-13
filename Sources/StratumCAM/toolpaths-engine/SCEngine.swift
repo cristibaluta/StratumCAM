@@ -93,20 +93,15 @@ public final class SCEngine {
                                              peckDepth: peckDepth,
                                              operation: operation)
 
-            case .pocket(let direction, let pocketType, let entry):
-                return buildPocketToolpath(
-                    for: contour,
-                    tool: tool,
-                    settings: settings,
-                    direction: direction,
-                    pattern: pocketType,
-                    entry: entry,
-                    operation: operation
+            case .pocket(let direction, let pattern, let entry):
+                return buildPocketToolpath(for: contour,
+                                           tool: tool,
+                                           settings: settings,
+                                           direction: direction,
+                                           pattern: pattern,
+                                           entry: entry,
+                                           operation: operation
                 )
-
-            case .adaptiveClearing:
-                // TODO(Phase 4): constant-engagement adaptive clearing.
-                return nil
 
             case .facing(stepover: let stepover, direction: let direction, extensionLength: let extensionLength):
                 print("stepover \(stepover), direction \(direction), extensionLength \(extensionLength)")

@@ -23,7 +23,7 @@ extension SCEngine {
                              tool: SC.ToolParams,
                              settings: SC.MachineSettings,
                              direction: SC.CutDirection,
-                             pattern: SC.ClearingPattern,
+                             pattern: SC.PocketClearingPattern,
                              entry: SC.EntryStrategy,
                              operation: SC.MachiningOperation) -> SC.OutputToolpath? {
 
@@ -48,7 +48,7 @@ extension SCEngine {
         let boundarySegments: [SC.Segment]
 
         switch pattern {
-            case .offsetPattern:
+            case .offset:
                 // 1. Orient the chain so travel direction matches the requested cut
                 // direction. Pocket walls are inside cuts, so use `.inside` for the same
                 // climb/conventional convention already established by profile.
@@ -452,7 +452,7 @@ extension SCEngine {
     /// Only called once `isSpiralEligible` has confirmed every ring shares one true
     /// center -- `rings` themselves are trusted to be concentric arcs here rather than
     /// re-checked.
-    private func spiralSegments(from rings: [[SC.Segment]], direction: SC.ClearingPattern.SpiralDirection) -> [SC.Segment] {
+    private func spiralSegments(from rings: [[SC.Segment]], direction: SC.SpiralDirection) -> [SC.Segment] {
         let orderedRings: [[SC.Segment]] = direction == .insideOut ? Array(rings.reversed()) : rings
 
         guard case .arc(let center, let startRadius, let startAngle, _, let isCCW) = orderedRings.first?.first else {

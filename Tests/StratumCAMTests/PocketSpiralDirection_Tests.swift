@@ -44,7 +44,7 @@ struct PocketSpiralDirection_Tests {
         ], isClosed: true)
     }
 
-    private func pocketStrategy(pattern: SC.ClearingPattern, entry: SC.EntryStrategy = .plunge, direction: SC.CutDirection = .climb) -> SC.MachiningOperation {
+    private func pocketStrategy(pattern: SC.PocketClearingPattern, entry: SC.EntryStrategy = .plunge, direction: SC.CutDirection = .climb) -> SC.MachiningOperation {
         .pocket(direction: direction, pattern: pattern, entry: entry)
     }
 
@@ -57,12 +57,11 @@ struct PocketSpiralDirection_Tests {
         // radius), 50% stepover (2mm) -> rings at 8, 6, 4, 2 outside-in. `.insideOut`
         // reverses that to 2, 4, 6, 8 before interpolating.
         let tool = SC.ToolParams(diameter: 4.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0,
-                                                                    plungeRate: 300.0,
-                                                                    stepdown: 1.0,
-                                                                    stepoverPercentage: 0.5),
-                                          safeZ: 5.0,
-                                          targetDepth: -1.0)
+        let cutting = SC.CuttingData(feedRate: 1000.0,
+                                     plungeRate: 300.0,
+                                     stepdown: 1.0,
+                                     stepoverPercentage: 0.5)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -1.0)
 
         let toolpaths = engine.generateToolpaths(
             from: [circleContour(radius: 10.0)],
@@ -115,14 +114,10 @@ struct PocketSpiralDirection_Tests {
     func testInsideOutAndOutsideInShareTheSameRingRadii() {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 4.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0,
-                                                                    plungeRate: 300.0,
-                                                                    stepdown: 1.0,
-                                                                    stepoverPercentage: 0.5),
-                                          safeZ: 5.0,
-                                          targetDepth: -1.0)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.5)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -1.0)
 
-        func ringTurnRadii(direction: SC.ClearingPattern.SpiralDirection) -> [Double] {
+        func ringTurnRadii(direction: SC.SpiralDirection) -> [Double] {
             let waypoints = engine.generateToolpaths(
                 from: [circleContour(radius: 10.0)],
                 tool: tool,
@@ -151,10 +146,8 @@ struct PocketSpiralDirection_Tests {
     func testBareSpiralDefaultsToOutsideIn() {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 4.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0,
-                                                                    plungeRate: 300.0,
-                                                                    stepdown: 1.0,
-                                                                    stepoverPercentage: 0.5),
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.5)
+        let settings = SC.MachineSettings(cutting: cutting,
                                           safeZ: 5.0,
                                           targetDepth: -1.0)
 
@@ -204,7 +197,7 @@ struct PocketSpiralDirection_Tests {
             from: [ccwRectangleContour()],
             tool: tool,
             settings: settings,
-            operation: pocketStrategy(pattern: .offsetPattern)
+            operation: pocketStrategy(pattern: .offset)
         )[0].passes[0].waypoints
 
         // A rectangle has no single center to spiral around either way, so `direction`

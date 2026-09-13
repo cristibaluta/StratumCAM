@@ -77,7 +77,7 @@ class DemoPocketing: Demo {
         let tool = SC.ToolParams(diameter: 6.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4), safeZ: 5.0, targetDepth: -3.0)
 
-        let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .offsetPattern, entry: .plunge)
+        let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .offset, entry: .plunge)
 
         return self.run(contour: rectangleContour(width: 40, height: 24), tool: tool, settings: settings, operation: operation)
     }
@@ -89,7 +89,7 @@ class DemoPocketing: Demo {
         let tool = SC.ToolParams(diameter: 6.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4), safeZ: 5.0, targetDepth: -3.0)
 
-        let operation: SC.MachiningOperation = .pocket(direction: .conventional, pattern: .offsetPattern, entry: .plunge)
+        let operation: SC.MachiningOperation = .pocket(direction: .conventional, pattern: .offset, entry: .plunge)
 
         return self.run(contour: rectangleContour(width: 40, height: 24), tool: tool, settings: settings, operation: operation)
     }
@@ -102,7 +102,7 @@ class DemoPocketing: Demo {
         let tool = SC.ToolParams(diameter: 3.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.3), safeZ: 5.0, targetDepth: -2.0)
 
-        let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .offsetPattern, entry: .plunge)
+        let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .offset, entry: .plunge)
 
         return self.run(contour: roundedRectangleContour(width: 40, height: 24, cornerRadius: 5), tool: tool, settings: settings, operation: operation)
     }
@@ -122,7 +122,7 @@ class DemoPocketing: Demo {
         let tool = SC.ToolParams(diameter: 6.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -2.5)
 
-        let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .offsetPattern, entry: .plunge)
+        let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .offset, entry: .plunge)
 
         return self.run(contour: rectangleContour(width: 20, height: 10), tool: tool, settings: settings, operation: operation)
     }
@@ -149,7 +149,7 @@ class DemoPocketing: Demo {
         let tool = SC.ToolParams(diameter: 4.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.5), safeZ: 5.0, targetDepth: -2.0)
 
-        let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .offsetPattern, entry: .plunge)
+        let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .offset, entry: .plunge)
 
         return self.run(contour: rectangleContour(width: 20, height: 10), tool: tool, settings: settings, operation: operation)
     }
@@ -164,7 +164,7 @@ class DemoPocketing: Demo {
         let tool = SC.ToolParams(diameter: 6.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -2.0)
 
-        let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .offsetPattern, entry: .ramp(angleDegrees: 30))
+        let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .offset, entry: .ramp(angleDegrees: 30))
 
         return self.run(contour: rectangleContour(width: 20, height: 10), tool: tool, settings: settings, operation: operation)
     }
@@ -177,7 +177,7 @@ class DemoPocketing: Demo {
         let tool = SC.ToolParams(diameter: 6.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -2.0)
 
-        let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .offsetPattern, entry: .helix(radius: 1.0, rampAngleDegrees: 30))
+        let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .offset, entry: .helix(radius: 1.0, rampAngleDegrees: 30))
 
         return self.run(contour: rectangleContour(width: 20, height: 10), tool: tool, settings: settings, operation: operation)
     }
@@ -315,8 +315,9 @@ class DemoPocketing: Demo {
         let tool = SC.ToolParams(diameter: 6.0)
         let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4)
         let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -1.0)
+        let tro = SC.TrochoidalSettings(radialEngagement: 1.0, loopRadius: 0.5)
 
-        let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .trochoidal, entry: .plunge)
+        let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .trochoidal(settings: tro), entry: .plunge)
 
         return self.run(contour: rectangleContour(width: 40, height: 24), tool: tool, settings: settings, operation: operation)
     }
@@ -330,8 +331,9 @@ class DemoPocketing: Demo {
         let tool = SC.ToolParams(diameter: 6.0)
         let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4)
         let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -1.0)
+        let tro = SC.TrochoidalSettings(radialEngagement: 1.0, loopRadius: 0.5)
 
-        let operation: SC.MachiningOperation = .pocket(direction: .conventional, pattern: .trochoidal, entry: .plunge)
+        let operation: SC.MachiningOperation = .pocket(direction: .conventional, pattern: .trochoidal(settings: tro), entry: .plunge)
 
         return self.run(contour: rectangleContour(width: 40, height: 24), tool: tool, settings: settings, operation: operation)
     }
@@ -349,8 +351,9 @@ class DemoPocketing: Demo {
         let tool = SC.ToolParams(diameter: 6.0)
         let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4)
         let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -1.0)
+        let tro = SC.TrochoidalSettings(radialEngagement: 1.0, loopRadius: 0.5)
 
-        let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .trochoidal, entry: .plunge)
+        let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .trochoidal(settings: tro), entry: .plunge)
 
         return self.run(contour: circleContour(radius: 20), tool: tool, settings: settings, operation: operation)
     }

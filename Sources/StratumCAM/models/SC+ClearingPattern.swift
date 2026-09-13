@@ -9,6 +9,141 @@ import Foundation
 
 extension SC {
 
+    public enum PocketClearingPattern: Sendable, Codable, Equatable {
+        case offset
+        case raster
+        case spiral(direction: SpiralDirection)
+        case morph
+        case trochoidal(settings: TrochoidalSettings)
+        case adaptive(settings: AdaptiveSettings)
+
+        var strategy: ClearingPattern {
+            switch self {
+                case .offset:
+                    return .offset
+
+                case .raster:
+                    return .raster
+
+                case .spiral(let direction):
+                    return .spiral(direction: direction)
+
+                case .morph:
+                    return .morph
+
+                case .adaptive(let settings):
+                    return .adaptive(settings: settings)
+
+                case .trochoidal(let settings):
+                    return .trochoidal(settings: settings)
+            }
+        }
+    }
+
+    public enum SlottingPattern: Sendable, Codable, Equatable {
+        case raster
+        case trochoidal(settings: TrochoidalSettings)
+        case adaptive(settings: AdaptiveSettings)
+
+        var strategy: ClearingPattern {
+            switch self {
+                case .raster:
+                    return .raster
+
+                case .adaptive(let settings):
+                    return .adaptive(settings: settings)
+
+                case .trochoidal(let settings):
+                    return .trochoidal(settings: settings)
+            }
+        }
+    }
+
+    /// Which end of the ring stack a `.spiral` pocket starts and finishes at.
+    ///
+    /// This controls the ordering of the spiral passes, not the cutting
+    /// direction (`climb` / `conventional`), which is controlled separately
+    /// by `MachiningOperation`.
+    public enum SpiralDirection: String, Sendable, Codable, Equatable {
+
+        /// Opening turn holds at the outer (wall) radius; closing turn holds
+        /// at the innermost radius.
+        ///
+        /// The tool engages the wall first and clears toward the center,
+        /// leaving the innermost region for the final part of the operation.
+        case outsideIn
+
+        /// Opening turn holds at the innermost radius; closing turn holds
+        /// at the outer (wall) radius.
+        ///
+        /// The final outward pass approaches the wall last, which can be
+        /// useful when the final wall pass should not be followed by
+        /// another interior clearing pass.
+        case insideOut
+    }
+
+    /// Defines the domain boundary target and path generation mode for adaptive (constant radial load) clearing.
+    public enum AdaptiveType: String, Sendable, Codable, Equatable {
+
+        /// Clears volumetric material within an enclosed interior pocket boundary or open stock boundary.
+        ///
+        /// ```text
+        /// ┌─────────────────────────┐
+        /// │  ╭──╮   ╭──╮   ╭──╮     │
+        /// │ ╭┘  └╮ ╭┘  └╮ ╭┘  └╮    │ ───► (Clears internal pocket volume
+        /// │ ╰┐  ┌╯ ╰┐  ┌╯ ╰┐  ┌╯    │       maintaining constant radial engagement)
+        /// │  ╰──╯   ╰──╯   ╰──╯     │
+        /// └─────────────────────────┘
+        /// ```
+        ///
+        /// - Real-World Impact: Morphologically clears entire enclosed stock cavities or open regions,
+        ///   dynamically shrinking or expanding trochoidal-like arcs to ensure cutter engagement never
+        ///   exceeds `optimalLoad`.
+        /// - Pros: Eliminates full-width cutter jamming in corners; enables deep axial cuts (100%–200% tool diameter)
+        ///   at maximum feed rates.
+        /// - Cons: Generates high line-count G-code; requires rapid acceleration capabilities on machine axes.
+        /// - Standard Use: Pocket roughing, interior cavity clearing, and heavy stock removal in hard metals or wood.
+        case clearing2D
+
+        /// Follows an open or closed exterior profile wall, progressively peeling back material from the outside in.
+        ///
+        /// ```text
+        ///         │ ╭──╮   ╭──╮   ╭──╮
+        ///  Part   │╭┘  └╮ ╭┘  └╮ ╭┘  └╮ ───► (Peels material inward toward profile
+        ///  Wall   │╰┐  ┌╯ ╰┐  ┌╯ ╰┐  ┌╯      wall without slamming into corners)
+        ///         │ ╰──╯   ╰──╯   ╰──╯
+        /// ────────┴───────────────────
+        /// ```
+        ///
+        /// - Real-World Impact: Clears material along complex outer profile contours using adaptive engagement arcs
+        ///   instead of taking a single heavy, full-width profile pass.
+        /// - Pros: Prevents tool deflection and binding when roughing heavy outer walls or steep corners;
+        ///   leaves a uniform stock allowance for the final contour finishing pass.
+        /// - Cons: Creates longer path lengths than a simple multi-pass offset profile toolpath.
+        /// - Standard Use: Roughing thick outer part profiles, high-speed perimeter carving, and removing heavy stock around standing bosses.
+        case adaptiveContour
+    }
+
+    public struct AdaptiveSettings: Sendable, Codable, Equatable {
+        /// Target radial engagement of the tool, in millimeters.
+        /// Try to maintain <optimalLoad> mm radial engagement where geometry permits.
+        var optimalLoad: Double
+
+        public init(optimalLoad: Double) {
+            self.optimalLoad = optimalLoad
+        }
+    }
+
+    public struct TrochoidalSettings: Sendable, Codable, Equatable {
+        let radialEngagement: Double
+        let loopRadius: Double
+
+        public init(radialEngagement: Double, loopRadius: Double) {
+            self.radialEngagement = radialEngagement
+            self.loopRadius = loopRadius
+        }
+    }
+
     /// Defines the toolpath trajectory or material-removal strategy used
     /// to clear material within a pocket or other clearing region.
     ///
@@ -17,29 +152,6 @@ extension SC {
     /// enters the material, or the cutting direction; those concerns belong
     /// to `MachiningOperation`.
     public enum ClearingPattern: Sendable, Codable, Equatable {
-
-        /// Which end of the ring stack a `.spiral` pocket starts and finishes at.
-        ///
-        /// This controls the ordering of the spiral passes, not the cutting
-        /// direction (`climb` / `conventional`), which is controlled separately
-        /// by `MachiningOperation`.
-        public enum SpiralDirection: String, Sendable, Codable, Equatable {
-
-            /// Opening turn holds at the outer (wall) radius; closing turn holds
-            /// at the innermost radius.
-            ///
-            /// The tool engages the wall first and clears toward the center,
-            /// leaving the innermost region for the final part of the operation.
-            case outsideIn
-
-            /// Opening turn holds at the innermost radius; closing turn holds
-            /// at the outer (wall) radius.
-            ///
-            /// The final outward pass approaches the wall last, which can be
-            /// useful when the final wall pass should not be followed by
-            /// another interior clearing pass.
-            case insideOut
-        }
 
         /// Concentric paths following successive offsets of the pocket boundary,
         /// stepping inward or outward.
@@ -67,7 +179,7 @@ extension SC {
         ///
         /// - Standard Use: General-purpose pocket clearing where predictable
         ///   boundary offsets are preferred.
-        case offsetPattern
+        case offset
 
         /// Parallel linear scanlines across the clearing region.
         ///
@@ -129,10 +241,7 @@ extension SC {
         ///   - optimalLoad: Target radial cutter engagement, in millimeters.
         ///     The generated path attempts to maintain approximately this
         ///     engagement where the geometry permits.
-        case adaptive(
-            type: AdaptiveType,
-            optimalLoad: Double
-        )
+        case adaptive(settings: AdaptiveSettings)
 
         /// Continuous smooth spiral expanding from the center outward or
         /// collapsing inward.
@@ -228,6 +337,6 @@ extension SC {
         /// - Note: Trochoidal motion is a specific trajectory technique.
         ///   Adaptive clearing may also generate trochoidal-like looping motion
         ///   as part of its dynamic engagement-control strategy.
-        case trochoidal
+        case trochoidal(settings: TrochoidalSettings)
     }
 }

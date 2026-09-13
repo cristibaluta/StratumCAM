@@ -24,11 +24,9 @@ extension SC {
         ///   - direction: Cutting direction used for the facing passes.
         ///   - extensionLength: Distance by which the toolpath extends beyond
         ///     the selected facing boundary to ensure complete coverage.
-        case facing(
-            stepover: Double,
-            direction: CutDirection,
-            extensionLength: Double
-        )
+        case facing(stepover: Double,
+                    direction: CutDirection,
+                    extensionLength: Double)
 
         /// Cuts a linear slot or groove along a center curve.
         ///
@@ -40,10 +38,7 @@ extension SC {
         /// - Parameters:
         ///   - depthPerPass: Maximum axial depth removed during each cutting pass.
         ///   - entry: Strategy used to enter the slot material.
-        case slotting(
-            depthPerPass: Double,
-            entry: EntryStrategy
-        )
+        case slotting(depthPerPass: Double, entry: EntryStrategy)
 
         /// Mills threads into a pre-drilled hole or onto a boss.
         ///
@@ -51,11 +46,9 @@ extension SC {
         ///   - pitch: Thread pitch.
         ///   - isInternal: Whether the thread is internal or external.
         ///   - direction: Cutting direction used for the threading motion.
-        case tapping(
-            pitch: Double,
-            isInternal: Bool,
-            direction: CutDirection
-        )
+        case tapping(pitch: Double,
+                     isInternal: Bool,
+                     direction: CutDirection)
 
         /// Engraves geometry along curves, text, or other shallow features.
         ///
@@ -83,14 +76,12 @@ extension SC {
         ///     before retracting.
         ///   - tabs: Holding tabs left in the profile to prevent the finished
         ///     part from moving or separating from the stock during machining.
-        case contour(
-            side: CutSide,
-            direction: CutDirection,
-            entry: EntryStrategy,
-            leadIn: LeadInOut?,
-            leadOut: LeadInOut?,
-            tabs: [HoldingTab]
-        )
+        case contour(side: CutSide,
+                     direction: CutDirection,
+                     entry: EntryStrategy,
+                     leadIn: LeadInOut?,
+                     leadOut: LeadInOut?,
+                     tabs: [HoldingTab])
 
         /// Removes material from inside a closed boundary to create a pocket.
         ///
@@ -125,11 +116,9 @@ extension SC {
         /// - Note: Adaptive clearing is represented as a `ClearingPattern`
         ///   because adaptive describes HOW the pocket material is removed,
         ///   rather than WHAT machining feature is being performed.
-        case pocket(
-            direction: CutDirection,
-            pattern: ClearingPattern,
-            entry: EntryStrategy
-        )
+        case pocket(direction: CutDirection,
+                    pattern: PocketClearingPattern,
+                    entry: EntryStrategy)
 
         /// Drills one or more holes at the specified locations.
         ///
@@ -139,17 +128,13 @@ extension SC {
         /// - Parameter peckDepth: Maximum depth of each drilling peck.
         ///   A value of `nil` indicates a continuous drilling operation without
         ///   pecking.
-        case drilling(
-            peckDepth: Double?
-        )
+        case drilling(peckDepth: Double?)
 
         /// Machines a beveled edge using a chamfering tool.
         ///
         /// - Parameter params: Parameters describing the desired chamfer geometry,
         ///   cutting depth, and other operation-specific settings.
-        case chamfer(
-            params: ChamferParams
-        )
+        case chamfer(params: ChamferParams)
 
         /// Enlarges an existing hole to precise diameter tolerances using
         /// a single-point tool.
@@ -160,11 +145,9 @@ extension SC {
         ///     maintain circularity and surface finish.
         ///   - shiftRetract: Whether to shift the cutter off-center before
         ///     retracting to reduce the chance of marking the finished bore wall.
-        case boring(
-            targetDiameter: Double,
-            dwellTime: Double?,
-            shiftRetract: Bool
-        )
+        case boring(targetDiameter: Double,
+                    dwellTime: Double?,
+                    shiftRetract: Bool)
     }
     
 }

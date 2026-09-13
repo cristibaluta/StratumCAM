@@ -63,7 +63,7 @@ struct Pocket_Tests {
     }
 
     private func pocketStrategy(direction: SC.CutDirection) -> SC.MachiningOperation {
-        .pocket(direction: direction, pattern: .offsetPattern, entry: .plunge)
+        .pocket(direction: direction, pattern: .offset, entry: .plunge)
     }
 
     // MARK: - Concentric ring stepping (Step 2.2)
