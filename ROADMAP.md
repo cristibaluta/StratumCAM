@@ -620,6 +620,17 @@ Most algorithmically involved of the four — do it last within this track.
   a matching "Tapping" section in `DemoTapping.swift` covering all four
   internal/external x climb/conventional combinations, a deep multi-turn thread,
   and a multi-hole batch.
+
+  **Bug fix, found while building the demos:** the original 2D.1/2D.2 helix cut
+  top-to-bottom and entered/retracted at the cutting radius itself -- so the
+  final retract dragged the tool straight back up through the thread it had
+  just cut, at full engagement. Reworked `buildTappingToolpath` to match how
+  thread milling actually works: rapid down the hole's/boss's own *center*
+  (unobstructed) to the bottom, feed sideways once to engage the wall, helix
+  *upward* one revolution per `pitch` so chips clear instead of packing in,
+  flat closing lap at the top, then feed back to center to disengage *before*
+  the final rapid retract. All of 2D.3's tests above were rewritten against
+  this corrected waypoint layout.
   
   
 ### 2E --- buried holes for screws

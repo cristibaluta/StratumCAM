@@ -11,12 +11,24 @@ import CoreGraphics
 import simd
 @testable import StratumCAM
 
-// Covers Step 2D.1 (the helical thread-milling core -- a continuous helix stepping down
-// by `pitch` per revolution around a hole/boss's nominal diameter, radius-compensated for
-// `isInternal`, finishing with a flat closing lap) and Step 2D.2 (wiring `direction` into
-// the helix's own winding sense, following the same climb/conventional convention
+// Covers Step 2D.1 (the helical thread-milling core -- a continuous helix stepping,
+// one revolution per `pitch`, around a hole/boss's nominal diameter, radius-compensated
+// for `isInternal`, finishing with a flat closing lap) and Step 2D.2 (wiring `direction`
+// into the helix's own winding sense, following the same climb/conventional convention
 // `orientedForDirection` uses for wall cuts -- see `buildTappingToolpath`'s own doc
 // comment on the exact mapping).
+//
+// The cut runs bottom-to-top and enters/exits through the hole's/boss's own center --
+// see `buildTappingToolpath`'s doc comment for why -- so every waypoint-layout test
+// below follows this fixed shape:
+//   [0] Rapid to center @ SafeZ
+//   [1] Rapid down center to the bottom of the thread
+//   [2] Linear feed sideways to engage the wall at the mill radius, at the bottom
+//   [3...]  n helical turns (ascending) + 1 flat closing lap at the top, 8 waypoints each
+//   [count-2] Linear feed back to center, at the top, to disengage
+//   [count-1] Rapid retract to SafeZ
+// i.e. total waypoint count == 5 + (turnCount + 1) * 8, where turnCount is however many
+// full-pitch (or one shortened, fencepost) revolutions `calculateZPasses` produces.
 
 struct Tapping_Tests {
 
@@ -29,8 +41,8 @@ struct Tapping_Tests {
         ], isClosed: true)
     }
 
-    @Test("Thread milling steps down by pitch each revolution and finishes with a flat closing lap")
-    func testThreadMillingStepsDownByPitchWithClosingLap() {
+    @Test("Thread milling enters/exits through center, cuts bottom-to-top, and finishes with a flat closing lap")
+    func testThreadMillingEntersAndExitsThroughCenterCuttingBottomToTop() {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 3.0) // tool radius 1.5
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0),
@@ -47,35 +59,45 @@ struct Tapping_Tests {
         #expect(toolpath.passes.count == 1, "Test Failed: thread milling should be a single pass")
 
         let waypoints = toolpath.passes[0].waypoints
-        // [0] Rapid to the mill's 3 o'clock start point @ SafeZ
-        // [1] Rapid down to the top of stock (Z=0) at the same XY
-        // [2...9]   Turn 1: 8 arc waypoints, 0 -> -1.0
-        // [10...17] Turn 2: 8 arc waypoints, -1.0 -> -2.0
-        // [18...25] Turn 3: 8 arc waypoints, -2.0 -> -3.0
-        // [26...33] Closing lap: 8 arc waypoints, flat at -3.0
-        // [34] Retract to SafeZ
-        #expect(waypoints.count == 35, "Test Failed: expected 2 + 4*8 + 1 waypoints, got \(waypoints.count)")
+        // [0] Rapid to center @ SafeZ
+        // [1] Rapid down center to the bottom (Z=-3.0)
+        // [2] Linear feed to the 3 o'clock engage point @ mill radius, still at the bottom
+        // [3...10]  Turn 1: 8 arc waypoints, -3.0 -> -2.0
+        // [11...18] Turn 2: 8 arc waypoints, -2.0 -> -1.0
+        // [19...26] Turn 3: 8 arc waypoints, -1.0 -> 0.0
+        // [27...34] Closing lap: 8 arc waypoints, flat at 0.0
+        // [35] Linear feed back to center, at the top, to disengage
+        // [36] Retract to SafeZ
+        #expect(waypoints.count == 37, "Test Failed: expected 5 + 4*8 waypoints, got \(waypoints.count)")
 
         let millRadius = 5.0 - 1.5 // hole radius - tool radius
 
         let wp0 = waypoints[0]
-        #expect(abs(wp0.position.x - millRadius) < 1e-9 && abs(wp0.position.y) < 1e-9 && wp0.position.z == 5.0,
-                "Test Failed: initial rapid should land at the mill radius, 3 o'clock, at Safe Z")
+        #expect(wp0.position.x == 0.0 && wp0.position.y == 0.0 && wp0.position.z == 5.0,
+                "Test Failed: initial rapid should go straight to the hole's own center at Safe Z")
         if case .rapid = wp0.motion {} else {
             Issue.record("Test Failed: first waypoint motion must be .rapid")
         }
 
         let wp1 = waypoints[1]
-        #expect(wp1.position.z == 0.0, "Test Failed: second waypoint should rapid down to the top of stock (Z=0)")
+        #expect(wp1.position.x == 0.0 && wp1.position.y == 0.0 && wp1.position.z == -3.0,
+                "Test Failed: second waypoint should rapid straight down the center to the bottom of the thread")
         if case .rapid = wp1.motion {} else {
             Issue.record("Test Failed: second waypoint motion must be .rapid")
         }
 
-        // End of turn 1: back at the start XY, one pitch deeper.
-        let endOfTurn1 = waypoints[9]
-        #expect(endOfTurn1.position.z == -1.0, "Test Failed: turn 1 should end exactly one pitch down")
+        let wp2 = waypoints[2]
+        #expect(abs(wp2.position.x - millRadius) < 1e-9 && abs(wp2.position.y) < 1e-9 && wp2.position.z == -3.0,
+                "Test Failed: third waypoint should feed sideways to the mill radius, still at the bottom")
+        if case .linear = wp2.motion {} else {
+            Issue.record("Test Failed: engage waypoint motion must be .linear")
+        }
+
+        // End of turn 1: back at the engage XY, one pitch higher.
+        let endOfTurn1 = waypoints[10]
+        #expect(endOfTurn1.position.z == -2.0, "Test Failed: turn 1 should end exactly one pitch above the bottom")
         #expect(abs(endOfTurn1.position.x - millRadius) < 1e-9 && abs(endOfTurn1.position.y) < 1e-9,
-                "Test Failed: a full revolution should return to the start XY")
+                "Test Failed: a full revolution should return to the engage XY")
         // Internal + climb winds CW (mirrors `.inside`'s own climb/conventional mapping
         // for wall cuts -- see Step 2D.2's coverage below for the other three combinations).
         if case .arcCW = endOfTurn1.motion {} else {
@@ -83,21 +105,29 @@ struct Tapping_Tests {
         }
 
         // End of turn 2 and turn 3.
-        #expect(waypoints[17].position.z == -2.0, "Test Failed: turn 2 should end two pitches down")
-        #expect(waypoints[25].position.z == -3.0, "Test Failed: turn 3 should end at full target depth")
+        #expect(waypoints[18].position.z == -1.0, "Test Failed: turn 2 should end two pitches above the bottom")
+        #expect(waypoints[26].position.z == 0.0, "Test Failed: turn 3 should end at the top, Z=0")
 
-        // Closing lap: every waypoint stays flat at the final depth.
-        for i in 26...33 {
-            #expect(waypoints[i].position.z == -3.0, "Test Failed: closing lap waypoint \(i) should stay flat at target depth")
+        // Closing lap: every waypoint stays flat at the top.
+        for i in 27...34 {
+            #expect(waypoints[i].position.z == 0.0, "Test Failed: closing lap waypoint \(i) should stay flat at the top")
         }
-        #expect(abs(waypoints[33].position.x - millRadius) < 1e-9 && abs(waypoints[33].position.y) < 1e-9,
-                "Test Failed: closing lap should also return to the start XY")
+        #expect(abs(waypoints[34].position.x - millRadius) < 1e-9 && abs(waypoints[34].position.y) < 1e-9,
+                "Test Failed: closing lap should also return to the engage XY")
 
-        // Final retract, straight up from the closing lap's own end point.
-        let retract = waypoints[34]
-        #expect(retract.position.z == 5.0, "Test Failed: final retract should reach Safe Z")
-        #expect(abs(retract.position.x - millRadius) < 1e-9 && abs(retract.position.y) < 1e-9,
-                "Test Failed: retract should lift straight up from the closing lap's end point")
+        // Disengage back to center, still at the top, before retracting -- this is the
+        // move that keeps the retract from dragging back across the freshly cut thread.
+        let disengage = waypoints[35]
+        #expect(disengage.position.x == 0.0 && disengage.position.y == 0.0 && disengage.position.z == 0.0,
+                "Test Failed: disengage move should return to center, at the top")
+        if case .linear = disengage.motion {} else {
+            Issue.record("Test Failed: disengage waypoint motion must be .linear")
+        }
+
+        // Final retract, straight up from center.
+        let retract = waypoints[36]
+        #expect(retract.position.x == 0.0 && retract.position.y == 0.0 && retract.position.z == 5.0,
+                "Test Failed: final retract should reach Safe Z, straight up from center")
         if case .rapid = retract.motion {} else {
             Issue.record("Test Failed: final retract motion must be .rapid")
         }
@@ -114,9 +144,11 @@ struct Tapping_Tests {
         let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
                                                   operation: .tapping(pitch: 2.0, isInternal: true, direction: .climb))
 
-        let start = toolpaths[0].passes[0].waypoints[0]
+        // waypoints[2] is the wall-engage move -- the first waypoint actually offset to
+        // the compensated mill radius (waypoints 0-1 are the center entry).
+        let engage = toolpaths[0].passes[0].waypoints[2]
         // Expected mill radius: 6.0 - 2.0 = 4.0, offset from the hole's own center.
-        #expect(abs(start.position.x - (10.0 + 4.0)) < 1e-9 && abs(start.position.y - 20.0) < 1e-9,
+        #expect(abs(engage.position.x - (10.0 + 4.0)) < 1e-9 && abs(engage.position.y - 20.0) < 1e-9,
                 "Test Failed: internal threading should orbit inside the drawn diameter by the tool's radius")
     }
 
@@ -131,9 +163,9 @@ struct Tapping_Tests {
         let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
                                                   operation: .tapping(pitch: 2.0, isInternal: false, direction: .climb))
 
-        let start = toolpaths[0].passes[0].waypoints[0]
+        let engage = toolpaths[0].passes[0].waypoints[2]
         // Expected mill radius: 6.0 + 2.0 = 8.0, offset from the boss's own center.
-        #expect(abs(start.position.x - (10.0 + 8.0)) < 1e-9 && abs(start.position.y - 20.0) < 1e-9,
+        #expect(abs(engage.position.x - (10.0 + 8.0)) < 1e-9 && abs(engage.position.y - 20.0) < 1e-9,
                 "Test Failed: external threading should orbit outside the drawn diameter by the tool's radius")
     }
 
@@ -183,9 +215,10 @@ struct Tapping_Tests {
 
     // MARK: - Winding direction (Step 2D.2)
 
-    /// Reads the winding sense off the first arc waypoint (index 2 -- right after the
-    /// two setup rapids) for a single-turn thread mill, so each case below only needs
-    /// to check one waypoint rather than re-deriving the full waypoint layout.
+    /// Reads the winding sense off the first arc waypoint (index 3 -- right after the
+    /// two setup rapids to center and the linear wall-engage move) for a single-turn
+    /// thread mill, so each case below only needs to check one waypoint rather than
+    /// re-deriving the full waypoint layout.
     private func firstArcIsCCW(isInternal: Bool, direction: SC.CutDirection) -> Bool {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 3.0)
@@ -195,7 +228,7 @@ struct Tapping_Tests {
         let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
                                                   operation: .tapping(pitch: 1.0, isInternal: isInternal, direction: direction))
 
-        guard case .arcCCW = toolpaths[0].passes[0].waypoints[2].motion else {
+        guard case .arcCCW = toolpaths[0].passes[0].waypoints[3].motion else {
             return false
         }
         return true
@@ -241,9 +274,13 @@ struct Tapping_Tests {
 
         let millRadius = 5.0 - 1.5
         for (toolpath, center) in zip(toolpaths, centers) {
-            let start = toolpath.passes[0].waypoints[0]
-            #expect(abs(start.position.x - (center.0 + millRadius)) < 1e-9 && abs(start.position.y - center.1) < 1e-9,
-                    "Test Failed: toolpath was assigned to the wrong hole")
+            let entry = toolpath.passes[0].waypoints[0]
+            #expect(abs(entry.position.x - center.0) < 1e-9 && abs(entry.position.y - center.1) < 1e-9,
+                    "Test Failed: the initial center entry was assigned to the wrong hole")
+
+            let engage = toolpath.passes[0].waypoints[2]
+            #expect(abs(engage.position.x - (center.0 + millRadius)) < 1e-9 && abs(engage.position.y - center.1) < 1e-9,
+                    "Test Failed: the wall-engage move was assigned to the wrong hole")
         }
     }
 
@@ -265,11 +302,11 @@ struct Tapping_Tests {
         #expect(positive[0].passes[0].waypoints.count == negative[0].passes[0].waypoints.count,
                 "Test Failed: negative pitch should produce the same waypoint layout as its positive magnitude")
         for (pw, nw) in zip(positive[0].passes[0].waypoints, negative[0].passes[0].waypoints) {
-            #expect(abs(pw.position.z - nw.position.z) < 1e-9, "Test Failed: negative pitch should step down identically to its magnitude")
+            #expect(abs(pw.position.z - nw.position.z) < 1e-9, "Test Failed: negative pitch should step identically to its magnitude")
         }
     }
 
-    @Test("A target depth that isn't an exact multiple of pitch ends the last turn early instead of overshooting")
+    @Test("A target depth that isn't an exact multiple of pitch places its shortened turn at the bottom instead of overshooting")
     func testPartialFinalTurnDepthDoesNotOvershoot() {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 3.0)
@@ -280,12 +317,19 @@ struct Tapping_Tests {
                                                   operation: .tapping(pitch: 1.0, isInternal: true, direction: .climb))
 
         let waypoints = toolpaths[0].passes[0].waypoints
-        // 4 turns (-1, -2, -3, -3.5) + 1 closing lap, 8 waypoints each, plus 2 setup rapids and 1 retract.
-        #expect(waypoints.count == 2 + 5 * 8 + 1, "Test Failed: expected a shortened 4th turn instead of an extra full-pitch 5th turn")
+        // Bottom-to-top boundaries: -3.5 -> -3 (shortened, 0.5 pitch) -> -2 -> -1 -> 0,
+        // i.e. 4 helical turns + 1 closing lap, 8 waypoints each, plus the 3 setup and 2 exit moves.
+        #expect(waypoints.count == 5 + 5 * 8, "Test Failed: expected a shortened 1st (bottommost) turn instead of an extra full-pitch turn")
 
-        // End of turn 4 (index 2 + 4*8 - 1 = 33) should land exactly at the target depth, not one pitch past it.
-        let endOfTurn4 = waypoints[33]
-        #expect(abs(endOfTurn4.position.z - (-3.5)) < 1e-9, "Test Failed: the shortened final turn should land exactly at target depth")
+        // wp[1] is the initial rapid straight down center -- should land exactly on the
+        // true target depth, not one pitch past it.
+        #expect(abs(waypoints[1].position.z - (-3.5)) < 1e-9, "Test Failed: the center entry should rapid straight to the true target depth")
+
+        // End of turn 1 (index 3 + 8 - 1 = 10): the shortened, 0.5-pitch turn off the bottom.
+        #expect(abs(waypoints[10].position.z - (-3.0)) < 1e-9, "Test Failed: the shortened first turn should land exactly half a pitch above the bottom")
+
+        // End of turn 4 (index 3 + 4*8 - 1 = 34): the last helical turn, landing exactly at the top.
+        #expect(abs(waypoints[34].position.z - 0.0) < 1e-9, "Test Failed: the final helical turn should land exactly at the top")
     }
 
     @Test("A target depth shallower than one full pitch still produces a single shortened turn plus closing lap")
@@ -299,13 +343,14 @@ struct Tapping_Tests {
                                                   operation: .tapping(pitch: 1.0, isInternal: true, direction: .climb))
 
         let waypoints = toolpaths[0].passes[0].waypoints
-        #expect(waypoints.count == 2 + 2 * 8 + 1, "Test Failed: expected 1 shortened turn + 1 closing lap when depth < pitch")
+        // 1 shortened helical turn (bottom -0.5 straight up to the top, 0.0) + 1 closing lap.
+        #expect(waypoints.count == 5 + 2 * 8, "Test Failed: expected 1 shortened turn + 1 closing lap when depth < pitch")
 
-        let endOfTurn1 = waypoints[9]
-        #expect(abs(endOfTurn1.position.z - (-0.5)) < 1e-9, "Test Failed: the single turn should stop exactly at the shallow target depth")
+        let endOfOnlyTurn = waypoints[10]
+        #expect(abs(endOfOnlyTurn.position.z - 0.0) < 1e-9, "Test Failed: the single shortened turn should climb straight from the shallow bottom to the top")
 
-        for i in 10...17 {
-            #expect(abs(waypoints[i].position.z - (-0.5)) < 1e-9, "Test Failed: closing lap waypoint \(i) should stay flat at the shallow target depth")
+        for i in 11...18 {
+            #expect(abs(waypoints[i].position.z - 0.0) < 1e-9, "Test Failed: closing lap waypoint \(i) should stay flat at the top")
         }
     }
 
@@ -336,10 +381,12 @@ struct Tapping_Tests {
                                                   operation: .tapping(pitch: 1.0, isInternal: true, direction: .climb))
 
         let expectedRadius = 10.0 - 2.0
-        // Skip the two setup rapids and the final retract -- every arc waypoint in between
-        // should sit at exactly the compensated mill radius from the hole's own center.
+        // Waypoints 0-1 are the center entry (radius 0) and the last two (disengage +
+        // retract) are back at center too -- everything from the wall-engage move
+        // through the end of the closing lap should sit at exactly the compensated
+        // mill radius.
         let waypoints = toolpaths[0].passes[0].waypoints
-        for waypoint in waypoints[2..<(waypoints.count - 1)] {
+        for waypoint in waypoints[2..<(waypoints.count - 2)] {
             let dx = waypoint.position.x - center.0
             let dy = waypoint.position.y - center.1
             let radius = (dx * dx + dy * dy).squareRoot()
@@ -358,9 +405,10 @@ struct Tapping_Tests {
                                                   operation: .tapping(pitch: 1.0, isInternal: true, direction: .climb))
 
         let waypoints = toolpaths[0].passes[0].waypoints
-        // All arc waypoints (everything but the two leading rapids and the trailing retract)
-        // should keep winding CW for an internal + climb thread mill, turn after turn.
-        for waypoint in waypoints[2..<(waypoints.count - 1)] {
+        // Every arc waypoint (everything but the center entry, the wall-engage feed,
+        // the center disengage, and the final retract) should keep winding CW for an
+        // internal + climb thread mill, turn after turn.
+        for waypoint in waypoints[3..<(waypoints.count - 2)] {
             if case .arcCW = waypoint.motion {} else {
                 Issue.record("Test Failed: winding sense flipped mid-helix, should stay .arcCW throughout")
             }
@@ -396,9 +444,14 @@ struct Tapping_Tests {
                                                   operation: .tapping(pitch: 1.0, isInternal: true, direction: .climb))
 
         #expect(toolpaths.count == 1, "Test Failed: only the circle contour should yield a tapping toolpath")
+
         let millRadius = 5.0 - 1.5
-        let start = toolpaths[0].passes[0].waypoints[0]
-        #expect(abs(start.position.x - millRadius) < 1e-9 && abs(start.position.y) < 1e-9,
-                "Test Failed: the surviving toolpath should still be centered on the good contour's hole")
+        let entry = toolpaths[0].passes[0].waypoints[0]
+        #expect(entry.position.x == 0.0 && entry.position.y == 0.0,
+                "Test Failed: the surviving toolpath should still enter through the good contour's own hole center")
+
+        let engage = toolpaths[0].passes[0].waypoints[2]
+        #expect(abs(engage.position.x - millRadius) < 1e-9 && abs(engage.position.y) < 1e-9,
+                "Test Failed: the surviving toolpath should still engage the good contour's hole at the compensated mill radius")
     }
 }
