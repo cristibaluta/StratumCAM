@@ -42,13 +42,26 @@ extension SC {
 
         /// Mills threads into a pre-drilled hole or onto a boss.
         ///
+        /// The full thread depth is never cut in a single radial pass -- at full
+        /// engagement a thread mill is taking a very heavy cut around the entire
+        /// helix, which is a good way to snap it. Instead the operation mills the
+        /// thread `radialPasses` times, starting at a conservative radial
+        /// engagement and stepping outward toward the finished diameter, with only
+        /// the final pass cutting to true size.
+        ///
         /// - Parameters:
         ///   - pitch: Thread pitch.
         ///   - isInternal: Whether the thread is internal or external.
         ///   - direction: Cutting direction used for the threading motion.
+        ///   - radialPasses: Number of radial passes used to reach the finished
+        ///     thread diameter. Each pass retraces the full helix (bottom to top)
+        ///     at its own, progressively larger radial engagement, with the last
+        ///     pass landing exactly on the finished diameter. Usually 2 or 3;
+        ///     must be at least 1.
         case threadMilling(pitch: Double,
                      isInternal: Bool,
-                     direction: CutDirection)
+                     direction: CutDirection,
+                     radialPasses: Int)
 
         /// Engraves geometry along curves, text, or other shallow features.
         ///
@@ -149,5 +162,5 @@ extension SC {
                     dwellTime: Double?,
                     shiftRetract: Bool)
     }
-    
+
 }

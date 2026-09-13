@@ -37,7 +37,7 @@ class DemoThreadMilling: Demo {
         let tool = SC.ToolParams(type: .threadMill, diameter: 2.5)
         let cutting = SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 5.0)
         let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -5.0)
-        let operation: SC.MachiningOperation = .threadMilling(pitch: 0.5, isInternal: true, direction: .climb)
+        let operation: SC.MachiningOperation = .threadMilling(pitch: 0.5, isInternal: true, direction: .climb, radialPasses: 3)
 
         return self.run(contour: circleContour(center: (0, 0), diameter: 3.0), tool: tool, settings: settings, operation: operation)
     }
@@ -49,7 +49,7 @@ class DemoThreadMilling: Demo {
         let cutting = SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0)
         let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -3.0)
 
-        let operation: SC.MachiningOperation = .threadMilling(pitch: 1.0, isInternal: true, direction: .conventional)
+        let operation: SC.MachiningOperation = .threadMilling(pitch: 1.0, isInternal: true, direction: .conventional, radialPasses: 3)
 
         return self.run(contour: circleContour(center: (0, 0), diameter: 10.0), tool: tool, settings: settings, operation: operation)
     }
@@ -64,7 +64,7 @@ class DemoThreadMilling: Demo {
         let cutting = SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0)
         let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -2.0)
 
-        let operation: SC.MachiningOperation = .threadMilling(pitch: 2.0, isInternal: false, direction: .climb)
+        let operation: SC.MachiningOperation = .threadMilling(pitch: 2.0, isInternal: false, direction: .climb, radialPasses: 3)
 
         return self.run(contour: circleContour(center: (10, 20), diameter: 12.0), tool: tool, settings: settings, operation: operation)
     }
@@ -76,7 +76,7 @@ class DemoThreadMilling: Demo {
         let cutting = SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0)
         let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -2.0)
 
-        let operation: SC.MachiningOperation = .threadMilling(pitch: 2.0, isInternal: false, direction: .conventional)
+        let operation: SC.MachiningOperation = .threadMilling(pitch: 2.0, isInternal: false, direction: .conventional, radialPasses: 3)
 
         return self.run(contour: circleContour(center: (10, 20), diameter: 12.0), tool: tool, settings: settings, operation: operation)
     }
@@ -92,7 +92,7 @@ class DemoThreadMilling: Demo {
         let cutting = SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0)
         let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -10.0)
 
-        let operation: SC.MachiningOperation = .threadMilling(pitch: 1.5, isInternal: true, direction: .climb)
+        let operation: SC.MachiningOperation = .threadMilling(pitch: 1.5, isInternal: true, direction: .climb, radialPasses: 3)
 
         return self.run(contour: circleContour(center: (0, 0), diameter: 14.0), tool: tool, settings: settings, operation: operation)
     }
@@ -111,7 +111,7 @@ class DemoThreadMilling: Demo {
         let centers: [(Double, Double)] = [(0, 0), (20, 0), (20, 20), (0, 20)]
         let contours = centers.map { circleContour(center: $0, diameter: 10.0) }
 
-        let operation: SC.MachiningOperation = .threadMilling(pitch: 1.0, isInternal: true, direction: .climb)
+        let operation: SC.MachiningOperation = .threadMilling(pitch: 1.0, isInternal: true, direction: .climb, radialPasses: 3)
 
         return self.run(contours: contours, tool: tool, settings: settings, operation: operation)
     }

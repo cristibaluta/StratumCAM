@@ -65,18 +65,28 @@ extension SCEngine {
     /// CW). Direction is independent of which end the helix starts from, so this
     /// bottom-to-top rework doesn't change either mapping.
     ///
-    /// One `ToolpathPass`, same reasoning `buildBoringToolpath`/`buildDrillingToolpath`
-    /// use -- the helix's own per-revolution stepdown is internal motion within a single
-    /// hole/boss, not the 2D-geometry Z stepdown `calculateZPasses` is for at the
-    /// per-pass level (it's reused here purely to derive per-revolution depths, the same
-    /// way `peckDrillingWaypoints` reuses it to derive per-peck depths).
+    /// Radial passes, one `ToolpathPass` per pass -- unlike `buildBoringToolpath`/
+    /// `buildDrillingToolpath`'s single pass, a thread mill can't take the full
+    /// radial engagement in one lap around the helix without risking breakage, so
+    /// each pass here retraces the whole bottom-to-top helix at its own,
+    /// progressively larger radial engagement (see `threadMillingPassRadius`).
+    /// The helix's own per-revolution stepdown, by contrast, stays internal motion
+    /// shared by every pass -- not the 2D-geometry Z stepdown `calculateZPasses` is
+    /// for at the per-pass level (it's reused here purely to derive per-revolution
+    /// depths, the same way `peckDrillingWaypoints` reuses it to derive per-peck
+    /// depths).
     func buildThreadMillingToolpath(for contour: SC.Contour,
                                     tool: SC.ToolParams,
                                     settings: SC.MachineSettings,
                                     pitch: Double,
                                     isInternal: Bool,
                                     direction: SC.CutDirection,
+                                    radialPasses: Int,
                                     operation: SC.MachiningOperation) -> SC.OutputToolpath? {
+
+        guard radialPasses >= 1 else {
+            return nil
+        }
 
         guard let hole = tapCircle(for: contour) else {
             return nil
@@ -89,8 +99,9 @@ extension SCEngine {
         // diameter -- the mill's own radius eats inward from it, same direction an
         // `.inside` profile cut offsets. External threading is the mirror
         // image: the mill orbits outside the drawn diameter, like `.outside`.
-        let millRadius = isInternal ? (holeRadius - toolRadius) : (holeRadius + toolRadius)
-        guard millRadius > 1e-6 else {
+        // This is the *finished* radius -- the one the final radial pass lands on.
+        let finalMillRadius = isInternal ? (holeRadius - toolRadius) : (holeRadius + toolRadius)
+        guard finalMillRadius > 1e-6 else {
             // Tool doesn't fit -- e.g. thread-milling a hole not much bigger than the
             // tool itself. Mirrors `Segment.offset(by:)`'s own "tool doesn't fit" guard.
             return nil
@@ -120,19 +131,6 @@ extension SCEngine {
         let bottomZ = boundaries.first ?? 0.0
 
         let center = hole.center
-        // The wall-engagement point, always the hole's/boss's own 3 o'clock position --
-        // same convention `buildBoringToolpath` uses for its circular interpolation.
-        let engagePoint = CGPoint(x: center.x + millRadius, y: center.y)
-
-        var waypoints: [SC.Waypoint] = [
-            SC.Waypoint(position: SIMD3(center.x, center.y, settings.safeZ), motion: .rapid, feedRate: settings.cutting.feedRate),
-            // Rapid straight down the center to the bottom of the thread -- clear of
-            // any wall the whole way down.
-            SC.Waypoint(position: SIMD3(center.x, center.y, bottomZ), motion: .rapid, feedRate: settings.cutting.feedRate),
-            // Feed sideways to engage the wall at the mill radius -- only once, at the
-            // bottom, right before cutting starts.
-            SC.Waypoint(position: SIMD3(engagePoint.x, engagePoint.y, bottomZ), motion: .linear, feedRate: settings.cutting.feedRate)
-        ]
 
         // Same climb/conventional convention `orientedForDirection` uses for wall cuts:
         // internal threading cuts the *inside* wall of the hole (like `.inside`, where
@@ -142,11 +140,97 @@ extension SCEngine {
         let stepsPerTurn = 8
         let sweepPerStep = (2 * Double.pi / Double(stepsPerTurn)) * (isCCW ? 1.0 : -1.0)
 
+        // One full lap of the helix, taken at full radial engagement, is what a
+        // thread mill can safely bite off in one go -- more than that risks
+        // snapping the tool. So every pass below retraces the *entire* bottom-to-top
+        // helix, but at its own radius: pass 0 stays furthest from `finalMillRadius`
+        // (lightest cut) and each subsequent pass steps closer, with the last pass
+        // (index `radialPasses - 1`) landing exactly on `finalMillRadius` -- the true
+        // thread size. See `threadMillingPassRadius` for how that radius is derived.
+        let passes: [SC.ToolpathPass] = (0..<radialPasses).map { passIndex in
+            let radius = threadMillingPassRadius(passIndex: passIndex,
+                                                 radialPasses: radialPasses,
+                                                 finalMillRadius: finalMillRadius,
+                                                 toolRadius: toolRadius,
+                                                 isInternal: isInternal)
+
+            let waypoints = threadMillingPassWaypoints(center: center,
+                                                       radius: radius,
+                                                       bottomZ: bottomZ,
+                                                       boundaries: boundaries,
+                                                       sweepPerStep: sweepPerStep,
+                                                       stepsPerTurn: stepsPerTurn,
+                                                       settings: settings)
+
+            return SC.ToolpathPass(passIndex: passIndex, depthZ: bottomZ, waypoints: waypoints)
+        }
+
+        return SC.OutputToolpath(operation: operation, tool: tool, settings: settings, passes: passes)
+    }
+
+    /// Radial engagement for one thread-milling pass, stepping from a conservative
+    /// first pass out to the true thread size on the last one.
+    ///
+    /// `toolRadius` doubles as the natural scale for "how conservative": at zero
+    /// engagement the tool's cutting edge would sit exactly on the nominal thread
+    /// diameter without removing anything, which happens when the toolpath radius
+    /// is a full `toolRadius` short of `finalMillRadius`'s own offset. Passes step
+    /// that shortfall down linearly to zero, e.g. for 3 passes the cutting edge
+    /// reaches 1/3, 2/3, then the full nominal diameter.
+    ///
+    /// Internal and external threads step in opposite directions for the same
+    /// reason `finalMillRadius` itself is computed with opposite signs: an internal
+    /// thread's cutting edge approaches the wall from inside (radius grows outward,
+    /// toward `finalMillRadius`), an external thread's approaches the boss from
+    /// outside (radius shrinks inward, toward `finalMillRadius`).
+    private func threadMillingPassRadius(passIndex: Int,
+                                         radialPasses: Int,
+                                         finalMillRadius: Double,
+                                         toolRadius: Double,
+                                         isInternal: Bool) -> Double {
+        let fraction = Double(passIndex + 1) / Double(radialPasses)
+        let shortfall = toolRadius * (1.0 - fraction)
+        let radius = isInternal ? (finalMillRadius - shortfall) : (finalMillRadius + shortfall)
+        // Guard against a degenerate early pass on a hole/boss barely bigger than
+        // the tool -- keeps every pass a valid, positive radius even though only
+        // `finalMillRadius` itself is checked against the tool-fits-at-all guard
+        // above.
+        return max(radius, 1e-6)
+    }
+
+    /// Builds one radial pass's full set of waypoints: rapid to center, straight
+    /// down to the bottom, feed out to `radius` to engage, helix bottom-to-top
+    /// through every boundary in `boundaries` plus a flat closing lap at the top,
+    /// then disengage back to center before retracting -- the same enter/cut/exit
+    /// shape `buildThreadMillingToolpath`'s doc comment describes, just parameterized
+    /// on radius so it can be reused for every radial pass, roughing or finishing.
+    private func threadMillingPassWaypoints(center: CGPoint,
+                                            radius: Double,
+                                            bottomZ: Double,
+                                            boundaries: [Double],
+                                            sweepPerStep: Double,
+                                            stepsPerTurn: Int,
+                                            settings: SC.MachineSettings) -> [SC.Waypoint] {
+
+        // The wall-engagement point, always the hole's/boss's own 3 o'clock position --
+        // same convention `buildBoringToolpath` uses for its circular interpolation.
+        let engagePoint = CGPoint(x: center.x + radius, y: center.y)
+
+        var waypoints: [SC.Waypoint] = [
+            SC.Waypoint(position: SIMD3(center.x, center.y, settings.safeZ), motion: .rapid, feedRate: settings.cutting.feedRate),
+            // Rapid straight down the center to the bottom of the thread -- clear of
+            // any wall the whole way down.
+            SC.Waypoint(position: SIMD3(center.x, center.y, bottomZ), motion: .rapid, feedRate: settings.cutting.feedRate),
+            // Feed sideways to engage the wall at this pass's radius -- only once, at
+            // the bottom, right before cutting starts.
+            SC.Waypoint(position: SIMD3(engagePoint.x, engagePoint.y, bottomZ), motion: .linear, feedRate: settings.cutting.feedRate)
+        ]
+
         var previousZ = bottomZ
         for nextZ in boundaries.dropFirst() {
             waypoints.append(
                 contentsOf: threadTurnWaypoints(center: center,
-                                                radius: millRadius,
+                                                radius: radius,
                                                 fromZ: previousZ,
                                                 toZ: nextZ,
                                                 sweepPerStep: sweepPerStep,
@@ -162,7 +246,7 @@ extension SCEngine {
         // rather than just an entry move down to a separate trace.
         waypoints.append(
             contentsOf: threadTurnWaypoints(center: center,
-                                            radius: millRadius,
+                                            radius: radius,
                                             fromZ: previousZ,
                                             toZ: previousZ,
                                             sweepPerStep: sweepPerStep,
@@ -179,8 +263,7 @@ extension SCEngine {
             SC.Waypoint(position: SIMD3(center.x, center.y, settings.safeZ), motion: .rapid, feedRate: settings.cutting.feedRate)
         )
 
-        let pass = SC.ToolpathPass(passIndex: 0, depthZ: bottomZ, waypoints: waypoints)
-        return SC.OutputToolpath(operation: operation, tool: tool, settings: settings, passes: [pass])
+        return waypoints
     }
 
     /// One full revolution of the thread-milling helix, tessellated into `stepsPerTurn`
