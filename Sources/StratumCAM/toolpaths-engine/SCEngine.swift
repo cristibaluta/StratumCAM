@@ -134,14 +134,12 @@ public final class SCEngine {
                 // `buildFacingToolpath`.
                 return nil
 
-            case .slotting(let depthPerPass, _):
-                // `entry` isn't wired yet -- Step 2B.1 is the basic "no entry" cut
-                // (plain straight-down plunge via `buildWaypoints`); Step 2B.2 adds
-                // multi-pass depth + entry.
+            case .slotting(let depthPerPass, let entry):
                 return buildSlottingToolpath(for: contour,
                                              tool: tool,
                                              settings: settings,
                                              depthPerPass: depthPerPass,
+                                             entry: entry,
                                              operation: operation)
 
             case .tapping(pitch: let pitch, isInternal: let isInternal, direction: let direction):

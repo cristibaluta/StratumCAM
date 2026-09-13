@@ -425,10 +425,22 @@ as four small independent sub-tracks — none of them depend on each other.
   option, since this step is scoped to "no entry" and picking the pattern-vs-not
   question isn't needed to land it.
 
-- **2B.2 — Multi-pass depth + entry integration**
-  Repeat at successive `depthPerPass` increments down to target depth (reuse
-  `calculateZPasses`-style logic), and wire `entry` (plunge/ramp/helix, reused
-  from profile) for the first pass's start point.
+- DONE **2B.2 — Multi-pass depth + entry integration**
+  `buildSlottingToolpath` now derives `zDepths` via `calculateZPasses(targetDepth:
+  settings.targetDepth, stepdown: depthPerPass)` -- same reuse `.contour`/`.pocket`
+  already do for their own `settings.cutting.stepdown`, just fed `depthPerPass`
+  since that's slotting's own per-pass parameter rather than a shared cutting
+  setting. `entry` is wired into `buildSlottingWaypoints` (new, private): `.plunge`
+  is the existing `buildWaypoints` straight-down wrapper; `.ramp`/`.helix` are a
+  thin reuse of `SCEngine+Contour.swift`'s `rampWaypoints`/`helixEntryWaypoints`,
+  each pass covering only its own fresh stepdown (`previousZ` -> `z`, `previousZ`
+  starting at `0` for pass 0), same convention `.contour`/`.pocket` use. Unlike
+  `.pocket`'s `buildPocketWaypoints`, there's no separate wall-boundary parameter:
+  slotting has no wall to stay clear of on either side, so `helixEntryWaypoints` is
+  always called with `side: .onContour`, which resolves its internal
+  `offsetDistance` to zero -- the helix circles centered exactly on the slot's own
+  centerline, cutting material symmetrically on both sides as it descends, same as
+  the straight trace itself already does.
 
 - **2B.3 — Tests**
   New `Slotting_Tests.swift`: centerline followed with no lateral offset, correct
