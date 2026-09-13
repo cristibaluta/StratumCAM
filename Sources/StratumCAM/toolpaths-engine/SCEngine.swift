@@ -143,8 +143,13 @@ public final class SCEngine {
                                              operation: operation)
 
             case .tapping(pitch: let pitch, isInternal: let isInternal, direction: let direction):
-                print("pitcher \(pitch), internal \(isInternal), direction \(direction)")
-                return nil
+                return buildTappingToolpath(for: contour,
+                                            tool: tool,
+                                            settings: settings,
+                                            pitch: pitch,
+                                            isInternal: isInternal,
+                                            direction: direction,
+                                            operation: operation)
 
             case .boring(targetDiameter: let targetDiameter, dwellTime: _, shiftRetract: let shiftRetract):
                 // dwellTime doesn't touch the waypoints -- it's a G-code-only concern
