@@ -7,6 +7,7 @@
 
 import Foundation
 import CoreGraphics
+import SwiftDXF
 
 extension SCEngine {
 
@@ -146,5 +147,145 @@ extension SCEngine {
         }
 
         return waypoints
+    }
+
+    // MARK: - Slot boundary recognition (rectangle -> centerline)
+
+    /// `buildSlottingToolpath` above (and `.slotting` generally) only ever knows how
+    /// to cut a slot exactly `tool.diameter` wide, traced along whatever centerline
+    /// it's handed directly -- it has no notion of a wall to stay off of, because
+    /// there isn't meant to be one; the wall *is* the swept path of the tool. That's
+    /// realistic for a same-width channel, but most people don't draw a slot as its
+    /// own centerline in CAD -- they draw the slot's actual physical boundary (the
+    /// walls a same-width tool would leave behind), the same way they'd draw any
+    /// other feature. This step bridges that gap for the rectangular case: given the
+    /// boundary a straight, same-width slot would actually have -- a plain rectangle,
+    /// one dimension matching `tool.diameter` exactly, square-cornered because a
+    /// round tool can't help but leave rounded ends when it traces the middle -- this
+    /// derives the single centerline segment that reproduces exactly that boundary
+    /// when traced by `tool.diameter`, ready to hand straight to
+    /// `generateToolpaths(from:tool:settings:operation:)` the same as any other
+    /// `.slotting` centerline.
+    ///
+    /// Deliberately narrow, matching the rest of `.slotting`'s own scope: a plain
+    /// 4-straight-side rectangle only, one pair of opposite sides within
+    /// `tolerance` of `tool.diameter` (the slot's width), the other pair becoming the
+    /// long axis the centerline runs along. Returns `nil` -- rather than guessing --
+    /// for anything that isn't recognizably that shape: not exactly 4 segments, any
+    /// segment that isn't a straight line (already excludes a stadium/rounded-rectangle
+    /// boundary, which has no single unambiguous width to validate against without a
+    /// two-radius fit), corners that aren't right angles, opposite sides that aren't
+    /// equal length, or neither side pairing landing within `tolerance` of the tool's
+    /// own diameter -- a slot whose walls don't actually match the tool cutting it
+    /// isn't a `.slotting` case at all yet (see this function's own doc note on
+    /// `SlottingPattern`, still unwired, for the wider-than-tool case).
+    ///
+    /// > Flag: a circular channel/groove needs no equivalent derivation -- a single
+    /// > circle already fully specifies its own centerline (`buildSlottingToolpath`
+    /// > traces whatever contour it's handed, open or closed, straight lines or arcs),
+    /// > so a user can draw the desired circular path directly and use it as-is. The
+    /// > *boundary* equivalent of this rectangle case -- two concentric circles W
+    /// > apart, forming a true annular slot boundary rather than its already-known
+    /// > centerline -- can't be accepted yet: two disjoint circles have no
+    /// > "these two loops are one feature" relationship in `SC.Contour`'s current flat
+    /// > entity-list model, the same structural gap already blocking pocket islands
+    /// > and `.morph` (see `ROADMAP.md`, end of Track 1 and Step 1B.3). Revisit once
+    /// > that model change lands; until then, circular slots are drawn as their own
+    /// > centerline, not derived from a boundary.
+    public func rectangleSlotCenterline(fromBoundary contour: SC.Contour,
+                                 tool: SC.ToolParams,
+                                 tolerance: Double = 1e-3) -> SC.Contour? {
+
+        guard contour.isClosed else {
+            return nil
+        }
+
+        let segments = linearize(contour: contour)
+        guard segments.count == 4 else {
+            return nil
+        }
+
+        // Every side must be a straight line -- a stadium/rounded-rectangle boundary
+        // (2 lines + 2 arcs) isn't handled by this path (see doc comment above).
+        var vertices: [CGPoint] = []
+        for segment in segments {
+            guard case .line = segment else {
+                return nil
+            }
+            vertices.append(segment.startPoint)
+        }
+
+        let a = vertices[0], b = vertices[1], c = vertices[2], d = vertices[3]
+
+        let lengthAB = hypot(b.x - a.x, b.y - a.y)
+        let lengthBC = hypot(c.x - b.x, c.y - b.y)
+        let lengthCD = hypot(d.x - c.x, d.y - c.y)
+        let lengthDA = hypot(a.x - d.x, a.y - d.y)
+
+        // Opposite sides equal length -- a necessary (not sufficient on its own,
+        // see the perpendicularity check below) condition for a rectangle.
+        guard abs(lengthAB - lengthCD) < tolerance, abs(lengthBC - lengthDA) < tolerance,
+              lengthAB > tolerance, lengthBC > tolerance else {
+            return nil
+        }
+
+        // Adjacent sides must be perpendicular -- rules out a non-rectangular
+        // parallelogram that happens to have equal opposite side lengths.
+        func isPerpendicular(_ p0: CGPoint, _ p1: CGPoint, _ p2: CGPoint) -> Bool {
+            let v1 = CGPoint(x: p1.x - p0.x, y: p1.y - p0.y)
+            let v2 = CGPoint(x: p2.x - p1.x, y: p2.y - p1.y)
+            let len1 = hypot(v1.x, v1.y)
+            let len2 = hypot(v2.x, v2.y)
+            guard len1 > tolerance, len2 > tolerance else { return false }
+            let cosAngle = (v1.x * v2.x + v1.y * v2.y) / (len1 * len2)
+            return abs(cosAngle) < tolerance * 10 // near-zero dot product, scaled for the same tolerance
+        }
+        guard isPerpendicular(a, b, c), isPerpendicular(b, c, d) else {
+            return nil
+        }
+
+        // Which side pairing is the slot's width (must match tool.diameter) and which
+        // is the long axis the centerline runs along.
+        let longAxisStart: CGPoint
+        let longAxisEnd: CGPoint
+        let length: Double
+        let width: Double
+        if abs(lengthBC - tool.diameter) < tolerance {
+            // BC/DA are the width ends -- AB/CD run along the long axis.
+            width = lengthBC
+            length = lengthAB
+            longAxisStart = a
+            longAxisEnd = b
+        } else if abs(lengthAB - tool.diameter) < tolerance {
+            // AB/CD are the width ends -- BC/DA run along the long axis.
+            width = lengthAB
+            length = lengthBC
+            longAxisStart = b
+            longAxisEnd = c
+        } else {
+            // Neither side pairing matches the tool's own diameter -- this rectangle
+            // isn't a same-width slot boundary for this tool at all.
+            return nil
+        }
+
+        // Inset the centerline by tool.diameter / 2 from each end -- the tool radius
+        // the swept circle needs to reach exactly the rectangle's own short ends
+        // (rounding what would otherwise be its square corners), rather than
+        // overshooting past them. A rectangle no longer than its own width has no
+        // straight run left once both ends are inset.
+        guard length > width else {
+            return nil
+        }
+
+        let center = CGPoint(x: (a.x + b.x + c.x + d.x) / 4.0, y: (a.y + b.y + c.y + d.y) / 4.0)
+        let dir = CGPoint(x: (longAxisEnd.x - longAxisStart.x) / length, y: (longAxisEnd.y - longAxisStart.y) / length)
+        let halfCenterlineLength = (length - width) / 2.0
+
+        let start = CGPoint(x: center.x - dir.x * halfCenterlineLength, y: center.y - dir.y * halfCenterlineLength)
+        let end = CGPoint(x: center.x + dir.x * halfCenterlineLength, y: center.y + dir.y * halfCenterlineLength)
+
+        return SC.Contour(entities: [
+            SC.Contour.Chained(entity: .line(a: DXF.Point(start.x, start.y), b: DXF.Point(end.x, end.y), layer: "0", color: 7), reversed: false)
+        ], isClosed: false)
     }
 }

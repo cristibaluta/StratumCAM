@@ -457,6 +457,49 @@ as four small independent sub-tracks — none of them depend on each other.
   multi-pass, ramp entry, helix entry) wired into `ContentView`'s sidebar under
   a new "Slotting" section.
 
+- DONE **2B.4 — Rectangle slot boundary recognition (derive centerline from a boundary, not a line)**
+  Real-world slots aren't drawn as their own centerline -- people draw the slot's
+  actual physical boundary (the walls a same-width tool leaves behind), the same
+  way any other feature gets drawn. `rectangleSlotCenterline(fromBoundary:tool:)`
+  (`SCEngine+Slotting.swift`) bridges that gap for the plain-rectangle case:
+  given a closed 4-straight-side rectangle, one pair of opposite sides within
+  `tolerance` of `tool.diameter`, it derives the single centerline segment that
+  reproduces exactly that boundary when traced by the tool -- inset by the tool
+  radius at each end (along the long axis) so the swept circle reaches exactly
+  the rectangle's own short ends, naturally rounding what a round tool can't
+  help but round anyway. Handles any rotation (not axis-aligned-only), rejects
+  anything that isn't recognizably that shape (wrong segment count, a curved
+  side, non-perpendicular corners, unequal opposite sides, neither side pairing
+  matching the tool, or too short once both ends are inset) by returning `nil`
+  rather than guessing. Output is a plain open `SC.Contour` (one line), ready to
+  hand straight to `generateToolpaths(from:tool:settings:operation:)` the same
+  as any other `.slotting` centerline -- this is purely a preprocessing step,
+  `buildSlottingToolpath` itself is unchanged.
+  > Flag: a circular channel needs no equivalent step -- a single circle already
+  > fully specifies its own centerline, so it's used directly (see
+  > `demoSlottingClosedCircle`). The boundary equivalent for a circular slot --
+  > two concentric circles `tool.diameter` apart, an annular boundary rather
+  > than its already-known centerline -- can't be accepted yet: two disjoint
+  > circles have no "these two loops are one feature" relationship in
+  > `SC.Contour`'s current flat entity-list model, the same structural gap
+  > already blocking pocket islands and `.morph` (see the note at the end of
+  > Track 1 and Step 1B.3). Revisit once that model change lands.
+  > Also flagged, unchanged from Track 2B's own intro: this still doesn't touch
+  > the wider-than-tool case (`SlottingPattern.raster`/`.trochoidal`, model
+  > exists, not wired into `.slotting` or this recognition step). A boundary
+  > wider than the tool isn't a plain rectangle-minus-tool-radius centerline
+  > problem at all -- it needs the pattern-based clearing this recognition step
+  > deliberately doesn't attempt.
+  Covered by new cases in `Slotting_Tests.swift`: correct inset for an
+  axis-aligned rectangle, the derived centerline reproducing the boundary's own
+  extents when actually traced, a rotated rectangle (long axis along Y),
+  rejection for a mismatched width, a too-short rectangle, a non-rectangular
+  parallelogram, a curved (stadium) boundary, and a non-closed boundary. Also
+  added two demos to `DemoSlotting.swift`: `demoSlottingClosedCircle` (the
+  already-supported direct-centerline case, for contrast) and
+  `demoSlottingRectangleBoundary` (the new boundary-recognition path, blue
+  reference drawn from the boundary itself rather than the derived centerline).
+
 ### 2C — Boring (`.boring`)
 
 Closest in shape to drilling — reuse its structure.

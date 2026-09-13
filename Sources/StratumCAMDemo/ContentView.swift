@@ -183,6 +183,12 @@ struct ContentView: View {
                     demoButton("Helix Entry") {
                         show(DemoSlotting().demoSlottingHelixEntry())
                     }
+                    demoButton("Closed Circular Channel") {
+                        show(DemoSlotting().demoSlottingClosedCircle())
+                    }
+                    demoButton("From Rectangle Boundary") {
+                        show(DemoSlotting().demoSlottingRectangleBoundary())
+                    }
                 }
             }
             .navigationTitle("StratumCAM Demo")

@@ -269,7 +269,14 @@ class Demo {
     /// For the on-screen preview we need actual curvature, so this walks the waypoints and,
     /// for any `arcCW`/`arcCCW` motion, inserts interpolated points along the true arc between
     /// the previous waypoint and this one instead of drawing a straight chord between them.
-    private func tessellateForRender(_ waypoints: [SC.Waypoint], segmentsPerArc: Int = 32) -> [SIMD3<Float>] {
+    /// Internal rather than `private` so a subclass in another file (e.g.
+    /// `DemoSlotting`'s boundary-recognition demos, which need to build a
+    /// combined result from two different contours -- the physical boundary for
+    /// the blue reference, a derived centerline for the yellow toolpath -- rather
+    /// than the single shared contour `run(contour:...)` assumes) can tessellate
+    /// its own waypoints the same way `run(contours:...)`/`run(facing:)` do,
+    /// without duplicating this arc-interpolation logic a third time.
+    func tessellateForRender(_ waypoints: [SC.Waypoint], segmentsPerArc: Int = 32) -> [SIMD3<Float>] {
         var points: [SIMD3<Float>] = []
         var previous: SC.Waypoint?
 

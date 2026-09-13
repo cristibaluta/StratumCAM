@@ -350,6 +350,182 @@ struct Slotting_Tests {
 
     // MARK: - Batch
 
+    // MARK: - Boundary recognition: rectangle -> centerline (real-world slot input)
+
+    /// A plain axis-aligned rectangle boundary: 30mm long, 6mm wide (matching a
+    /// 6mm tool exactly) -- the physical walls a same-width slot would actually
+    /// leave behind, not its centerline.
+    private func rectangleBoundaryContour(length: Double, width: Double) -> SC.Contour {
+        SC.Contour(entities: [
+            .init(entity: .line(a: DXF.Point(0, 0), b: DXF.Point(length, 0), layer: "0", color: 7), reversed: false),
+            .init(entity: .line(a: DXF.Point(length, 0), b: DXF.Point(length, width), layer: "0", color: 7), reversed: false),
+            .init(entity: .line(a: DXF.Point(length, width), b: DXF.Point(0, width), layer: "0", color: 7), reversed: false),
+            .init(entity: .line(a: DXF.Point(0, width), b: DXF.Point(0, 0), layer: "0", color: 7), reversed: false)
+        ], isClosed: true)
+    }
+
+    @Test("A rectangle boundary matching the tool's diameter derives a centerline inset by the tool radius at each end")
+    func testRectangleSlotCenterlineInsetsByToolRadius() {
+        let engine = SCEngine()
+        let tool = SC.ToolParams(diameter: 6.0)
+
+        // 30mm long, 6mm wide -- centerline should run from x=3 to x=27 (inset 3mm,
+        // the tool radius, at each end) along y=3 (the rectangle's own mid-height).
+        let boundary = rectangleBoundaryContour(length: 30, width: 6)
+        let centerline = engine.rectangleSlotCenterline(fromBoundary: boundary, tool: tool)
+
+        #expect(centerline != nil, "Test Failed: expected a valid centerline for a rectangle matching the tool's diameter")
+        guard let centerline else { return }
+
+        let segments = engine.linearize(contour: centerline)
+        #expect(segments.count == 1, "Test Failed: expected a single line segment as the derived centerline")
+        guard case .line(let start, let end) = segments[0] else {
+            Issue.record("Test Failed: expected the derived centerline to be a straight line")
+            return
+        }
+
+        let xs = [start.x, end.x].sorted()
+        #expect(abs(xs[0] - 3.0) < 1e-6, "Test Failed: expected the centerline to start inset 3mm (tool radius) from x=0")
+        #expect(abs(xs[1] - 27.0) < 1e-6, "Test Failed: expected the centerline to end inset 3mm from x=30")
+        #expect(abs(start.y - 3.0) < 1e-6 && abs(end.y - 3.0) < 1e-6,
+                "Test Failed: expected the centerline to run along the rectangle's own mid-height (y=3)")
+    }
+
+    @Test("A rectangle's derived centerline, traced by the same tool, reproduces the original boundary's overall extents")
+    func testRectangleSlotCenterlineReproducesBoundaryWhenTraced() {
+        let engine = SCEngine()
+        let tool = SC.ToolParams(diameter: 6.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0), safeZ: 5.0, targetDepth: -1.0)
+
+        let boundary = rectangleBoundaryContour(length: 30, width: 6)
+        guard let centerline = engine.rectangleSlotCenterline(fromBoundary: boundary, tool: tool) else {
+            Issue.record("Test Failed: expected a valid centerline")
+            return
+        }
+
+        let toolpath = engine.generateToolpaths(
+            from: [centerline],
+            tool: tool,
+            settings: settings,
+            operation: .slotting(depthPerPass: 1.0, entry: .plunge)
+        )[0]
+
+        let xs = toolpath.passes[0].waypoints.map { $0.position.x }
+        let toolRadius = tool.diameter / 2.0
+
+        // The centerline itself runs x=[3,27]; the swept tool (radius 3mm) reaches
+        // exactly x=[0,30] at either extreme -- the original rectangle's own length,
+        // with the corners naturally rounded rather than left square.
+        #expect(abs((xs.min() ?? -1) - toolRadius) < 1e-6, "Test Failed: expected the centerline's own near extent at x=3")
+        #expect(abs((xs.max() ?? -1) - (30 - toolRadius)) < 1e-6, "Test Failed: expected the centerline's own far extent at x=27")
+    }
+
+    @Test("A rotated rectangle boundary still derives a correct centerline along its own long axis")
+    func testRectangleSlotCenterlineHandlesRotatedRectangle() {
+        let engine = SCEngine()
+        let tool = SC.ToolParams(diameter: 4.0)
+
+        // Same 20mm x 4mm rectangle as the axis-aligned cases, but rotated 90°: long
+        // axis now runs along Y instead of X.
+        let boundary = SC.Contour(entities: [
+            .init(entity: .line(a: DXF.Point(0, 0), b: DXF.Point(0, 20), layer: "0", color: 7), reversed: false),
+            .init(entity: .line(a: DXF.Point(0, 20), b: DXF.Point(4, 20), layer: "0", color: 7), reversed: false),
+            .init(entity: .line(a: DXF.Point(4, 20), b: DXF.Point(4, 0), layer: "0", color: 7), reversed: false),
+            .init(entity: .line(a: DXF.Point(4, 0), b: DXF.Point(0, 0), layer: "0", color: 7), reversed: false)
+        ], isClosed: true)
+
+        let centerline = engine.rectangleSlotCenterline(fromBoundary: boundary, tool: tool)
+        #expect(centerline != nil, "Test Failed: expected a valid centerline for a rotated rectangle")
+        guard let centerline else { return }
+
+        let segments = engine.linearize(contour: centerline)
+        guard case .line(let start, let end) = segments[0] else {
+            Issue.record("Test Failed: expected a straight line")
+            return
+        }
+
+        #expect(abs(start.x - 2.0) < 1e-6 && abs(end.x - 2.0) < 1e-6,
+                "Test Failed: expected the centerline to run along x=2 (the rectangle's own mid-width)")
+        let ys = [start.y, end.y].sorted()
+        #expect(abs(ys[0] - 2.0) < 1e-6 && abs(ys[1] - 18.0) < 1e-6,
+                "Test Failed: expected the centerline to span y=[2,18], inset 2mm (tool radius) from each end")
+    }
+
+    @Test("A rectangle whose width doesn't match the tool's diameter yields no centerline")
+    func testRectangleSlotCenterlineRejectsMismatchedWidth() {
+        let engine = SCEngine()
+        let tool = SC.ToolParams(diameter: 6.0)
+
+        // 30mm x 10mm -- neither side pairing is within tolerance of the 6mm tool.
+        let boundary = rectangleBoundaryContour(length: 30, width: 10)
+
+        #expect(engine.rectangleSlotCenterline(fromBoundary: boundary, tool: tool) == nil,
+                "Test Failed: expected nil when neither side pairing matches the tool's own diameter")
+    }
+
+    @Test("A rectangle no longer than its own width yields no centerline")
+    func testRectangleSlotCenterlineRejectsNoLongerThanWidth() {
+        let engine = SCEngine()
+        let tool = SC.ToolParams(diameter: 6.0)
+
+        // A perfect 6x6 square: width matches the tool, but there's no straight run
+        // left once both ends are inset by the tool radius.
+        let boundary = rectangleBoundaryContour(length: 6, width: 6)
+
+        #expect(engine.rectangleSlotCenterline(fromBoundary: boundary, tool: tool) == nil,
+                "Test Failed: expected nil for a rectangle no longer than its own width")
+    }
+
+    @Test("A non-rectangular quadrilateral yields no centerline")
+    func testRectangleSlotCenterlineRejectsNonRectangularQuad() {
+        let engine = SCEngine()
+        let tool = SC.ToolParams(diameter: 6.0)
+
+        // A parallelogram (slanted sides), not a rectangle -- opposite sides are
+        // equal length, but adjacent sides aren't perpendicular.
+        let boundary = SC.Contour(entities: [
+            .init(entity: .line(a: DXF.Point(0, 0), b: DXF.Point(20, 0), layer: "0", color: 7), reversed: false),
+            .init(entity: .line(a: DXF.Point(20, 0), b: DXF.Point(24, 6), layer: "0", color: 7), reversed: false),
+            .init(entity: .line(a: DXF.Point(24, 6), b: DXF.Point(4, 6), layer: "0", color: 7), reversed: false),
+            .init(entity: .line(a: DXF.Point(4, 6), b: DXF.Point(0, 0), layer: "0", color: 7), reversed: false)
+        ], isClosed: true)
+
+        #expect(engine.rectangleSlotCenterline(fromBoundary: boundary, tool: tool) == nil,
+                "Test Failed: expected nil for a non-rectangular quadrilateral")
+    }
+
+    @Test("A boundary with a curved side yields no centerline (stadium shapes aren't handled by this path)")
+    func testRectangleSlotCenterlineRejectsCurvedBoundary() {
+        let engine = SCEngine()
+        let tool = SC.ToolParams(diameter: 6.0)
+
+        // 2 straight sides + 2 semicircular caps -- a stadium/rounded-rectangle
+        // boundary, not the plain 4-straight-side rectangle this path handles.
+        let boundary = SC.Contour(entities: [
+            .init(entity: .line(a: DXF.Point(3, 0), b: DXF.Point(27, 0), layer: "0", color: 7), reversed: false),
+            .init(entity: .arc(center: DXF.Point(27, 3), radius: 3, startDeg: -90, endDeg: 90, layer: "0", color: 7), reversed: false),
+            .init(entity: .line(a: DXF.Point(27, 6), b: DXF.Point(3, 6), layer: "0", color: 7), reversed: false),
+            .init(entity: .arc(center: DXF.Point(3, 3), radius: 3, startDeg: 90, endDeg: 270, layer: "0", color: 7), reversed: false)
+        ], isClosed: true)
+
+        #expect(engine.rectangleSlotCenterline(fromBoundary: boundary, tool: tool) == nil,
+                "Test Failed: expected nil for a boundary containing curved sides")
+    }
+
+    @Test("An open (non-closed) rectangle-shaped boundary yields no centerline")
+    func testRectangleSlotCenterlineRejectsOpenBoundary() {
+        let engine = SCEngine()
+        let tool = SC.ToolParams(diameter: 6.0)
+
+        var openBoundary = rectangleBoundaryContour(length: 30, width: 6)
+        openBoundary.isClosed = false
+
+        #expect(engine.rectangleSlotCenterline(fromBoundary: openBoundary, tool: tool) == nil,
+                "Test Failed: expected nil for a boundary that isn't closed")
+    }
+
+    // MARK: - Batch
+
     @Test("A batch of slotting contours produces one toolpath per contour, each honoring its own operation")
     func testSlottingBatchProducesOneToolpathPerContour() {
         let engine = SCEngine()
