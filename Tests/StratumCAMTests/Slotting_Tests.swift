@@ -308,7 +308,7 @@ struct Slotting_Tests {
             from: [straightLineContour()],
             tool: tool,
             settings: settings,
-            operation: slottingStrategy(depthPerPass: 1.0, entry: .helix(radius: 2.0, angleDegrees: 10))
+            operation: slottingStrategy(depthPerPass: 1.0, entry: .helix(radius: 2.0, rampAngleDegrees: 10))
         )[0]
 
         let waypoints = toolpath.passes[0].waypoints

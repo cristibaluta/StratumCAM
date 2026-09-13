@@ -146,9 +146,13 @@ public final class SCEngine {
                 print("pitcher \(pitch), internal \(isInternal), direction \(direction)")
                 return nil
 
-            case .boring(targetDiameter: let targetDiameter, dwellTime: let dwellTime, shiftRetract: let shiftRetract):
-                print("targetDiameter \(targetDiameter), dwellTime \(String(describing: dwellTime)), shiftRetract \(shiftRetract)")
-                return nil
+            case .boring(targetDiameter: let targetDiameter, dwellTime: _, shiftRetract: _):
+                // dwellTime/shiftRetract are Step 2C.2's concern -- ignored for now (2C.1).
+                return buildBoringToolpath(for: contour,
+                                           tool: tool,
+                                           settings: settings,
+                                           targetDiameter: targetDiameter,
+                                           operation: operation)
         }
     }
 
