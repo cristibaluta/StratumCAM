@@ -1,5 +1,5 @@
 //
-//  DemoTapping.swift
+//  DemothreadMilling.swift
 //  StratumCAM
 //
 //  Created by Cristian Baluta on 13.09.2026.
@@ -9,10 +9,10 @@ import Foundation
 import StratumCAM
 import SwiftDXF
 
-class DemoTapping: Demo {
+class DemoThreadMilling: Demo {
 
     // MARK: - Fixtures
-    // Mirrors the fixtures in Tapping_Tests.swift so each demo below reproduces
+    // Mirrors the fixtures in threadMilling_Tests.swift so each demo below reproduces
     // the exact scenario a corresponding unit test asserts on.
 
     /// A closed circle contour marking a hole (internal thread) or boss
@@ -20,7 +20,11 @@ class DemoTapping: Demo {
     /// "closed circle marks the feature" shape `tapCircle(for:)` recognizes.
     private func circleContour(center: (Double, Double), diameter: Double) -> SC.Contour {
         SC.Contour(entities: [
-            SC.Contour.Chained(entity: .circle(center: DXF.Point(center.0, center.1), radius: diameter / 2.0, layer: "0", color: 7), reversed: false)
+            SC.Contour.Chained(entity: .circle(center: DXF.Point(center.0, center.1),
+                                               radius: diameter / 2.0,
+                                               layer: "0",
+                                               color: 7),
+                               reversed: false)
         ], isClosed: true)
     }
 
@@ -29,22 +33,23 @@ class DemoTapping: Demo {
     /// Thread-mills the inside of a hole, climb milling -- winds CW, same
     /// convention an `.inside` wall cut uses. Mirrors "Internal threading
     /// milled climb winds CW, the same as an .inside wall cut".
-    func demoInternalClimb() -> Demo.DemoResult {
-        let tool = SC.ToolParams(type: .flatEndMill, diameter: 3.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -3.0)
+    func demoM3() -> Demo.DemoResult {
+        let tool = SC.ToolParams(type: .threadMill, diameter: 2.5)
+        let cutting = SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 5.0)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -5.0)
+        let operation: SC.MachiningOperation = .threadMilling(pitch: 0.5, isInternal: true, direction: .climb)
 
-        let operation: SC.MachiningOperation = .tapping(pitch: 1.0, isInternal: true, direction: .climb)
-
-        return self.run(contour: circleContour(center: (0, 0), diameter: 10.0), tool: tool, settings: settings, operation: operation)
+        return self.run(contour: circleContour(center: (0, 0), diameter: 3.0), tool: tool, settings: settings, operation: operation)
     }
 
     /// Same hole, conventional milling -- winds CCW instead. Mirrors "Internal
     /// threading milled conventional winds CCW, the same as an .inside wall cut".
     func demoInternalConventional() -> Demo.DemoResult {
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 3.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -3.0)
+        let cutting = SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -3.0)
 
-        let operation: SC.MachiningOperation = .tapping(pitch: 1.0, isInternal: true, direction: .conventional)
+        let operation: SC.MachiningOperation = .threadMilling(pitch: 1.0, isInternal: true, direction: .conventional)
 
         return self.run(contour: circleContour(center: (0, 0), diameter: 10.0), tool: tool, settings: settings, operation: operation)
     }
@@ -56,9 +61,10 @@ class DemoTapping: Demo {
     /// milled climb winds CCW, the same as an .outside cut".
     func demoExternalClimb() -> Demo.DemoResult {
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 4.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -2.0)
+        let cutting = SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -2.0)
 
-        let operation: SC.MachiningOperation = .tapping(pitch: 2.0, isInternal: false, direction: .climb)
+        let operation: SC.MachiningOperation = .threadMilling(pitch: 2.0, isInternal: false, direction: .climb)
 
         return self.run(contour: circleContour(center: (10, 20), diameter: 12.0), tool: tool, settings: settings, operation: operation)
     }
@@ -67,9 +73,10 @@ class DemoTapping: Demo {
     /// threading milled conventional winds CW, the same as an .outside cut".
     func demoExternalConventional() -> Demo.DemoResult {
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 4.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -2.0)
+        let cutting = SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -2.0)
 
-        let operation: SC.MachiningOperation = .tapping(pitch: 2.0, isInternal: false, direction: .conventional)
+        let operation: SC.MachiningOperation = .threadMilling(pitch: 2.0, isInternal: false, direction: .conventional)
 
         return self.run(contour: circleContour(center: (10, 20), diameter: 12.0), tool: tool, settings: settings, operation: operation)
     }
@@ -82,9 +89,10 @@ class DemoTapping: Demo {
     /// single/short-turn demos above.
     func demoDeepMultiTurnThread() -> Demo.DemoResult {
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 3.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -10.0)
+        let cutting = SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -10.0)
 
-        let operation: SC.MachiningOperation = .tapping(pitch: 1.5, isInternal: true, direction: .climb)
+        let operation: SC.MachiningOperation = .threadMilling(pitch: 1.5, isInternal: true, direction: .climb)
 
         return self.run(contour: circleContour(center: (0, 0), diameter: 14.0), tool: tool, settings: settings, operation: operation)
     }
@@ -92,17 +100,18 @@ class DemoTapping: Demo {
     // MARK: - Multiple holes
 
     /// Thread-mills four independent hole contours laid out as a rectangle.
-    /// Mirrors "Tapping a batch of holes assigns each toolpath to its own
+    /// Mirrors "threadMilling a batch of holes assigns each toolpath to its own
     /// hole location": each hole gets its own thread-milling toolpath, all
     /// sharing the same tool, settings, pitch, and direction.
     func demoMultipleHoles() -> Demo.DemoResult {
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 3.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -2.0)
+        let cutting = SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -2.0)
 
         let centers: [(Double, Double)] = [(0, 0), (20, 0), (20, 20), (0, 20)]
         let contours = centers.map { circleContour(center: $0, diameter: 10.0) }
 
-        let operation: SC.MachiningOperation = .tapping(pitch: 1.0, isInternal: true, direction: .climb)
+        let operation: SC.MachiningOperation = .threadMilling(pitch: 1.0, isInternal: true, direction: .climb)
 
         return self.run(contours: contours, tool: tool, settings: settings, operation: operation)
     }

@@ -306,7 +306,7 @@ slot into the existing shape.
 
 ## Track 2 — New operations from the `MachiningOperation` model
 
-Four cases exist on `SC.MachiningOperation` (`facing`, `slotting`, `tapping`,
+Four cases exist on `SC.MachiningOperation` (`facing`, `slotting`, `threadMilling`,
 `boring`) and are already wired into `SCEngine.buildToolpath`'s switch, but each
 is currently a `print(...); return nil` stub with no roadmap history. Treat these
 as four small independent sub-tracks — none of them depend on each other.
@@ -594,12 +594,12 @@ Closest in shape to drilling — reuse its structure.
   - Not started -- do this later, as its own session per the roadmap's usual
     one-step-at-a-time shape.
 
-### 2D — Tapping (`.tapping`)
+### 2D — threadMilling (`.threadMilling`)
 
 Most algorithmically involved of the four — do it last within this track.
 
 - DONE **2D.1 — Helical thread-milling core**
-  `buildTappingToolpath`: generate a helical path stepping down by `pitch` per
+  `buildthreadMillingToolpath`: generate a helical path stepping down by `pitch` per
   revolution around the hole (internal) or boss (external) at the tool's
   compensated radius. This is a genuinely new geometry shape, not a reuse of
   existing offset/helix code — expect sub-steps once you're in it.
@@ -610,21 +610,21 @@ Most algorithmically involved of the four — do it last within this track.
   winding sense.
 
 - DONE **2D.3 — Tests**
-  New `Tapping_Tests.swift`: Z increment per revolution matches `pitch`, internal
+  New `threadMilling_Tests.swift`: Z increment per revolution matches `pitch`, internal
   vs. external radius offset sign, winding direction matches `direction`. Extended
   with negative-pitch normalization, fencepost-safe partial final turns (both a
   multi-turn overshoot check and a depth-shallower-than-pitch case), feed-rate
   propagation, constant-radius/consistent-winding checks across an entire
   multi-turn helix (not just the first waypoint), `OutputToolpath` carrying the
   right tool/settings, and a mixed circle/non-circle contour batch. Demo app got
-  a matching "Tapping" section in `DemoTapping.swift` covering all four
+  a matching "threadMilling" section in `DemothreadMilling.swift` covering all four
   internal/external x climb/conventional combinations, a deep multi-turn thread,
   and a multi-hole batch.
 
   **Bug fix, found while building the demos:** the original 2D.1/2D.2 helix cut
   top-to-bottom and entered/retracted at the cutting radius itself -- so the
   final retract dragged the tool straight back up through the thread it had
-  just cut, at full engagement. Reworked `buildTappingToolpath` to match how
+  just cut, at full engagement. Reworked `buildthreadMillingToolpath` to match how
   thread milling actually works: rapid down the hole's/boss's own *center*
   (unobstructed) to the bottom, feed sideways once to engage the wall, helix
   *upward* one revolution per `pitch` so chips clear instead of packing in,

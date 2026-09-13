@@ -1,5 +1,5 @@
 //
-//  SCEngine+Tapping.swift
+//  SCEngine+threadMilling.swift
 //  StratumCAM
 //
 //  Created by Cristian Baluta on 13.09.2026.
@@ -13,9 +13,9 @@ import simd
 extension SCEngine {
 
     /// Extracts the hole (internal thread) or boss (external thread) circle that a
-    /// tapping operation mills threads onto.
+    /// threadMilling operation mills threads onto.
     ///
-    /// Unlike `drillPoint(for:)`, a bare `.point` marker isn't accepted here -- tapping
+    /// Unlike `drillPoint(for:)`, a bare `.point` marker isn't accepted here -- threadMilling
     /// needs an actual diameter to compensate the tool radius against, and a point alone
     /// carries no size. Only a single closed `.circle` entity is recognized, the same
     /// "closed circle marks a feature" convention `drillPoint(for:)` already uses for
@@ -70,13 +70,13 @@ extension SCEngine {
     /// hole/boss, not the 2D-geometry Z stepdown `calculateZPasses` is for at the
     /// per-pass level (it's reused here purely to derive per-revolution depths, the same
     /// way `peckDrillingWaypoints` reuses it to derive per-peck depths).
-    func buildTappingToolpath(for contour: SC.Contour,
-                              tool: SC.ToolParams,
-                              settings: SC.MachineSettings,
-                              pitch: Double,
-                              isInternal: Bool,
-                              direction: SC.CutDirection,
-                              operation: SC.MachiningOperation) -> SC.OutputToolpath? {
+    func buildThreadMillingToolpath(for contour: SC.Contour,
+                                    tool: SC.ToolParams,
+                                    settings: SC.MachineSettings,
+                                    pitch: Double,
+                                    isInternal: Bool,
+                                    direction: SC.CutDirection,
+                                    operation: SC.MachiningOperation) -> SC.OutputToolpath? {
 
         guard let hole = tapCircle(for: contour) else {
             return nil

@@ -46,7 +46,7 @@ extension SC {
         ///   - pitch: Thread pitch.
         ///   - isInternal: Whether the thread is internal or external.
         ///   - direction: Cutting direction used for the threading motion.
-        case tapping(pitch: Double,
+        case threadMilling(pitch: Double,
                      isInternal: Bool,
                      direction: CutDirection)
 

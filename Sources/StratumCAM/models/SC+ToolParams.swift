@@ -14,6 +14,7 @@ extension SC {
         case ballEndMill
         case vBit
         case drill
+        case threadMill
     }
 
     /// Describes the physical cutting tool itself -- the facts that live on the tool's
