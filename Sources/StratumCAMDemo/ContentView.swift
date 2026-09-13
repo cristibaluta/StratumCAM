@@ -167,6 +167,23 @@ struct ContentView: View {
                         show(DemoFacing().demoFacingBatch())
                     }
                 }
+                Section("Slotting") {
+                    demoButton("Straight Line (Plunge)") {
+                        show(DemoSlotting().demoSlottingStraightLine())
+                    }
+                    demoButton("L-Shape (Plunge)") {
+                        show(DemoSlotting().demoSlottingLShape())
+                    }
+                    demoButton("Multi-Pass Depth") {
+                        show(DemoSlotting().demoSlottingMultiPass())
+                    }
+                    demoButton("Ramp Entry") {
+                        show(DemoSlotting().demoSlottingRampEntry())
+                    }
+                    demoButton("Helix Entry") {
+                        show(DemoSlotting().demoSlottingHelixEntry())
+                    }
+                }
             }
             .navigationTitle("StratumCAM Demo")
         } content: {

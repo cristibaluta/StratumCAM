@@ -442,9 +442,20 @@ as four small independent sub-tracks — none of them depend on each other.
   centerline, cutting material symmetrically on both sides as it descends, same as
   the straight trace itself already does.
 
-- **2B.3 — Tests**
-  New `Slotting_Tests.swift`: centerline followed with no lateral offset, correct
-  number of passes for a given total depth, entry waypoints present.
+- DONE **2B.3 — Tests**
+  New `Slotting_Tests.swift`: centerline followed with no lateral offset (and
+  independent of tool diameter), a multi-segment centerline traced vertex for
+  vertex, correct pass count/depths for both an unevenly divisible depth and an
+  evenly divisible one, geometry reused unchanged across Z passes (same
+  guarantee `.pocket`/`.contour` already give), and entry waypoints present for
+  all three `EntryStrategy` cases -- `.plunge` (retract/re-plunge every pass),
+  `.ramp` (descends from `previousZ` to each pass's own target without
+  overshooting), and `.helix` (arc motions present, centered exactly on the
+  centerline since `side: .onContour` zeroes the offset) -- plus a batch case
+  confirming multiple contours each get their own independent toolpath. Also
+  added `DemoSlotting.swift` (straight-line and L-shaped centerlines, no-entry,
+  multi-pass, ramp entry, helix entry) wired into `ContentView`'s sidebar under
+  a new "Slotting" section.
 
 ### 2C — Boring (`.boring`)
 
