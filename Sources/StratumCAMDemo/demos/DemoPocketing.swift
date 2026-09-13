@@ -299,4 +299,59 @@ class DemoPocketing: Demo {
 
         return self.run(contour: rectangleContour(width: 40, height: 24), tool: tool, settings: settings, operation: operation)
     }
+
+    // MARK: - Trochoidal clearing (Step 1B.2)
+
+    /// Clears a 40x24 rectangle with overlapping circular loops advancing along the
+    /// oriented boundary instead of concentric rings or scanlines -- the direct visual
+    /// contrast with `demoPocketRectangle()`/`demoRasterRectangle()`, all three clearing
+    /// the identical rectangle with the identical tool. In the preview this reads as a
+    /// chain of small overlapping circles tracing the rectangle's own perimeter, not a
+    /// pass that fills the rectangle's interior -- see `trochoidalSegments`'s doc
+    /// comment for why: it advances along the boundary chain `.offsetPattern`/`.spiral`
+    /// build via `orientedForDirection`, the same way Track 2B's slotting will
+    /// eventually advance along an open centerline.
+    func demoTrochoidalRectangle() -> Demo.DemoResult {
+        let tool = SC.ToolParams(diameter: 6.0)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -1.0)
+
+        let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .trochoidal, entry: .plunge)
+
+        return self.run(contour: rectangleContour(width: 40, height: 24), tool: tool, settings: settings, operation: operation)
+    }
+
+    /// Same trochoidal clearing as above but conventional direction, so the loop
+    /// chain's start corner and travel direction can be compared side by side with
+    /// `demoTrochoidalRectangle()` -- mirrors `orientedForDirection`'s reversal the
+    /// same way `demoPocketRectangleConventional()`/`demoRasterRectangleConventional()`
+    /// already demonstrate for the other two patterns.
+    func demoTrochoidalRectangleConventional() -> Demo.DemoResult {
+        let tool = SC.ToolParams(diameter: 6.0)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -1.0)
+
+        let operation: SC.MachiningOperation = .pocket(direction: .conventional, pattern: .trochoidal, entry: .plunge)
+
+        return self.run(contour: rectangleContour(width: 40, height: 24), tool: tool, settings: settings, operation: operation)
+    }
+
+    /// Clears the same 20mm-radius circle `demoSpiralCircle()` uses, but with
+    /// overlapping loops instead of a continuous inward spiral -- unlike `.spiral`,
+    /// which only produces a true spiral on this exact circular boundary (falling back
+    /// to rings otherwise), `.trochoidal` treats every boundary shape identically: it
+    /// always advances along the oriented chain, whether or not that chain happens to
+    /// be a circle. Side by side with `demoSpiralCircle()`, this contrasts "one
+    /// smoothly shrinking curve down to the center" against "a ring of overlapping
+    /// loops that stays right on the wall and never moves inward at all" -- trochoidal
+    /// clears the wall itself, not the pocket's interior.
+    func demoTrochoidalCircle() -> Demo.DemoResult {
+        let tool = SC.ToolParams(diameter: 6.0)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -1.0)
+
+        let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .trochoidal, entry: .plunge)
+
+        return self.run(contour: circleContour(radius: 20), tool: tool, settings: settings, operation: operation)
+    }
 }

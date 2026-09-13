@@ -139,6 +139,17 @@ struct ContentView: View {
                         show(DemoPocketing().demoSpiralFallbackOnRectangle())
                     }
                 }
+                Section("Pocketing — Trochoidal") {
+                    demoButton("Trochoidal Rectangle (Climb)") {
+                        show(DemoPocketing().demoTrochoidalRectangle())
+                    }
+                    demoButton("Trochoidal Rectangle (Conventional)") {
+                        show(DemoPocketing().demoTrochoidalRectangleConventional())
+                    }
+                    demoButton("Trochoidal Circle") {
+                        show(DemoPocketing().demoTrochoidalCircle())
+                    }
+                }
             }
             .navigationTitle("StratumCAM Demo")
         } content: {

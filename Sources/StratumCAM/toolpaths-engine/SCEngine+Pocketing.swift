@@ -118,11 +118,25 @@ extension SCEngine {
                     // once a boundary is already spiral-eligible.
                     toolpathSegments = chainedRingSegments(rings)
                 }
+            case .trochoidal:
+                // Same climb/conventional wall orientation `.offsetPattern` and
+                // `.spiral` use -- trochoidal advances along this same oriented
+                // boundary chain (Step 1B.2), looping the cutter in small overlapping
+                // circles instead of tracing or offsetting it directly. Unlike
+                // `.offsetPattern`/`.spiral`, it doesn't need the tool-radius wall
+                // offset itself: the loops are already sized off `tool.diameter`, so
+                // centering them directly on the raw boundary already keeps the
+                // cutter's swept footprint on the wall, not past it.
+                let oriented = orientedForDirection(baseSegments, side: .inside, direction: direction)
+                boundarySegments = oriented
+
+                toolpathSegments = trochoidalSegments(from: oriented,
+                                                      tool: tool,
+                                                      stepoverPercentage: settings.cutting.stepoverPercentage)
+
             case .adaptive:
                 fatalError("Not implemented yet")
             case .morph:
-                fatalError("Not implemented yet")
-            case .trochoidal:
                 fatalError("Not implemented yet")
         }
 
@@ -650,6 +664,161 @@ extension SCEngine {
         }
 
         return (minX, maxX, minY, maxY)
+    }
+
+    // MARK: - Step 1B.2: trochoidal pocket
+
+    /// Turns the same oriented pocket-wall boundary chain `.offsetPattern` and
+    /// `.spiral` build via `orientedForDirection` into a chain of small overlapping
+    /// circular loops advancing along it, rather than tracing or offsetting it
+    /// directly -- same shape of problem Track 2B's slotting will eventually solve for
+    /// a `.slotting` `MachiningOperation`, applied here to `.pocket`'s wall instead of
+    /// an open centerline.
+    ///
+    /// Loop diameter and how far successive loop centers advance are both driven off
+    /// the same inputs `.raster` and `pocketRings` already read -- `tool.diameter` and
+    /// `settings.cutting.stepoverPercentage` -- rather than introducing a third,
+    /// trochoidal-only parameter:
+    /// - Each loop's diameter is exactly `tool.diameter`, tracing the cutter's own
+    ///   swept footprint centered on the path.
+    /// - Center-to-center advance per loop is `stepoverPercentage * tool.diameter`,
+    ///   the identical spacing `pocketRings` uses between adjacent rings and
+    ///   `rasterScanlines` uses between adjacent rows -- consecutive loops overlap by
+    ///   exactly the amount that convention already means everywhere else in this file.
+    ///
+    /// Each loop is a full closed circle, tessellated at the same 5-degree-per-step
+    /// resolution `spiralSegments` uses for its own continuous cut (this is real
+    /// cutting motion along the whole boundary, not a short entry hop, so facets on
+    /// the wall matter). Loops are connected by a short straight move from one loop's
+    /// own closing point to the next loop's starting point, mirroring
+    /// `chainedRingSegments`'s one-move-per-transition convention.
+    ///
+    /// - Note: doesn't attempt `1C.2`-style "is this gap already cleared" bookkeeping
+    ///   -- unlike raster's rows, every loop here is centered directly on the boundary
+    ///   itself, so consecutive loops always overlap by construction and never need a
+    ///   retract/re-entry between them the way raster's span-linking might.
+    func trochoidalSegments(from orientedBoundary: [SC.Segment], tool: SC.ToolParams, stepoverPercentage: Double) -> [SC.Segment] {
+        guard !orientedBoundary.isEmpty else {
+            return []
+        }
+
+        let loopRadius = tool.diameter / 2.0
+        let advance = stepoverPercentage * tool.diameter
+        guard loopRadius > 1e-9, advance > 1e-6 else {
+            return []
+        }
+
+        let totalLength = pathLength(of: orientedBoundary)
+        guard totalLength > 1e-9 else {
+            return []
+        }
+
+        // Loop centers walk the boundary every `advance`, starting at distance 0 and
+        // finishing with a final loop pinned exactly at the boundary's own end --
+        // same fencepost convention `rasterScanlines` uses for its last row and
+        // `calculateZPasses` uses for its last Z depth, rather than landing short of,
+        // or past, the boundary's true end.
+        let rawSteps = totalLength / advance
+        let epsilon = 1e-9
+        let stepCount: Int
+        if abs(rawSteps.rounded() - rawSteps) < epsilon {
+            stepCount = max(1, Int(rawSteps.rounded()))
+        } else {
+            stepCount = max(1, Int(rawSteps.rounded(.up)))
+        }
+        let loopCount = stepCount + 1
+
+        let centers: [CGPoint] = (0..<loopCount).map { i in
+            let distance = (i == loopCount - 1) ? totalLength : advance * Double(i)
+            return point(alongPath: orientedBoundary, distance: distance, totalLength: totalLength)
+        }
+
+        let stepsPerLoop = 72 // same tessellation density `spiralSegments` uses (5 degrees/step).
+
+        var segments: [SC.Segment] = []
+        for (i, center) in centers.enumerated() {
+            let loopStart = CGPoint(x: center.x + loopRadius, y: center.y)
+
+            if i > 0 {
+                let previousLoopEnd = CGPoint(x: centers[i - 1].x + loopRadius, y: centers[i - 1].y)
+                if hypot(loopStart.x - previousLoopEnd.x, loopStart.y - previousLoopEnd.y) > 1e-6 {
+                    segments.append(.line(start: previousLoopEnd, end: loopStart))
+                }
+            }
+
+            var previousPoint = loopStart
+            for step in 1...stepsPerLoop {
+                let angle = (2 * Double.pi / Double(stepsPerLoop)) * Double(step)
+                let nextPoint = CGPoint(x: center.x + loopRadius * cos(angle), y: center.y + loopRadius * sin(angle))
+                segments.append(.line(start: previousPoint, end: nextPoint))
+                previousPoint = nextPoint
+            }
+        }
+
+        return segments
+    }
+
+    /// Total arc length of a segment chain -- shared by `trochoidalSegments`'s loop
+    /// spacing and `point(alongPath:distance:totalLength:)` below, which places a loop
+    /// center a given distance along the chain.
+    private func pathLength(of segments: [SC.Segment]) -> Double {
+        segments.reduce(0.0) { $0 + segmentArcLength($1) }
+    }
+
+    private func segmentArcLength(_ segment: SC.Segment) -> Double {
+        switch segment {
+            case .line(let start, let end):
+                return hypot(end.x - start.x, end.y - start.y)
+
+            case .arc(_, let radius, let startAngle, let endAngle, let isCCW):
+                let sweep = isCCW ? (endAngle - startAngle) : (startAngle - endAngle)
+                return radius * abs(sweep)
+        }
+    }
+
+    /// Walks `segments` (assumed contiguous, as `orientedForDirection`'s output
+    /// always is) `distance` along its total arc length and returns the point there --
+    /// the same "walk the chain by cumulative length" approach
+    /// `SCEngine+Contour.swift`'s `tracedWaypoints` already uses for holding-tab
+    /// spans, just returning a point instead of a Z clamp.
+    private func point(alongPath segments: [SC.Segment], distance: Double, totalLength: Double) -> CGPoint {
+        guard let firstSegment = segments.first else {
+            return .zero
+        }
+
+        let clamped = min(max(distance, 0), totalLength)
+        var cumulative = 0.0
+
+        for (index, segment) in segments.enumerated() {
+            let length = segmentArcLength(segment)
+            let isLast = index == segments.count - 1
+            if clamped <= cumulative + length + 1e-9 || isLast {
+                let remaining = min(max(clamped - cumulative, 0), length)
+                return pointAlong(segment: segment, distance: remaining, length: length)
+            }
+            cumulative += length
+        }
+
+        return firstSegment.startPoint
+    }
+
+    /// The point `distance` along a single segment's own length, parameterizing a
+    /// line linearly and an arc by its angular sweep.
+    private func pointAlong(segment: SC.Segment, distance: Double, length: Double) -> CGPoint {
+        guard length > 1e-9 else {
+            return segment.startPoint
+        }
+        let t = distance / length
+
+        switch segment {
+            case .line(let start, let end):
+                return CGPoint(x: start.x + (end.x - start.x) * t, y: start.y + (end.y - start.y) * t)
+
+            case .arc(let center, let radius, let startAngle, let endAngle, let isCCW):
+                let sweep = isCCW ? (endAngle - startAngle) : (startAngle - endAngle)
+                let angle = startAngle + (isCCW ? 1.0 : -1.0) * abs(sweep) * t
+                return CGPoint(x: center.x + radius * cos(angle), y: center.y + radius * sin(angle))
+        }
     }
 
     /// Whether `angle` falls within the arc sweep from `start` to `end`, travelling in
