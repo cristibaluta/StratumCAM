@@ -31,28 +31,29 @@ class DemoThreadMilling: Demo {
     // MARK: - Internal threading (a pre-drilled hole)
 
     /// Thread-mills the inside of a pre-drilled M3 pilot hole (2.5mm, the standard
-    /// tap-drill size for M3x0.5), climb milling -- winds CW, same convention an
-    /// `.inside` wall cut uses. Mirrors "Internal threading milled climb winds CW,
-    /// the same as an .inside wall cut".
+    /// tap-drill size for M3x0.5), a standard right-hand thread -- winds CCW as it
+    /// climbs. Mirrors "A right-hand thread on an internal hole winds CCW as it
+    /// climbs".
     func demoM3Internal() -> Demo.DemoResult {
         let tool = SC.ToolParams(type: .threadMill, diameter: 2.4, fluteLength: 9)
         let cutting = SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 3.0)
         let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -3.0)
-        let operation: SC.MachiningOperation = .threadMilling(pitch: 0.5, isInternal: true, direction: .climb, radialPasses: 3, targetDiameter: 3.0)
+        let operation: SC.MachiningOperation = .threadMilling(pitch: 0.5, isInternal: true, direction: .rightHand, radialPasses: 3, targetDiameter: 3.0)
 
         return self.run(contour: circleContour(center: (0, 0), diameter: 2.5), tool: tool, settings: settings, operation: operation)
     }
 
     // MARK: - External threading (a turned boss)
 
-    /// Thread-mills the outside of a boss, climb milling -- winds CCW, same
-    /// convention an `.outside` wall cut uses. Mirrors "External threading
-    /// milled climb winds CCW, the same as an .outside cut".
+    /// Thread-mills the outside of a boss, a standard right-hand thread -- also
+    /// winds CCW as it climbs, since handedness doesn't flip between internal and
+    /// external threads. Mirrors "A right-hand thread on an external boss also
+    /// winds CCW -- handedness doesn't flip with isInternal".
     func demoM3External() -> Demo.DemoResult {
         let tool = SC.ToolParams(type: .threadMill, diameter: 2.4, fluteLength: 9)
         let cutting = SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 3.0)
         let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -3.0)
-        let operation: SC.MachiningOperation = .threadMilling(pitch: 0.5, isInternal: false, direction: .climb, radialPasses: 3, targetDiameter: 3.0)
+        let operation: SC.MachiningOperation = .threadMilling(pitch: 0.5, isInternal: false, direction: .rightHand, radialPasses: 3, targetDiameter: 3.0)
 
         return self.run(contour: circleContour(center: (0, 0), diameter: 3.0), tool: tool, settings: settings, operation: operation)
     }
@@ -71,7 +72,7 @@ class DemoThreadMilling: Demo {
         let centers: [(Double, Double)] = [(0, 0), (10, 0), (20, 0)]
         let contours = centers.map { circleContour(center: $0, diameter: 2.5) }
 
-        let operation: SC.MachiningOperation = .threadMilling(pitch: 0.5, isInternal: true, direction: .climb, radialPasses: 3, targetDiameter: 3.0)
+        let operation: SC.MachiningOperation = .threadMilling(pitch: 0.5, isInternal: true, direction: .rightHand, radialPasses: 3, targetDiameter: 3.0)
 
         return self.run(contours: contours, tool: tool, settings: settings, operation: operation)
     }

@@ -40,26 +40,15 @@ extension SC {
         ///   - entry: Strategy used to enter the slot material.
         case slotting(depthPerPass: Double, entry: EntryStrategy)
 
-        /// Mills threads into a pre-drilled hole or onto a pre-turned boss.
-        ///
-        /// The circle the person selects in CAD/CAM is the hole or boss as it
-        /// already exists -- e.g. the 2.5mm pilot hole already drilled for an M3
-        /// thread -- not the finished thread size. `targetDiameter` is the
-        /// finished (nominal/major) diameter the thread should reach, e.g. 3.0mm
-        /// for an M3.
-        ///
-        /// The full distance between the existing diameter and `targetDiameter`
-        /// is never cut in a single radial pass -- at full engagement a thread
-        /// mill is taking a very heavy cut around the entire helix, which is a
-        /// good way to snap it. Instead the operation mills the thread
-        /// `radialPasses` times, stepping the working diameter evenly from the
-        /// existing diameter toward `targetDiameter`, with only the final pass
-        /// landing exactly on it.
-        ///
         /// - Parameters:
         ///   - pitch: Thread pitch.
         ///   - isInternal: Whether the thread is internal or external.
-        ///   - direction: Cutting direction used for the threading motion.
+        ///   - direction: Handedness of the thread being cut -- right-hand or
+        ///     left-hand -- which determines which way the helix winds. This is
+        ///     not a `CutDirection` (climb/conventional): climb/conventional
+        ///     describes chip load for a generic milling pass, and isn't a
+        ///     meaningful choice for a thread mill, whose winding sense is fixed
+        ///     by the handedness of the thread it's cutting.
         ///   - radialPasses: Number of radial passes used to step from the
         ///     existing diameter (the selected circle) to `targetDiameter`. Each
         ///     pass retraces the full helix (bottom to top) at its own diameter,
@@ -69,7 +58,7 @@ extension SC {
         ///     on the last radial pass.
         case threadMilling(pitch: Double,
                      isInternal: Bool,
-                     direction: CutDirection,
+                     direction: ThreadDirection,
                      radialPasses: Int,
                      targetDiameter: Double)
 

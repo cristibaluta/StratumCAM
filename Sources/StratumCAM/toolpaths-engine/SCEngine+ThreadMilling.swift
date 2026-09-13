@@ -61,14 +61,19 @@ extension SCEngine {
     /// `isInternal` requires (an internal thread's mill radius eats *inward* from the
     /// drawn diameter, the same direction an `.inside` profile cut offsets; an external
     /// thread's mill radius sits *outward* from it, like `.outside`). Step 2D.2 wires
-    /// `direction` (climb/conventional) into which way the helix actually winds, using
-    /// the exact same convention `orientedForDirection` already establishes for wall
-    /// cuts in `SCEngine+Contour.swift`: an internal thread is cut on the *inside* wall
-    /// of the hole, so it follows `.inside`'s own climb/conventional mapping (climb ->
-    /// CW, conventional -> CCW); an external thread is cut on the *outside* of the
-    /// boss, so it follows `.outside`'s mapping instead (climb -> CCW, conventional ->
-    /// CW). Direction is independent of which end the helix starts from, so this
-    /// bottom-to-top rework doesn't change either mapping.
+    /// `direction` -- the thread's own handedness, right-hand or left-hand -- into
+    /// which way the helix actually winds. This is *not* a climb/conventional choice:
+    /// climb/conventional is meaningless here because nothing about a thread mill's
+    /// winding sense is free to pick for chip load -- a right-hand thread only winds
+    /// one way, full stop, and cutting it the other way produces a left-hand thread
+    /// instead (or, at full radial engagement, just breaks the tool). Handedness is
+    /// also independent of `isInternal`: a right-hand nut only ever mates with a
+    /// right-hand bolt, so internal and external threads of the same handedness wind
+    /// the same way, not mirrored. Since the cut always runs bottom-to-top (see
+    /// above), the mapping is fixed: a right-hand thread sweeps counterclockwise
+    /// (viewed from above, i.e. looking down the +Z axis) as it climbs, a left-hand
+    /// thread sweeps clockwise. Direction is independent of which end the helix
+    /// starts from, so this bottom-to-top rework doesn't change that mapping.
     ///
     /// Radial passes, one `ToolpathPass` per pass -- unlike `buildBoringToolpath`/
     /// `buildDrillingToolpath`'s single pass, a thread mill can't jump straight from
@@ -86,7 +91,7 @@ extension SCEngine {
                                     settings: SC.MachineSettings,
                                     pitch: Double,
                                     isInternal: Bool,
-                                    direction: SC.CutDirection,
+                                    direction: SC.ThreadDirection,
                                     radialPasses: Int,
                                     targetDiameter: Double,
                                     operation: SC.MachiningOperation) -> SC.OutputToolpath? {
@@ -140,11 +145,12 @@ extension SCEngine {
 
         let center = hole.center
 
-        // Same climb/conventional convention `orientedForDirection` uses for wall cuts:
-        // internal threading cuts the *inside* wall of the hole (like `.inside`, where
-        // climb requires CW travel), external threading cuts the *outside* of the boss
-        // (like `.outside`, where climb requires CCW travel).
-        let isCCW = isInternal ? (direction == .conventional) : (direction == .climb)
+        // Winding sense is dictated purely by thread handedness, not by isInternal --
+        // a right-hand nut only ever mates with a right-hand bolt, so internal and
+        // external threads of the same handedness wind the same way. Since the cut
+        // always runs bottom-to-top, a right-hand thread sweeps counterclockwise
+        // (viewed from above) as it climbs; a left-hand thread sweeps clockwise.
+        let isCCW = direction == .rightHand
         let stepsPerTurn = 8
         let sweepPerStep = (2 * Double.pi / Double(stepsPerTurn)) * (isCCW ? 1.0 : -1.0)
 
