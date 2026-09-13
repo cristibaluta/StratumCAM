@@ -39,7 +39,7 @@ extension SCEngine {
     /// Generates the raster scanline geometry for `.facing`: parallel horizontal
     /// passes spaced `stepover` apart, each spanning the full width of
     /// `facingArea(stock:extensionLength:)` -- geometry only, no waypoints yet. That's
-    /// left to a future `buildFacingWaypoints` wrapper (Step 2A.2), same shape as
+    /// left to `buildFacingToolpath` (Step 2A.2) below, same shape as
     /// `buildPocketWaypoints` turning `rasterScanlines`' rows into an actual rapid/
     /// plunge/retract pass.
     ///
@@ -58,7 +58,7 @@ extension SCEngine {
     /// and `calculateZPasses` use.
     ///
     /// Each row is returned as a single-segment `[SC.Segment]`, matching
-    /// `rasterScanlines`' per-row shape, so a future waypoint wrapper can reuse
+    /// `rasterScanlines`' per-row shape, so `buildFacingToolpath` below can reuse
     /// `chainedRingSegments` to link rows exactly the way pocketing's raster does.
     func facingScanlines(stock: SC.Stock,
                          extensionLength: Double,
@@ -102,5 +102,57 @@ extension SCEngine {
         }
 
         return rows
+    }
+
+    // MARK: - Step 2A.2: facing toolpath
+
+    /// Turns `facingScanlines`' rows into an actual toolpath: chains them with
+    /// `chainedRingSegments` (the same row-linking helper pocketing's raster uses --
+    /// a list of rows is the same "segment groups needing connecting transitions"
+    /// shape either way) and wraps the result with `buildWaypoints`' rapid/plunge/
+    /// retract pass, exactly the way `.facing`'s own doc comment and this file's
+    /// earlier notes said a later wrapper would.
+    ///
+    /// Single `ToolpathPass` at `-abs(settings.targetDepth)` -- facing is a one-pass
+    /// datum operation per `MachiningOperation.facing`'s doc comment, not a
+    /// multi-pass Z stepdown like `.pocket`/`.contour`, so there's no
+    /// `calculateZPasses` here. Same sign convention `buildDrillingToolpath` uses
+    /// for its own single-pass plunge depth.
+    ///
+    /// `.facing` has no `EntryStrategy` of its own (see `MachiningOperation.facing`'s
+    /// parameters), so this always uses the plain straight-down plunge `buildWaypoints`
+    /// already provides -- there's no ramp/helix case to route to the way
+    /// `buildPocketWaypoints` does for `.pocket`.
+    ///
+    /// `direction` only decides which way the first scanline row travels (already
+    /// resolved by `facingScanlines`, which alternates every row after that); there's
+    /// no wall cut in a plain rectangular fill for climb/conventional to otherwise
+    /// apply to, same as pocketing's raster.
+    func buildFacingToolpath(stock: SC.Stock,
+                             tool: SC.ToolParams,
+                             settings: SC.MachineSettings,
+                             stepover: Double,
+                             direction: SC.CutDirection,
+                             extensionLength: Double,
+                             operation: SC.MachiningOperation) -> SC.OutputToolpath? {
+
+        let rows = facingScanlines(stock: stock,
+                                   extensionLength: extensionLength,
+                                   stepover: stepover,
+                                   direction: direction)
+        guard !rows.isEmpty else {
+            return nil
+        }
+
+        let toolpathSegments = chainedRingSegments(rows)
+        guard !toolpathSegments.isEmpty else {
+            return nil
+        }
+
+        let z = -abs(settings.targetDepth)
+        let waypoints = buildWaypoints(for: toolpathSegments, atZ: z, settings: settings)
+
+        let pass = SC.ToolpathPass(passIndex: 0, depthZ: z, waypoints: waypoints)
+        return SC.OutputToolpath(operation: operation, tool: tool, settings: settings, passes: [pass])
     }
 }

@@ -150,6 +150,23 @@ struct ContentView: View {
                         show(DemoPocketing().demoTrochoidalCircle())
                     }
                 }
+                Section("Facing") {
+                    demoButton("Rectangle (Climb)") {
+                        show(DemoFacing().demoFacingRectangleClimb())
+                    }
+                    demoButton("Rectangle (Conventional)") {
+                        show(DemoFacing().demoFacingRectangleConventional())
+                    }
+                    demoButton("Rectangle with Extension") {
+                        show(DemoFacing().demoFacingRectangleWithExtension())
+                    }
+                    demoButton("Large Stock, Fine Stepover") {
+                        show(DemoFacing().demoFacingLargeStockFineStepover())
+                    }
+                    demoButton("Batch (Two Stocks)") {
+                        show(DemoFacing().demoFacingBatch())
+                    }
+                }
             }
             .navigationTitle("StratumCAM Demo")
         } content: {

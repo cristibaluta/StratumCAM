@@ -83,6 +83,60 @@ class Demo {
         return DemoResult(batches: batches, gcode: gcode, toolpathPoints: toolpathPoints)
     }
 
+    /// Same three-step shape as `run(contours:...)` above, but for `.facing`
+    /// (Step 2A.2's `SC.FacingOperation`): there's no `SC.Contour` to linearize for
+    /// the blue reference geometry -- facing clears a `Stock`'s whole top-face
+    /// footprint, not a selected contour (see `FacingOperation`'s doc comment) --
+    /// so the reference drawn here is the stock's own top-face rectangle instead,
+    /// closed back to its first corner so it reads as a boundary rather than an
+    /// open zig-zag. Toolpath generation goes through
+    /// `generateToolpaths(from operations: [SC.FacingOperation])` (Step 2A.2)
+    /// rather than the per-contour overload `run(contours:...)` uses, since
+    /// `.facing` can't go through the per-contour switch (Step 2A.1's flag).
+    func run(facing operation: SC.FacingOperation) -> DemoResult {
+
+        // 1. Reference geometry: the stock's own top-face rectangle at Z=0 (not the
+        // extended facing footprint the toolpath actually sweeps) so the preview
+        // shows the toolpath relative to the real part boundary underneath it.
+        let stock = operation.stock
+        let corners: [SIMD3<Float>] = [
+            SIMD3<Float>(Float(stock.origin.x), Float(stock.origin.y), 0),
+            SIMD3<Float>(Float(stock.origin.x + stock.width), Float(stock.origin.y), 0),
+            SIMD3<Float>(Float(stock.origin.x + stock.width), Float(stock.origin.y + stock.height), 0),
+            SIMD3<Float>(Float(stock.origin.x), Float(stock.origin.y + stock.height), 0),
+            SIMD3<Float>(Float(stock.origin.x), Float(stock.origin.y), 0)
+        ]
+
+        // 2. Convert the FacingOperation to a toolpath then to 3d simd points, via
+        // the Stock-driven overload Step 2A.2 added.
+        let toolpaths = engine.generateToolpaths(from: [operation])
+        var toolpathPoints: [SIMD3<Float>] = []
+        for toolpath in toolpaths {
+            for pass in toolpath.passes {
+                toolpathPoints.append(contentsOf: tessellateForRender(pass.waypoints))
+            }
+        }
+
+        // 3. Build batches the same way run(contours:...) does: blue dashed
+        // reference, yellow toolpath.
+        var batches: [RenderBatch] = []
+        if let baseBatch = renderBatch(forPoints: corners,
+                                       color: SIMD4<Float>(0.2, 0.8, 1.0, 1.0),
+                                       isDashed: true,
+                                       dashLength: 0.4) {
+            batches.append(baseBatch)
+        }
+        if let toolpathBatch = renderBatch(forPoints: toolpathPoints,
+                                           color: SIMD4<Float>(1.0, 0.8, 0.0, 1.0)) {
+            batches.append(toolpathBatch)
+        }
+
+        // 4. Generate G-code for the same toolpaths.
+        let gcode = gcodeEngine.generateGCode(from: toolpaths, settings: operation.settings)
+
+        return DemoResult(batches: batches, gcode: gcode, toolpathPoints: toolpathPoints)
+    }
+
     // MARK: - Step 5.2: prefix-slice + reusable batch builder
 
     /// Returns just the point prefix up to and including `index`, clamped to

@@ -353,14 +353,43 @@ as four small independent sub-tracks — none of them depend on each other.
   > else. Flagging again here so 2A.2 doesn't default into forcing `.facing`
   > through the per-contour path just because that's what's already wired up.
 
-- **2A.2 — Facing toolpath + direction**
-  Turn the scanlines into waypoints (rapid/retract wrapper, single Z pass — facing
-  is a one-pass datum operation), honoring `direction` for climb/conventional
-  scanline order. Wire into the switch, replacing the stub.
+- DONE **2A.2 — Facing toolpath + direction**
+  `buildFacingToolpath` (`SCEngine+Facing.swift`) chains `facingScanlines`' rows
+  with `chainedRingSegments` (same row-linking helper pocketing's raster uses)
+  and wraps the result with `buildWaypoints`' rapid/plunge/retract pass -- single
+  `ToolpathPass` at `-abs(settings.targetDepth)`, no `calculateZPasses` stepdown,
+  since facing is a one-pass datum operation. `direction` was already fully
+  resolved by `facingScanlines` (2A.1) into which way each row travels, so there's
+  nothing further for this step to do with it beyond passing it through. `.facing`
+  has no `EntryStrategy` of its own, so there's no ramp/helix branch the way
+  `buildPocketWaypoints` has -- always the plain straight-down plunge.
+  This resolved 2A.1's open flag: since `.facing` clears a whole `Stock` footprint
+  rather than iterating a selected contour, it can't go through the per-contour
+  `buildToolpath` switch the way every other operation does. Added a new
+  `SC.FacingOperation` struct (mirroring `DrillingOperation`'s existing solution to
+  the same signature mismatch) and a matching
+  `SCEngine.generateToolpaths(from operations: [SC.FacingOperation])` overload that
+  calls `buildFacingToolpath` directly. The per-contour switch's `.facing` case is
+  now a `nil`-returning stub with a comment pointing at the new overload, rather
+  than the old `print(...)` placeholder.
 
-- **2A.3 — Tests**
-  New `Facing_Tests.swift`: stepover honored, extension applied beyond stock
-  bounds, scanline order flips with direction.
+- DONE **2A.3 — Tests**
+  New coverage in `Facing_Tests.swift`: single-pass depth at `-abs(targetDepth)`
+  with rows chained into one continuous rapid-plunge-trace-retract sequence,
+  scanline order (and therefore the toolpath's own trace order) flipping with
+  `direction` while the waypoint count stays the same, `extensionLength` wired
+  end to end so the toolpath's own bounding box reflects it, a degenerate
+  zero-area stock producing no toolpath, `.facing` yielding nothing through the
+  per-contour `buildToolpath` switch (confirming 2A.2's flag stays true), and a
+  batch of `FacingOperation`s each keeping its own tool/settings/depth
+  independent. Also added `DemoFacing.swift` (climb, conventional, extended
+  footprint, a larger-stock finer-stepover pass, and a two-stock batch) wired
+  into `ContentView`'s sidebar under a new "Facing" section, plus a
+  `Demo.run(facing:)` overload (mirroring `run(contours:...)`) since facing has
+  no `SC.Contour` to linearize for the blue reference geometry -- it draws the
+  stock's own top-face rectangle instead and calls
+  `generateToolpaths(from operations: [SC.FacingOperation])` rather than the
+  per-contour overload.
 
 ### 2B — Slotting (`.slotting`)
 

@@ -50,6 +50,29 @@ public final class SCEngine {
         }
     }
 
+    /// Generates facing toolpaths, one per `FacingOperation`. `.facing` has no
+    /// selected contour to iterate -- it clears a `Stock`'s whole top-face footprint
+    /// once -- so it can't go through the per-contour `buildToolpath` switch below
+    /// the way every other strategy does (see `FacingOperation`'s doc comment and
+    /// Step 2A.1's flag on this exact gap). This is a dedicated overload for that,
+    /// mirroring the `DrillingOperation` overload above's solution to the same kind
+    /// of signature mismatch.
+    public func generateToolpaths(from operations: [SC.FacingOperation]) -> [SC.OutputToolpath] {
+        operations.compactMap { operation in
+            buildFacingToolpath(
+                stock: operation.stock,
+                tool: operation.tool,
+                settings: operation.settings,
+                stepover: operation.stepover,
+                direction: operation.direction,
+                extensionLength: operation.extensionLength,
+                operation: .facing(stepover: operation.stepover,
+                                   direction: operation.direction,
+                                   extensionLength: operation.extensionLength)
+            )
+        }
+    }
+
     // MARK: - Strategy dispatch
 
     /// Routes a single contour to the builder for its strategy. Returns `nil` when the
@@ -103,8 +126,12 @@ public final class SCEngine {
                                            operation: operation
                 )
 
-            case .facing(stepover: let stepover, direction: let direction, extensionLength: let extensionLength):
-                print("stepover \(stepover), direction \(direction), extensionLength \(extensionLength)")
+            case .facing:
+                // `.facing` clears a `Stock`'s whole top-face footprint, not this
+                // per-contour `contour` -- there's nothing here for it to act on.
+                // Use `generateToolpaths(from operations: [SC.FacingOperation])`
+                // instead (Step 2A.2), which builds the real toolpath via
+                // `buildFacingToolpath`.
                 return nil
 
             case .slotting(depthPerPass: let depthPerPass, entry: let entry):
