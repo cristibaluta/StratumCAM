@@ -86,10 +86,25 @@ extension SCEngine {
         }
 
         if case .fromOpenEnd(let stepoverPercentage) = entry {
+            // The wall-to-wall bounce radius comes from `pattern`'s own
+            // `TrochoidalSettings.loopRadius` -- the half-gap the tool's *center*
+            // is actually free to wander within, i.e. `(slotWidth - tool.diameter)
+            // / 2`, not `tool.diameter / 2` (that would be the offset for a slot
+            // exactly tool-width wide, where there's no gap to bounce across at
+            // all). Falls back to `0` -- a plain straight feed, no bounce -- for
+            // any pattern that isn't `.trochoidal`, since only that pattern
+            // carries a wall-offset value to honor here.
+            let wallOffset: Double
+            if case .trochoidal(let trochoidalSettings) = pattern {
+                wallOffset = trochoidalSettings.loopRadius
+            } else {
+                wallOffset = 0
+            }
             return buildOpenEndedSlottingWaypoints(for: segments,
                                                     tool: tool,
                                                     atZ: z,
                                                     settings: settings,
+                                                    wallOffset: wallOffset,
                                                     stepoverPercentage: stepoverPercentage)
         }
 
@@ -162,35 +177,161 @@ extension SCEngine {
 
     /// `.fromOpenEnd`'s own trace step -- expands `segments` (the derived
     /// centerline, already extended past the open mouth by
-    /// `openEndedSlotCenterline`) into a chain of overlapping trochoidal bites via
-    /// `trochoidalSegments`, the same wall-to-wall bounce machinery `.pocket`'s own
-    /// `.trochoidal` pattern already uses for its own wall boundary, then hands
-    /// that expanded chain to the ordinary `buildWaypoints` wrapper -- exactly the
-    /// way `.pocket`'s `buildPocketWaypoints` already treats `.trochoidal` +
-    /// `.plunge` together (`case .plunge: return buildWaypoints(for: segments,
-    /// ...)`, where `segments` there is likewise the post-trochoidal-expansion
-    /// chain, not the raw boundary). That means the rapid-then-plunge lands
-    /// exactly on the first bite's own start point (out in free air, per the
-    /// centerline's own extension), not the raw centerline's start -- there's no
-    /// separate Z-entry move to write here at all, since engagement builds up
-    /// gradually bite by bite as soon as the trace itself begins.
-    ///
-    /// This centerline's own two walls sit exactly `tool.diameter` apart (see
-    /// `openEndedSlotCenterline`'s own doc comment), so `loopRadius` here is
-    /// `tool.diameter / 2` -- both of `trochoidalSegments`' walls are the slot's
-    /// real walls, not one real and one virtual the way `.pocket`'s own wall
-    /// clearing uses it.
+    /// `openEndedSlotCenterline`) into a chain of overlapping wall-to-wall
+    /// trochoidal bites via `openEndedTrochoidalSegments` (see its own doc
+    /// comment for why that's a dedicated shape rather than a reuse of
+    /// `.pocket`'s own `trochoidalSegments`), then hands that expanded chain to
+    /// the ordinary `buildWaypoints` wrapper -- exactly the way `.pocket`'s
+    /// `buildPocketWaypoints` already treats `.trochoidal` + `.plunge` together
+    /// (`case .plunge: return buildWaypoints(for: segments, ...)`, where
+    /// `segments` there is likewise the post-trochoidal-expansion chain, not the
+    /// raw boundary). That means the rapid-then-plunge lands exactly on the
+    /// first bite's own start point (out in free air, per the centerline's own
+    /// extension), not the raw centerline's start -- there's no separate
+    /// Z-entry move to write here at all, since engagement builds up gradually
+    /// bite by bite as soon as the trace itself begins.
     private func buildOpenEndedSlottingWaypoints(for segments: [SC.Segment],
                                                  tool: SC.ToolParams,
                                                  atZ z: Double,
                                                  settings: SC.MachineSettings,
+                                                 wallOffset: Double,
                                                  stepoverPercentage: Double) -> [SC.Waypoint] {
 
-        let loopSegments = trochoidalSegments(from: segments,
-                                              tool: tool,
-                                              radialEngagement: stepoverPercentage,
-                                              loopRadius: tool.diameter / 2.0)
+        let loopSegments = openEndedTrochoidalSegments(from: segments,
+                                                        tool: tool,
+                                                        wallOffset: wallOffset,
+                                                        stepoverPercentage: stepoverPercentage)
         return buildWaypoints(for: loopSegments, atZ: z, settings: settings)
+    }
+
+    /// The wall-to-wall trochoidal bite shape an open-ended slot actually needs.
+    /// `wallOffset` is the half-gap the tool's own *center* is free to wander
+    /// within -- `(slotWidth - tool.diameter) / 2` -- not the tool radius itself:
+    /// the tool's cutting edge, not its center, is what actually has to touch
+    /// each wall, so a wider slot (say 8mm, cut with a 6mm tool) only lets the
+    /// center bounce 1mm to either side of the centerline, even though the tool
+    /// itself is 6mm across. Passing `tool.diameter / 2` here instead (as if the
+    /// slot were always exactly tool-width) makes the bounce amplitude wrong for
+    /// any wider slot, and following the raw boundary polygon as if it were
+    /// already this straight centerline compounds the error into the whole
+    /// bounce chain visibly tracking the boundary's own shape instead of
+    /// advancing straight down the slot -- both mistakes this function (and its
+    /// caller, which must hand it an actual straight centerline, not a raw
+    /// boundary) are built to avoid.
+    ///
+    /// Per cycle, in order:
+    ///   a) (Only before the very first cycle.) The tool is already sitting at
+    ///      wall A -- the constrained centerline's own `-wallOffset` side --
+    ///      courtesy of the rapid-then-plunge that lands on this function's own
+    ///      first bite start point.
+    ///   b) A full semicircle -- radius exactly `wallOffset`, bulging
+    ///      `wallOffset` forward into fresh material at its midpoint -- sweeps
+    ///      across to touch wall B (`+wallOffset`).
+    ///   c) A straight line moves back to wall A, at the *same* position along
+    ///      the centerline (not yet advanced) -- closing off this bite.
+    ///   d) A straight line advances forward along wall A by `stepoverPercentage
+    ///      * tool.diameter`, ready for the next cycle's own semicircle (step b
+    ///      again).
+    /// Every cycle re-anchors on the *same* wall (wall A) rather than
+    /// alternating sides bite to bite -- an alternating zig-zag isn't what a
+    /// wall-constrained cutter actually does; it's always anchored on one side,
+    /// arcing over to touch the other and back, then stepping forward.
+    ///
+    /// When `wallOffset` is ~0 (a slot exactly `tool.diameter` wide -- there's no
+    /// gap left for the tool center to bounce within at all, since the tool
+    /// already fills the whole width), this degrades to simply tracing
+    /// `segments` directly with no lateral bounce whatsoever -- the physically
+    /// correct behavior when there's genuinely no room to bounce in.
+    func openEndedTrochoidalSegments(from segments: [SC.Segment],
+                                      tool: SC.ToolParams,
+                                      wallOffset: Double,
+                                      stepoverPercentage: Double) -> [SC.Segment] {
+
+        guard !segments.isEmpty else {
+            return []
+        }
+
+        let loopRadius = wallOffset
+        guard loopRadius > 1e-6 else {
+            // No gap between the walls for the tool center to bounce within --
+            // just trace the centerline itself, straight in.
+            return segments
+        }
+
+        let pitch = max(stepoverPercentage, 1e-3) * tool.diameter
+        guard pitch > 1e-6 else {
+            return []
+        }
+
+        let totalLength = segments.pathLength
+        guard totalLength > 1e-9 else {
+            return []
+        }
+
+        // Bites start every `pitch` along the centerline, starting at distance 0
+        // and finishing with a final bite pinned exactly at the centerline's own
+        // end -- same fencepost convention `trochoidalSegments` itself uses.
+        let rawSteps = totalLength / pitch
+        let epsilon = 1e-9
+        let stepCount: Int
+        if abs(rawSteps.rounded() - rawSteps) < epsilon {
+            stepCount = max(1, Int(rawSteps.rounded()))
+        } else {
+            stepCount = max(1, Int(rawSteps.rounded(.up)))
+        }
+        let cycleCount = stepCount + 1
+
+        let cycleDistances: [Double] = (0..<cycleCount).map { i in
+            (i == cycleCount - 1) ? totalLength : pitch * Double(i)
+        }
+
+        let stepsPerSemicircle = 36 // same 5-degrees/step resolution `trochoidalSegments` uses.
+
+        func frame(atDistance distance: Double) -> (origin: CGPoint, travelDirection: CGPoint, normal: CGPoint) {
+            let origin = point(alongPath: segments, distance: distance, totalLength: totalLength)
+            let travelDirection = tangent(alongPath: segments, distance: distance, totalLength: totalLength)
+            let normal = CGPoint(x: -travelDirection.y, y: travelDirection.x)
+            return (origin, travelDirection, normal)
+        }
+
+        var result: [SC.Segment] = []
+        var previousWallAPoint: CGPoint?
+
+        for distance in cycleDistances {
+            let (origin, travelDirection, normal) = frame(atDistance: distance)
+
+            func local(_ u: Double, _ v: Double) -> CGPoint {
+                CGPoint(x: origin.x + u * travelDirection.x + v * normal.x,
+                        y: origin.y + u * travelDirection.y + v * normal.y)
+            }
+
+            let wallA = local(0, -loopRadius)
+
+            // d) Advance forward along wall A from the previous cycle's own
+            // closing point to this cycle's wall-A point.
+            if let previousWallAPoint, hypot(wallA.x - previousWallAPoint.x, wallA.y - previousWallAPoint.y) > 1e-6 {
+                result.append(.line(start: previousWallAPoint, end: wallA))
+            }
+
+            // b) The semicircle itself: touches wall A at the start (angle
+            // -pi/2), bulges `loopRadius` forward (angle 0, `u == loopRadius`)
+            // at its midpoint, and finishes touching wall B (angle +pi/2).
+            var previousPoint = wallA
+            for step in 1...stepsPerSemicircle {
+                let t = Double(step) / Double(stepsPerSemicircle)
+                let angle = -Double.pi / 2 + Double.pi * t
+                let nextPoint = local(loopRadius * cos(angle), loopRadius * sin(angle))
+                result.append(.line(start: previousPoint, end: nextPoint))
+                previousPoint = nextPoint
+            }
+
+            // c) Straight line back to wall A, at this same position (not yet
+            // advanced -- that's step d, above, on the *next* cycle).
+            result.append(.line(start: previousPoint, end: wallA))
+            previousWallAPoint = wallA
+        }
+
+        return result
     }
 
     // MARK: - Slot boundary recognition (rectangle -> centerline)
@@ -344,28 +485,28 @@ extension SCEngine {
     /// from the closed end, the same rounding-the-square-corner reasoning
     /// `rectangleSlotCenterline` already uses at both of its ends. The extension
     /// past the mouth is what lets `.fromOpenEnd` rapid straight down to depth and
-    /// start its first trochoidal loop already clear of material, rather than
+    /// start its first trochoidal bounce already clear of material, rather than
     /// starting exactly at the stock edge and engaging full width immediately.
     ///
     /// `approachDistance` defaults to `tool.diameter` -- enough clearance that the
-    /// first trochoidal loop (radius `tool.diameter / 2`) doesn't touch the stock
-    /// edge at all before the tool is already at full depth.
+    /// first bounce (radius `(closedEndLength - tool.diameter) / 2`, capped at
+    /// most `tool.diameter / 2`) doesn't touch the stock edge at all before the
+    /// tool is already at full depth.
     ///
     /// Deliberately as narrow in scope as `rectangleSlotCenterline`: only a plain
     /// 3-straight-segment "U", one pair of opposite (side) walls within
-    /// `tolerance` of `tool.diameter`, both corners against the closed end square.
-    /// Returns `nil` for anything that isn't recognizably that shape -- a closed
-    /// contour (that's `rectangleSlotCenterline`'s own case), not exactly 3
-    /// segments, a curved side, corners that aren't right angles, side walls of
-    /// unequal length, a closed end that isn't `tool.diameter` wide, or a slot no
-    /// longer than its own width once the closed end is inset -- rather than
-    /// guessing.
-    ///
-    /// > Flag: same wider-than-tool gap `rectangleSlotCenterline` already flags --
-    /// > this only ever derives a centerline for a slot exactly `tool.diameter`
-    /// > wide. A boundary wider than the tool needs the pattern-based clearing
-    /// > `SlottingPattern.raster`/`.trochoidal` describe (model exists, still
-    /// > unwired into `.slotting`), not this recognition step.
+    /// `tolerance` of each other, both corners against the closed end square.
+    /// Unlike `rectangleSlotCenterline`, the closed end only has to be *at least*
+    /// `tool.diameter` wide, not exactly -- a slot wider than the tool is exactly
+    /// what `.fromOpenEnd`'s trochoidal bounce (see `openEndedTrochoidalSegments`)
+    /// exists to clear, bouncing the tool's center within the leftover
+    /// `(closedEndLength - tool.diameter) / 2` gap on each side of this
+    /// centerline. Returns `nil` for anything that isn't recognizably that shape
+    /// -- a closed contour (that's `rectangleSlotCenterline`'s own case), not
+    /// exactly 3 segments, a curved side, corners that aren't right angles, side
+    /// walls of unequal length, a closed end narrower than the tool itself, or a
+    /// slot no longer than its own width once the closed end is inset -- rather
+    /// than guessing.
     public func openEndedSlotCenterline(fromBoundary contour: SC.Contour,
                                         tool: SC.ToolParams,
                                         approachDistance: Double? = nil,
@@ -406,10 +547,11 @@ extension SCEngine {
             return nil
         }
 
-        // The closed end must match the tool's own diameter -- that's the slot's
-        // width, same requirement `rectangleSlotCenterline` places on its own
-        // width-pairing side.
-        guard abs(closedEndLength - tool.diameter) < tolerance else {
+        // The closed end must be at least as wide as the tool -- narrower than
+        // that and the tool physically can't fit between these walls at all.
+        // Wider is fine (see this function's own doc comment): that's exactly
+        // the case `.fromOpenEnd`'s trochoidal bounce clears.
+        guard closedEndLength >= tool.diameter - tolerance else {
             return nil
         }
 
@@ -476,18 +618,15 @@ extension SCEngine {
     ///
     /// Deliberately as narrow in scope as `rectangleSlotCenterline`/
     /// `openEndedSlotCenterline`: only a plain pair of straight, equal-length,
-    /// parallel walls exactly `tool.diameter` apart. Returns `nil` -- rather than
-    /// guessing -- for anything that isn't recognizably that shape: a closed
-    /// contour (that's `rectangleSlotCenterline`'s own case), not exactly 2
-    /// segments, a curved wall, walls of unequal length, walls that aren't
-    /// parallel, or walls that aren't `tool.diameter` apart.
-    ///
-    /// > Flag: same wider-than-tool gap `rectangleSlotCenterline`/
-    /// > `openEndedSlotCenterline` already flag -- this only ever derives a
-    /// > centerline for a slot exactly `tool.diameter` wide. A boundary wider
-    /// > than the tool needs the pattern-based clearing `SlottingPattern.raster`/
-    /// > `.trochoidal` describe (model exists, still unwired into `.slotting`),
-    /// > not this recognition step.
+    /// parallel walls. Unlike the closed/single-open-end cases, the walls only
+    /// have to be *at least* `tool.diameter` apart, not exactly -- see
+    /// `openEndedSlotCenterline`'s own doc comment for why a slot wider than the
+    /// tool is exactly what `.fromOpenEnd`'s trochoidal bounce is built to clear.
+    /// Returns `nil` -- rather than guessing -- for anything that isn't
+    /// recognizably that shape: a closed contour (that's
+    /// `rectangleSlotCenterline`'s own case), not exactly 2 segments, a curved
+    /// wall, walls of unequal length, walls that aren't parallel, or walls
+    /// closer together than the tool itself.
     public func bothEndsOpenSlotCenterline(fromBoundary contour: SC.Contour,
                                            tool: SC.ToolParams,
                                            approachDistance: Double? = nil,
@@ -551,10 +690,11 @@ extension SCEngine {
             return nil
         }
 
-        // The two walls must be tool.diameter apart -- that's the slot's width,
-        // same requirement the closed and single-open-end cases place on theirs.
+        // The two walls must be at least tool.diameter apart -- narrower than
+        // that and the tool physically can't fit between them at all. Wider is
+        // fine (see this function's own doc comment).
         let separation = hypot(bNearA0.x - a0.x, bNearA0.y - a0.y)
-        guard abs(separation - tool.diameter) < tolerance else {
+        guard separation >= tool.diameter - tolerance else {
             return nil
         }
 

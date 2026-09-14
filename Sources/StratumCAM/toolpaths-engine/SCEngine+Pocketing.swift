@@ -777,7 +777,11 @@ extension SCEngine {
     /// the same "walk the chain by cumulative length" approach
     /// `SCEngine+Contour.swift`'s `tracedWaypoints` already uses for holding-tab
     /// spans, just returning a point instead of a Z clamp.
-    private func point(alongPath segments: [SC.Segment], distance: Double, totalLength: Double) -> CGPoint {
+    ///
+    /// Not `private` -- `SCEngine+Slotting.swift`'s own
+    /// `openEndedTrochoidalSegments` reuses this same "walk the chain" logic for
+    /// its wall-to-wall bites along an open-ended slot's centerline.
+    func point(alongPath segments: [SC.Segment], distance: Double, totalLength: Double) -> CGPoint {
         guard let firstSegment = segments.first else {
             return .zero
         }
@@ -822,7 +826,10 @@ extension SCEngine {
     /// tangent (direction of travel) there -- `trochoidalSegments`'s own
     /// counterpart to `point(alongPath:distance:totalLength:)`, needed to build
     /// the local forward/lateral frame each of its bites bounces within.
-    private func tangent(alongPath segments: [SC.Segment], distance: Double, totalLength: Double) -> CGPoint {
+    ///
+    /// Not `private` -- see `point(alongPath:distance:totalLength:)`'s own note
+    /// above.
+    func tangent(alongPath segments: [SC.Segment], distance: Double, totalLength: Double) -> CGPoint {
         guard let firstSegment = segments.first else {
             return CGPoint(x: 1, y: 0)
         }

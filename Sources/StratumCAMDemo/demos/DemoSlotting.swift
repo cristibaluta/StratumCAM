@@ -171,23 +171,42 @@ class DemoSlotting: Demo {
     /// the tool never needs to plunge into solid stock at all: it rapids down in
     /// free air just outside the part, then feeds sideways into the material.
     /// `entry: .fromOpenEnd` drives that feed-in as a chain of overlapping
-    /// trochoidal loops (reusing the same `trochoidalSegments` machinery
-    /// `.pocket`'s own `.trochoidal` pattern uses) rather than a single full-width
-    /// straight-line feed, so the cutter engages gradually loop by loop instead of
-    /// slamming to full width the instant it crosses into the stock.
+    /// trochoidal bounces (`openEndedTrochoidalSegments`) rather than a single
+    /// full-width straight-line feed, so the cutter engages gradually bite by
+    /// bite instead of slamming to full width the instant it crosses into the
+    /// stock.
     ///
-    /// `openEndedSlotCenterline(fromBoundary:tool:)` derives that centerline from
-    /// the boundary the same way `rectangleSlotCenterline` does for the blind case:
-    /// inset by the tool radius at the closed end (rounding what a round tool can't
-    /// cut square), but *extended past* the open mouth by one tool diameter so the
-    /// first trochoidal loop starts entirely clear of the stock.
+    /// This slot is deliberately wider (8mm) than the 6mm tool cutting it, the
+    /// realistic case the trochoidal bounce exists for: a same-width slot has no
+    /// room for the tool center to bounce in at all (see
+    /// `openEndedTrochoidalSegments`'s own doc comment on its `wallOffset == 0`
+    /// fallback). `openEndedSlotCenterline(fromBoundary:tool:)` derives the
+    /// centerline running down the middle of those two walls -- inset by the
+    /// tool radius at the closed end (rounding what a round tool can't cut
+    /// square), extended past the open mouth by one tool diameter so the first
+    /// bounce starts entirely clear of the stock -- and `wallOffset` (the gap
+    /// `(width - tool.diameter) / 2` the tool's own *center* is actually free to
+    /// wander within, not the tool radius itself) is threaded through as this
+    /// pattern's own `TrochoidalSettings.loopRadius`, exactly what
+    /// `openEndedTrochoidalSegments` needs to keep the cutter genuinely
+    /// constrained between the slot's own two real walls rather than bouncing
+    /// the wrong amount.
     func demoSlottingOpenEnded() -> Demo.DemoResult {
         let tool = SC.ToolParams(diameter: 6.0)
         let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0)
         let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -1.0)
-        let boundary = openEndedSlotBoundaryContour(length: 30, width: 8)
+        let width = 8.0
+        let boundary = openEndedSlotBoundaryContour(length: 30, width: width)
+        let wallOffset = (width - tool.diameter) / 2.0
         let pattern: SC.SlotClearingPattern =
-            .trochoidal(settings: SC.TrochoidalSettings(radialEngagement: 0.5, loopRadius: 0))
+            .trochoidal(settings: SC.TrochoidalSettings(radialEngagement: 0.5, loopRadius: wallOffset))
+
+        guard let centerline = engine.openEndedSlotCenterline(fromBoundary: boundary, tool: tool) else {
+            // Shouldn't happen for this fixture -- the "U"'s own closed end is at
+            // least as wide as the tool -- but a demo should never crash even if
+            // the fixture above is ever edited to no longer qualify.
+            return Demo.DemoResult(batches: [], gcode: "", toolpathPoints: [], tool: tool)
+        }
 
         // Blue reference: the boundary itself (the physical slot walls that will
         // exist once the open end has been cut), not the derived centerline.
@@ -196,7 +215,7 @@ class DemoSlotting: Demo {
         let boundaryPoints = tessellateForRender(boundaryWaypoints)
 
         let toolpaths = engine.generateToolpaths(
-            from: [boundary],
+            from: [centerline],
             tool: tool,
             settings: settings,
             operation: .slotting(depthPerPass: 1.0, pattern: pattern, entry: .fromOpenEnd(stepoverPercentage: 0.5))
@@ -245,16 +264,21 @@ class DemoSlotting: Demo {
     /// one -- the classic screwdriver slot, cut straight across the part. Neither
     /// end needs a plunge/ramp/helix into solid material, and neither end needs a
     /// tool-radius inset the way a closed corner does: the tool rapids down in
-    /// free air just outside one edge, feeds in via overlapping trochoidal loops
-    /// (`entry: .fromOpenEnd`, same mechanism `demoSlottingOpenEnded` uses) across
-    /// the full length, and exits into free air on the far side exactly the same
-    /// way it entered.
+    /// free air just outside one edge, feeds in via overlapping trochoidal
+    /// bounces (`entry: .fromOpenEnd`, same mechanism `demoSlottingOpenEnded`
+    /// uses) across the full length, and exits into free air on the far side
+    /// exactly the same way it entered.
     ///
-    /// `bothEndsOpenSlotCenterline(fromBoundary:tool:)` derives that centerline
-    /// from the boundary the same way `openEndedSlotCenterline` does for the
-    /// single-open-end case, just extended past *both* mouths by one tool
-    /// diameter instead of only one -- see that function's own doc comment for
-    /// why no inset is needed at either end here.
+    /// Same 8mm-wide-with-a-6mm-tool sizing as `demoSlottingOpenEnded`, and for
+    /// the same reason -- see that function's own doc comment on why the
+    /// trochoidal bounce needs a slot wider than the tool to have anything to
+    /// bounce within at all. `bothEndsOpenSlotCenterline(fromBoundary:tool:)`
+    /// derives that centerline from the boundary the same way
+    /// `openEndedSlotCenterline` does for the single-open-end case, just
+    /// extended past *both* mouths by one tool diameter instead of only one, and
+    /// `wallOffset` (`(width - tool.diameter) / 2`) is threaded through as this
+    /// pattern's own `TrochoidalSettings.loopRadius`, exactly as
+    /// `demoSlottingOpenEnded` does.
     ///
     /// Both mouths sit exactly on the stock's own X edges in this demo (no margin
     /// on either side, same `stockForOpenEndedSlot` helper `demoSlottingOpenEnded`
@@ -264,12 +288,14 @@ class DemoSlotting: Demo {
         let tool = SC.ToolParams(diameter: 6.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0), safeZ: 5.0, targetDepth: -1.0)
         let length = 30.0
-        let boundary = bothEndsOpenSlotBoundaryContour(length: length, width: 6)
-        let pattern = SC.SlotClearingPattern.trochoidal(settings: SC.TrochoidalSettings(radialEngagement: 50, loopRadius: 0))
+        let width = 8.0
+        let boundary = bothEndsOpenSlotBoundaryContour(length: length, width: width)
+        let wallOffset = (width - tool.diameter) / 2.0
+        let pattern = SC.SlotClearingPattern.trochoidal(settings: SC.TrochoidalSettings(radialEngagement: 0.5, loopRadius: wallOffset))
 
         guard let centerline = engine.bothEndsOpenSlotCenterline(fromBoundary: boundary, tool: tool) else {
-            // Shouldn't happen for this fixture -- the boundary's own width
-            // matches the tool exactly -- but a demo should never crash even if
+            // Shouldn't happen for this fixture -- the boundary's own width is at
+            // least as wide as the tool -- but a demo should never crash even if
             // the fixture above is ever edited to no longer qualify.
             return Demo.DemoResult(batches: [], gcode: "", toolpathPoints: [], tool: tool)
         }
