@@ -48,7 +48,7 @@ class Demo {
         // 1. Convert each Contour to 3D simd points
         var rawPoints: [SIMD3<Float>] = []
         for contour in contours {
-            let segments = engine.linearize(contour: contour)
+            let segments = contour.linearizedSegments
             let waypoints = engine.buildWaypoints(for: segments, atZ: 0, settings: settings)
             rawPoints.append(contentsOf: tessellateForRender(waypoints))
         }

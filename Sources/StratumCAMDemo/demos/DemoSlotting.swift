@@ -113,6 +113,7 @@ class DemoSlotting: Demo {
         let tool = SC.ToolParams(diameter: 6.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0), safeZ: 5.0, targetDepth: -1.0)
         let boundary = rectangleBoundaryContour(length: 30, width: 6)
+        let pattern = SC.SlotClearingPattern.trochoidal(settings: SC.TrochoidalSettings(radialEngagement: 50, loopRadius: 0))
 
         guard let centerline = engine.rectangleSlotCenterline(fromBoundary: boundary, tool: tool) else {
             // Shouldn't happen for this fixture -- the rectangle's own width
@@ -124,7 +125,7 @@ class DemoSlotting: Demo {
         // Blue reference: the boundary itself (the physical slot walls), not the
         // derived centerline -- mirrors `run(facing:)`'s own split between a
         // Stock-derived reference rectangle and a separately-generated toolpath.
-        let boundarySegments = engine.linearize(contour: boundary)
+        let boundarySegments = boundary.linearizedSegments
         let boundaryWaypoints = engine.buildWaypoints(for: boundarySegments, atZ: 0, settings: settings)
         let boundaryPoints = tessellateForRender(boundaryWaypoints)
 
@@ -132,7 +133,7 @@ class DemoSlotting: Demo {
             from: [centerline],
             tool: tool,
             settings: settings,
-            operation: .slotting(depthPerPass: 1.0, entry: .plunge)
+            operation: .slotting(depthPerPass: 1.0, pattern: pattern, entry: .plunge)
         )
         var toolpathPoints: [SIMD3<Float>] = []
         for toolpath in toolpaths {
@@ -183,26 +184,20 @@ class DemoSlotting: Demo {
     func demoSlottingOpenEnded() -> Demo.DemoResult {
         let tool = SC.ToolParams(diameter: 6.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0), safeZ: 5.0, targetDepth: -1.0)
-        let boundary = openEndedSlotBoundaryContour(length: 30, width: 6)
-
-        guard let centerline = engine.openEndedSlotCenterline(fromBoundary: boundary, tool: tool) else {
-            // Shouldn't happen for this fixture -- the boundary's own width
-            // matches the tool exactly -- but a demo should never crash even if
-            // the fixture above is ever edited to no longer qualify.
-            return Demo.DemoResult(batches: [], gcode: "", toolpathPoints: [], tool: tool)
-        }
+        let boundary = openEndedSlotBoundaryContour(length: 30, width: 8)
+        let pattern = SC.SlotClearingPattern.trochoidal(settings: SC.TrochoidalSettings(radialEngagement: 50, loopRadius: 0))
 
         // Blue reference: the boundary itself (the physical slot walls that will
         // exist once the open end has been cut), not the derived centerline.
-        let boundarySegments = engine.linearize(contour: boundary)
+        let boundarySegments = boundary.linearizedSegments
         let boundaryWaypoints = engine.buildWaypoints(for: boundarySegments, atZ: 0, settings: settings)
         let boundaryPoints = tessellateForRender(boundaryWaypoints)
 
         let toolpaths = engine.generateToolpaths(
-            from: [centerline],
+            from: [boundary],
             tool: tool,
             settings: settings,
-            operation: .slotting(depthPerPass: 1.0, entry: .fromOpenEnd(stepoverPercentage: 0.5))
+            operation: .slotting(depthPerPass: 1.0, pattern: pattern, entry: .fromOpenEnd(stepoverPercentage: 0.5))
         )
         var toolpathPoints: [SIMD3<Float>] = []
         for toolpath in toolpaths {
@@ -268,6 +263,7 @@ class DemoSlotting: Demo {
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0), safeZ: 5.0, targetDepth: -1.0)
         let length = 30.0
         let boundary = bothEndsOpenSlotBoundaryContour(length: length, width: 6)
+        let pattern = SC.SlotClearingPattern.trochoidal(settings: SC.TrochoidalSettings(radialEngagement: 50, loopRadius: 0))
 
         guard let centerline = engine.bothEndsOpenSlotCenterline(fromBoundary: boundary, tool: tool) else {
             // Shouldn't happen for this fixture -- the boundary's own width
@@ -278,7 +274,7 @@ class DemoSlotting: Demo {
 
         // Blue reference: the boundary itself (the physical slot walls that will
         // exist once both open ends have been cut), not the derived centerline.
-        let boundarySegments = engine.linearize(contour: boundary)
+        let boundarySegments = boundary.linearizedSegments
         let boundaryWaypoints = engine.buildWaypoints(for: boundarySegments, atZ: 0, settings: settings)
         let boundaryPoints = tessellateForRender(boundaryWaypoints)
 
@@ -286,7 +282,7 @@ class DemoSlotting: Demo {
             from: [centerline],
             tool: tool,
             settings: settings,
-            operation: .slotting(depthPerPass: 1.0, entry: .fromOpenEnd(stepoverPercentage: 0.5))
+            operation: .slotting(depthPerPass: 1.0, pattern: pattern, entry: .fromOpenEnd(stepoverPercentage: 0.5))
         )
         var toolpathPoints: [SIMD3<Float>] = []
         for toolpath in toolpaths {

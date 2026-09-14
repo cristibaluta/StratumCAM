@@ -31,7 +31,7 @@ extension SCEngine {
             return nil
         }
 
-        let baseSegments = linearize(contour: contour)
+        let baseSegments = contour.linearizedSegments
         guard !baseSegments.isEmpty else {
             return nil
         }
@@ -120,21 +120,14 @@ extension SCEngine {
                     toolpathSegments = chainedRingSegments(rings)
                 }
 
-            case .trochoidal:
-                // Same climb/conventional wall orientation `.offsetPattern` and
-                // `.spiral` use -- trochoidal advances along this same oriented
-                // boundary chain (Step 1B.2), looping the cutter in small overlapping
-                // circles instead of tracing or offsetting it directly. Unlike
-                // `.offsetPattern`/`.spiral`, it doesn't need the tool-radius wall
-                // offset itself: the loops are already sized off `tool.diameter`, so
-                // centering them directly on the raw boundary already keeps the
-                // cutter's swept footprint on the wall, not past it.
+            case .trochoidal(let trochoidalSettings):
                 let oriented = orientedForDirection(baseSegments, side: .inside, direction: direction)
                 boundarySegments = oriented
 
                 toolpathSegments = trochoidalSegments(from: oriented,
                                                       tool: tool,
-                                                      stepoverPercentage: settings.cutting.stepoverPercentage)
+                                                      radialEngagement: trochoidalSettings.radialEngagement,
+                                                      loopRadius: trochoidalSettings.loopRadius)
 
             case .adaptive:
                 fatalError("Not implemented yet")
@@ -645,43 +638,52 @@ extension SCEngine {
 
     // MARK: - Step 1B.2: trochoidal pocket
 
-    /// Turns the same oriented pocket-wall boundary chain `.offsetPattern` and
-    /// `.spiral` build via `orientedForDirection` into a chain of small overlapping
-    /// circular loops advancing along it, rather than tracing or offsetting it
-    /// directly -- same shape of problem Track 2B's slotting will eventually solve for
-    /// a `.slotting` `MachiningOperation`, applied here to `.pocket`'s wall instead of
-    /// an open centerline.
+    /// Turns the same oriented boundary chain `.offsetPattern`/`.spiral` build via
+    /// `orientedForDirection` (or, for `.slotting`, a slot's own centerline) into a
+    /// chain of semicircular "bites" that bounce the cutter between the two walls
+    /// constraining it, rather than tracing/offsetting the boundary directly or
+    /// looping in full circles centered on it.
     ///
-    /// Loop diameter and how far successive loop centers advance are both driven off
-    /// the same inputs `.raster` and `pocketRings` already read -- `tool.diameter` and
-    /// `settings.cutting.stepoverPercentage` -- rather than introducing a third,
-    /// trochoidal-only parameter:
-    /// - Each loop's diameter is exactly `tool.diameter`, tracing the cutter's own
-    ///   swept footprint centered on the path.
-    /// - Center-to-center advance per loop is `stepoverPercentage * tool.diameter`,
-    ///   the identical spacing `pocketRings` uses between adjacent rings and
-    ///   `rasterScanlines` uses between adjacent rows -- consecutive loops overlap by
-    ///   exactly the amount that convention already means everywhere else in this file.
+    /// Picture milling a slot: the tool sits against one wall, swings across in a
+    /// semicircle engaging only `radialEngagement` (a fraction of `tool.diameter`)
+    /// of fresh material, then a straight line finishes the reach to the opposite
+    /// wall through material the previous bite (coming from the other direction)
+    /// already cleared. The tool then advances along the boundary and repeats,
+    /// starting its next bite from the wall it's now sitting against -- so
+    /// consecutive bites alternate sides, tracing a zig-zag of "D"-shaped lobes
+    /// down the boundary instead of a straight chain of full circles along its
+    /// centerline.
     ///
-    /// Each loop is a full closed circle, tessellated at the same 5-degree-per-step
-    /// resolution `spiralSegments` uses for its own continuous cut (this is real
-    /// cutting motion along the whole boundary, not a short entry hop, so facets on
-    /// the wall matter). Loops are connected by a short straight move from one loop's
-    /// own closing point to the next loop's starting point, mirroring
-    /// `chainedRingSegments`'s one-move-per-transition convention.
+    /// The two walls are `2 * loopRadius` apart, centered on the boundary itself
+    /// (wall offsets of `+loopRadius`/`-loopRadius` from it) -- for `.pocket`'s
+    /// wall-following case that's the real wall plus a virtual "far wall"
+    /// `loopRadius` into the open pocket; for a `.slotting` centerline with
+    /// `loopRadius == tool.diameter / 2`, that's the slot's own two real walls.
+    /// If a single bite's engagement (`radialEngagement * tool.diameter`) already
+    /// reaches or exceeds the full `2 * loopRadius` gap, the semicircle alone
+    /// spans wall to wall and the straight "reach the opposite wall" bridge is
+    /// skipped (there's no gap left to cross).
     ///
-    /// - Note: doesn't attempt `1C.2`-style "is this gap already cleared" bookkeeping
-    ///   -- unlike raster's rows, every loop here is centered directly on the boundary
-    ///   itself, so consecutive loops always overlap by construction and never need a
-    ///   retract/re-entry between them the way raster's span-linking might.
-    func trochoidalSegments(from orientedBoundary: [SC.Segment], tool: SC.ToolParams, stepoverPercentage: Double) -> [SC.Segment] {
+    /// Each semicircle is tessellated at the same 5-degree-per-step resolution
+    /// `spiralSegments`'s full circles use (this is real cutting motion, not a
+    /// short entry hop, so facets on the wall matter). Bites are connected by
+    /// short straight advance moves from one bite's own finishing point to the
+    /// next bite's starting point, mirroring `chainedRingSegments`'s
+    /// one-move-per-transition convention.
+    func trochoidalSegments(from orientedBoundary: [SC.Segment], tool: SC.ToolParams, radialEngagement: Double, loopRadius: Double) -> [SC.Segment] {
         guard !orientedBoundary.isEmpty else {
             return []
         }
 
-        let loopRadius = tool.diameter / 2.0
-        let advance = stepoverPercentage * tool.diameter
-        guard loopRadius > 1e-9, advance > 1e-6 else {
+        guard loopRadius > 1e-9 else {
+            return []
+        }
+
+        // How much fresh material (as a fraction of tool.diameter) each single
+        // bite engages, clamped so a single semicircle never tries to overshoot
+        // past the far wall -- see this function's own doc comment.
+        let penetration = min(radialEngagement * tool.diameter, 2 * loopRadius)
+        guard penetration > 1e-6 else {
             return []
         }
 
@@ -690,12 +692,12 @@ extension SCEngine {
             return []
         }
 
-        // Loop centers walk the boundary every `advance`, starting at distance 0 and
-        // finishing with a final loop pinned exactly at the boundary's own end --
-        // same fencepost convention `rasterScanlines` uses for its last row and
-        // `calculateZPasses` uses for its last Z depth, rather than landing short of,
-        // or past, the boundary's true end.
-        let rawSteps = totalLength / advance
+        // Bites start every `penetration` along the boundary, starting at distance
+        // 0 and finishing with a final bite pinned exactly at the boundary's own
+        // end -- same fencepost convention `rasterScanlines` uses for its last row
+        // and `calculateZPasses` uses for its last Z depth, rather than landing
+        // short of, or past, the boundary's true end.
+        let rawSteps = totalLength / penetration
         let epsilon = 1e-9
         let stepCount: Int
         if abs(rawSteps.rounded() - rawSteps) < epsilon {
@@ -703,32 +705,68 @@ extension SCEngine {
         } else {
             stepCount = max(1, Int(rawSteps.rounded(.up)))
         }
-        let loopCount = stepCount + 1
+        let cycleCount = stepCount + 1
 
-        let centers: [CGPoint] = (0..<loopCount).map { i in
-            let distance = (i == loopCount - 1) ? totalLength : advance * Double(i)
-            return point(alongPath: orientedBoundary, distance: distance, totalLength: totalLength)
+        let cycleDistances: [Double] = (0..<cycleCount).map { i in
+            (i == cycleCount - 1) ? totalLength : penetration * Double(i)
         }
 
-        let stepsPerLoop = 72 // same tessellation density `spiralSegments` uses (5 degrees/step).
+        let stepsPerSemicircle = 36 // half of `spiralSegments`'s 72-step full circle -- same 5 degrees/step.
+        let hasBridge = penetration < (2 * loopRadius - 1e-9)
 
         var segments: [SC.Segment] = []
-        for (i, center) in centers.enumerated() {
-            let loopStart = CGPoint(x: center.x + loopRadius, y: center.y)
+        var previousFinish: CGPoint?
 
-            if i > 0 {
-                let previousLoopEnd = CGPoint(x: centers[i - 1].x + loopRadius, y: centers[i - 1].y)
-                if hypot(loopStart.x - previousLoopEnd.x, loopStart.y - previousLoopEnd.y) > 1e-6 {
-                    segments.append(.line(start: previousLoopEnd, end: loopStart))
-                }
+        for (i, distance) in cycleDistances.enumerated() {
+            let origin = point(alongPath: orientedBoundary, distance: distance, totalLength: totalLength)
+            let travelDirection = tangent(alongPath: orientedBoundary, distance: distance, totalLength: totalLength)
+            let normal = CGPoint(x: -travelDirection.y, y: travelDirection.x)
+
+            // Bites alternate which wall they start from -- the wall this bite
+            // finishes against is exactly where the next bite starts.
+            let side: Double = (i % 2 == 0) ? -1.0 : 1.0
+
+            func local(_ u: Double, _ v: Double) -> CGPoint {
+                CGPoint(x: origin.x + u * travelDirection.x + v * normal.x,
+                        y: origin.y + u * travelDirection.y + v * normal.y)
             }
 
-            var previousPoint = loopStart
-            for step in 1...stepsPerLoop {
-                let angle = (2 * Double.pi / Double(stepsPerLoop)) * Double(step)
-                let nextPoint = CGPoint(x: center.x + loopRadius * cos(angle), y: center.y + loopRadius * sin(angle))
+            let start = local(0, side * loopRadius)
+
+            // Advance move from the previous bite's finishing point (already
+            // sitting on this bite's own starting wall) to this bite's start.
+            if let previousFinish, hypot(start.x - previousFinish.x, start.y - previousFinish.y) > 1e-6 {
+                segments.append(.line(start: previousFinish, end: start))
+            }
+
+            // The semicircle itself: a "D"-shaped lobe whose flat side runs along
+            // this wall from `side * loopRadius` to `side * (loopRadius -
+            // penetration)`, bulging forward (in the direction of travel) by
+            // `penetration / 2` at its midpoint -- see this function's own doc
+            // comment for the geometry this reproduces.
+            let semicircleRadius = penetration / 2
+            let centerV = side * (loopRadius - penetration / 2)
+            let startAngle = side * (Double.pi / 2)
+            let sweepSign = -side // sweeps through angle 0 (the forward bulge), never through pi (backward).
+
+            var previousPoint = start
+            for step in 1...stepsPerSemicircle {
+                let t = Double(step) / Double(stepsPerSemicircle)
+                let angle = startAngle + sweepSign * Double.pi * t
+                let nextPoint = local(semicircleRadius * cos(angle), centerV + semicircleRadius * sin(angle))
                 segments.append(.line(start: previousPoint, end: nextPoint))
                 previousPoint = nextPoint
+            }
+
+            // Straight line finishing the reach to the opposite wall, through
+            // material the previous (opposite-direction) bite already cleared --
+            // skipped when this bite's own penetration already reached that wall.
+            if hasBridge {
+                let oppositeWall = local(0, -side * loopRadius)
+                segments.append(.line(start: previousPoint, end: oppositeWall))
+                previousFinish = oppositeWall
+            } else {
+                previousFinish = previousPoint
             }
         }
 
@@ -795,6 +833,57 @@ extension SCEngine {
                 let sweep = isCCW ? (endAngle - startAngle) : (startAngle - endAngle)
                 let angle = startAngle + (isCCW ? 1.0 : -1.0) * abs(sweep) * t
                 return CGPoint(x: center.x + radius * cos(angle), y: center.y + radius * sin(angle))
+        }
+    }
+
+    /// Walks `segments` (assumed contiguous, as `orientedForDirection`'s output
+    /// always is) `distance` along its total arc length and returns the unit
+    /// tangent (direction of travel) there -- `trochoidalSegments`'s own
+    /// counterpart to `point(alongPath:distance:totalLength:)`, needed to build
+    /// the local forward/lateral frame each of its bites bounces within.
+    private func tangent(alongPath segments: [SC.Segment], distance: Double, totalLength: Double) -> CGPoint {
+        guard let firstSegment = segments.first else {
+            return CGPoint(x: 1, y: 0)
+        }
+
+        let clamped = min(max(distance, 0), totalLength)
+        var cumulative = 0.0
+
+        for (index, segment) in segments.enumerated() {
+            let length = segmentArcLength(segment)
+            let isLast = index == segments.count - 1
+            if clamped <= cumulative + length + 1e-9 || isLast {
+                let remaining = min(max(clamped - cumulative, 0), length)
+                return tangentAlong(segment: segment, distance: remaining, length: length)
+            }
+            cumulative += length
+        }
+
+        return direction(of: firstSegment, atEnd: false)
+    }
+
+    /// The unit tangent `distance` along a single segment's own length --
+    /// `pointAlong`'s counterpart for direction rather than position.
+    private func tangentAlong(segment: SC.Segment, distance: Double, length: Double) -> CGPoint {
+        guard length > 1e-9 else {
+            return direction(of: segment, atEnd: false)
+        }
+
+        switch segment {
+            case .line(let start, let end):
+                let dx = end.x - start.x, dy = end.y - start.y
+                let len = hypot(dx, dy)
+                guard len > 1e-9 else {
+                    return CGPoint(x: 1, y: 0)
+                }
+                return CGPoint(x: dx / len, y: dy / len)
+
+            case .arc(_, _, let startAngle, let endAngle, let isCCW):
+                let t = distance / length
+                let sweep = isCCW ? (endAngle - startAngle) : (startAngle - endAngle)
+                let angle = startAngle + (isCCW ? 1.0 : -1.0) * abs(sweep) * t
+                let radialX = cos(angle), radialY = sin(angle)
+                return isCCW ? CGPoint(x: -radialY, y: radialX) : CGPoint(x: radialY, y: -radialX)
         }
     }
 }

@@ -28,7 +28,7 @@ extension SC {
                     direction: CutDirection,
                     extensionLength: Double)
 
-        /// Cuts a linear slot or groove along a center curve.
+        /// Cuts a linear slot or groove along a center curve or constrained by 2 walls
         ///
         /// Slotting describes the feature being machined. The actual material
         /// removal strategy may be implemented using direct slotting, helical
@@ -38,7 +38,9 @@ extension SC {
         /// - Parameters:
         ///   - depthPerPass: Maximum axial depth removed during each cutting pass.
         ///   - entry: Strategy used to enter the slot material.
-        case slotting(depthPerPass: Double, entry: EntryStrategy)
+        case slotting(depthPerPass: Double,
+                      pattern: SlotClearingPattern,
+                      entry: EntryStrategy)
 
         /// - Parameters:
         ///   - pitch: Thread pitch.

@@ -28,11 +28,12 @@ extension SCEngine {
     func buildSlottingToolpath(for contour: SC.Contour,
                                tool: SC.ToolParams,
                                settings: SC.MachineSettings,
+                               pattern: SC.SlotClearingPattern,
                                depthPerPass: Double,
                                entry: SC.EntryStrategy,
                                operation: SC.MachiningOperation) -> SC.OutputToolpath? {
 
-        let segments = linearize(contour: contour)
+        let segments = contour.linearizedSegments
         guard let firstSegment = segments.first else {
             return nil
         }
@@ -48,6 +49,7 @@ extension SCEngine {
                                                    atZ: z,
                                                    previousZ: previousZ,
                                                    settings: settings,
+                                                   pattern: pattern,
                                                    entry: entry)
             passes.append(SC.ToolpathPass(passIndex: i, depthZ: z, waypoints: waypoints))
             previousZ = z
@@ -81,6 +83,7 @@ extension SCEngine {
                                         atZ z: Double,
                                         previousZ: Double,
                                         settings: SC.MachineSettings,
+                                        pattern: SC.SlotClearingPattern,
                                         entry: SC.EntryStrategy) -> [SC.Waypoint] {
 
         guard entry != .plunge else {
@@ -164,25 +167,34 @@ extension SCEngine {
 
     /// `.fromOpenEnd`'s own trace step -- expands `segments` (the derived
     /// centerline, already extended past the open mouth by
-    /// `openEndedSlotCenterline`) into a chain of overlapping trochoidal loops via
-    /// `trochoidalSegments`, the same loop-advance machinery `.pocket`'s own
-    /// `.trochoidal` pattern already uses for its wall boundary, then hands that
-    /// expanded chain to the ordinary `buildWaypoints` wrapper -- exactly the way
-    /// `.pocket`'s `buildPocketWaypoints` already treats `.trochoidal` + `.plunge`
-    /// together (`case .plunge: return buildWaypoints(for: segments, ...)`, where
-    /// `segments` there is likewise the post-trochoidal-expansion chain, not the
-    /// raw boundary). That means the rapid-then-plunge lands exactly on the first
-    /// loop's own start point (out in free air, per the centerline's own
-    /// extension), not the raw centerline's start -- there's no separate Z-entry
-    /// move to write here at all, since engagement builds up gradually loop by
-    /// loop as soon as the trace itself begins.
+    /// `openEndedSlotCenterline`) into a chain of overlapping trochoidal bites via
+    /// `trochoidalSegments`, the same wall-to-wall bounce machinery `.pocket`'s own
+    /// `.trochoidal` pattern already uses for its own wall boundary, then hands
+    /// that expanded chain to the ordinary `buildWaypoints` wrapper -- exactly the
+    /// way `.pocket`'s `buildPocketWaypoints` already treats `.trochoidal` +
+    /// `.plunge` together (`case .plunge: return buildWaypoints(for: segments,
+    /// ...)`, where `segments` there is likewise the post-trochoidal-expansion
+    /// chain, not the raw boundary). That means the rapid-then-plunge lands
+    /// exactly on the first bite's own start point (out in free air, per the
+    /// centerline's own extension), not the raw centerline's start -- there's no
+    /// separate Z-entry move to write here at all, since engagement builds up
+    /// gradually bite by bite as soon as the trace itself begins.
+    ///
+    /// This centerline's own two walls sit exactly `tool.diameter` apart (see
+    /// `openEndedSlotCenterline`'s own doc comment), so `loopRadius` here is
+    /// `tool.diameter / 2` -- both of `trochoidalSegments`' walls are the slot's
+    /// real walls, not one real and one virtual the way `.pocket`'s own wall
+    /// clearing uses it.
     private func buildOpenEndedSlottingWaypoints(for segments: [SC.Segment],
                                                  tool: SC.ToolParams,
                                                  atZ z: Double,
                                                  settings: SC.MachineSettings,
                                                  stepoverPercentage: Double) -> [SC.Waypoint] {
 
-        let loopSegments = trochoidalSegments(from: segments, tool: tool, stepoverPercentage: stepoverPercentage)
+        let loopSegments = trochoidalSegments(from: segments,
+                                              tool: tool,
+                                              radialEngagement: stepoverPercentage,
+                                              loopRadius: tool.diameter / 2.0)
         return buildWaypoints(for: loopSegments, atZ: z, settings: settings)
     }
 
@@ -237,7 +249,7 @@ extension SCEngine {
             return nil
         }
 
-        let segments = linearize(contour: contour)
+        let segments = contour.linearizedSegments
         guard segments.count == 4 else {
             return nil
         }
@@ -368,11 +380,12 @@ extension SCEngine {
             return nil
         }
 
-        let segments = linearize(contour: contour)
+        let segments = contour.linearizedSegments
         guard segments.count == 3 else {
             return nil
         }
 
+        // TODO: should take curved lines
         // Every side must be a straight line -- no curved walls handled here.
         for segment in segments {
             guard case .line = segment else {
@@ -489,7 +502,7 @@ extension SCEngine {
             return nil
         }
 
-        let segments = linearize(contour: contour)
+        let segments = contour.linearizedSegments
         guard segments.count == 2 else {
             return nil
         }

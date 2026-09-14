@@ -40,7 +40,7 @@ extension SC {
         }
     }
 
-    public enum SlottingPattern: Sendable, Codable, Equatable {
+    public enum SlotClearingPattern: Sendable, Codable, Equatable {
         case raster
         case trochoidal(settings: TrochoidalSettings)
         case adaptive(settings: AdaptiveSettings)
@@ -135,6 +135,7 @@ extension SC {
     }
 
     public struct TrochoidalSettings: Sendable, Codable, Equatable {
+        /// Max percent from the radius that engages with the material
         let radialEngagement: Double
         let loopRadius: Double
 

@@ -25,7 +25,7 @@ extension SCEngine {
             return nil
         }
 
-        let baseSegments = linearize(contour: contour)
+        let baseSegments = contour.linearizedSegments
         guard !baseSegments.isEmpty else {
             return nil
         }
