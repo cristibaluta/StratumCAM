@@ -121,32 +121,51 @@ extension SCEngine {
                 }
 
             case .trochoidal(let trochoidalSettings):
-                // Full interior clearing, not just a bounce along the outer wall: reuse
-                // the exact same tool-radius-inset wall boundary and raster row
-                // generation `.raster` itself uses -- already correctly covers the
-                // whole interior, respecting concave boundaries and islands, splitting
-                // a row wherever the boundary itself does -- then expand each row into
-                // a chain of overlapping full circular loops instead of tracing it as
-                // a straight line. See `loopedTrochoidalSegments`'s own doc comment for
-                // why a full loop (not `.slotting`'s own wall-to-wall bounce) is the
-                // right shape here: the *next row over*, not a second wall, is what
-                // provides the rest of the coverage.
-                let wallOffset = offsetContour(baseSegments, side: .inside, toolRadius: tool.diameter / 2.0, isClosed: true)
-                guard !wallOffset.isEmpty else {
+                // Full interior clearing, wall-constrained exactly the way
+                // `.slotting`'s own wall-to-wall entry is: enter touching a
+                // ring's own wall, bounce inward to a virtual wall `stepover`
+                // deeper into the material, then straight back to that same
+                // wall and advance along it -- repeated ring by ring,
+                // stepping `stepover` further inward each time (the very
+                // same concentric stack `.offsetPattern` itself uses via
+                // `pocketRings`), so every band of the interior gets its own
+                // wall-anchored bounce pass rather than a single
+                // perimeter-following bounce (the old behavior, which never
+                // filled the interior at all) or an unconstrained chain of
+                // full circles straddling a raster row equally on both sides
+                // (not anchored to any real wall, so nothing stopped a
+                // bounce from reaching past the true wall on the outward
+                // side). See `ringTrochoidalSegments`'s own doc comment for
+                // why the bounce is one-sided (inward only) rather than
+                // symmetric.
+                let oriented = orientedForDirection(baseSegments, side: .inside, direction: direction)
+                boundarySegments = oriented
+
+                let rings = pocketRings(from: oriented, tool: tool, stepoverPercentage: settings.cutting.stepoverPercentage)
+                guard !rings.isEmpty else {
                     return nil
                 }
-                boundarySegments = wallOffset
 
                 let stepover = settings.cutting.stepoverPercentage * tool.diameter
-                let rows = rasterScanlines(within: wallOffset, stepover: stepover, direction: direction)
-                guard !rows.isEmpty else {
-                    return nil
-                }
-                let rowChain = chainedRingSegments(rows)
+                var chained: [SC.Segment] = []
+                for ring in rings {
+                    let bounced = ringTrochoidalSegments(from: ring,
+                                                         tool: tool,
+                                                         bandWidth: stepover,
+                                                         radialEngagement: trochoidalSettings.radialEngagement)
+                    guard !bounced.isEmpty else {
+                        continue
+                    }
 
-                toolpathSegments = loopedTrochoidalSegments(from: rowChain,
-                                                             tool: tool,
-                                                             radialEngagement: trochoidalSettings.radialEngagement)
+                    if let previousEnd = chained.last?.endPoint {
+                        let ringStart = bounced[0].startPoint
+                        if hypot(ringStart.x - previousEnd.x, ringStart.y - previousEnd.y) > 1e-6 {
+                            chained.append(.line(start: previousEnd, end: ringStart))
+                        }
+                    }
+                    chained.append(contentsOf: bounced)
+                }
+                toolpathSegments = chained
 
             case .adaptive:
                 fatalError("Not implemented yet")
@@ -653,232 +672,136 @@ extension SCEngine {
 
     // MARK: - Trochoidal pocket
 
-    /// Turns the same oriented boundary chain `.offsetPattern`/`.spiral` build via
-    /// `orientedForDirection` (or, for `.slotting`, a slot's own centerline) into a
-    /// chain of semicircular "bites" that bounce the cutter between the two walls
-    /// constraining it, rather than tracing/offsetting the boundary directly or
-    /// looping in full circles centered on it.
+    /// Bounces the cutter along `ring` (one ring in `pocketRings`'s own
+    /// concentric stack, ordered outside-in) the same one-sided,
+    /// wall-anchored way `.slotting`'s own `openEndedTrochoidalSegments`
+    /// bounces along an open centerline -- adapted here for a *closed* ring
+    /// rather than an open, mouth-to-mouth centerline. Per cycle, in order:
+    ///   a) The tool is already sitting on `ring`'s own path (the real wall
+    ///      for this band -- either the pocket's own true wall, for the
+    ///      outermost ring, or the position the *previous* cycle's own bounce
+    ///      already returned to).
+    ///   b) A semicircle -- radius `bandWidth / 2`, bulging `bandWidth / 2`
+    ///      forward into fresh material at its midpoint -- sweeps inward
+    ///      (never outward) to a virtual wall exactly `bandWidth` in from
+    ///      `ring`'s own path: the position the *next* ring inward will
+    ///      itself occupy.
+    ///   c) A straight line moves back to `ring`'s own path, at this same
+    ///      position along it (not yet advanced).
+    ///   d) A straight line advances forward along `ring` by
+    ///      `radialEngagement * tool.diameter / 2` (`radialEngagement`
+    ///      clamped to `0...1`), ready for the next cycle's own semicircle
+    ///      (step b again) -- wrapping all the way around the closed ring,
+    ///      rather than stopping at a fixed end the way an open centerline
+    ///      does.
     ///
-    /// Picture milling a slot: the tool sits against one wall, swings across in a
-    /// semicircle engaging only `radialEngagement` (a fraction of `tool.diameter`)
-    /// of fresh material, then a straight line finishes the reach to the opposite
-    /// wall through material the previous bite (coming from the other direction)
-    /// already cleared. The tool then advances along the boundary and repeats,
-    /// starting its next bite from the wall it's now sitting against -- so
-    /// consecutive bites alternate sides, tracing a zig-zag of "D"-shaped lobes
-    /// down the boundary instead of a straight chain of full circles along its
-    /// centerline.
+    /// Deliberately one-sided (inward only), unlike an earlier version of
+    /// this idea that bounced symmetrically `±loopRadius` off a single path:
+    /// `ring` is already the real, correctly-inset wall for this band, so
+    /// bouncing to its *outward* side would push the tool back out past
+    /// material that's already been (or is about to be) cleared -- once the
+    /// tool's own radius is added on top of that outward excursion, the
+    /// cutting edge overshoots the pocket's true wall entirely. Staying
+    /// strictly within `[0, bandWidth]` of `ring`'s own path (inclusive)
+    /// keeps every cycle bounded between this ring and the very next one,
+    /// never beyond either -- the same guarantee `.slotting`'s own bounce
+    /// gets from both its walls being real, just enforced here by only ever
+    /// bouncing toward the one side that's actually safe.
     ///
-    /// The two walls are `2 * loopRadius` apart, centered on the boundary itself
-    /// (wall offsets of `+loopRadius`/`-loopRadius` from it) -- for `.pocket`'s
-    /// wall-following case that's the real wall plus a virtual "far wall"
-    /// `loopRadius` into the open pocket; for a `.slotting` centerline with
-    /// `loopRadius == tool.diameter / 2`, that's the slot's own two real walls.
-    /// If a single bite's engagement (`radialEngagement * tool.diameter`) already
-    /// reaches or exceeds the full `2 * loopRadius` gap, the semicircle alone
-    /// spans wall to wall and the straight "reach the opposite wall" bridge is
-    /// skipped (there's no gap left to cross).
-    ///
-    /// Each semicircle is tessellated at the same 5-degree-per-step resolution
-    /// `spiralSegments`'s full circles use (this is real cutting motion, not a
-    /// short entry hop, so facets on the wall matter). Bites are connected by
-    /// short straight advance moves from one bite's own finishing point to the
-    /// next bite's starting point, mirroring `chainedRingSegments`'s
-    /// one-move-per-transition convention.
-    func trochoidalSegments(from orientedBoundary: [SC.Segment],
-                            tool: SC.ToolParams,
-                            radialEngagement: Double,
-                            loopRadius: Double) -> [SC.Segment] {
+    /// `ring`'s own winding (guaranteed consistent by `orientedForDirection`'s
+    /// `side: .inside` contract, upstream in `buildPocketToolpath`)
+    /// determines which side of the local normal actually points into the
+    /// pocket's interior: a CCW-wound closed curve has its interior on the
+    /// left of travel (the `normal` as defined below); a CW-wound curve has
+    /// it on the right.
+    func ringTrochoidalSegments(from ring: [SC.Segment],
+                                tool: SC.ToolParams,
+                                bandWidth: Double,
+                                radialEngagement: Double) -> [SC.Segment] {
 
-        guard !orientedBoundary.isEmpty else {
+        guard !ring.isEmpty else {
             return []
         }
-        guard loopRadius > 1e-9 else {
+        guard bandWidth > 1e-6 else {
+            // No band left to bounce within -- just trace the ring itself.
+            return ring
+        }
+
+        // The forward pitch per cycle: a fraction (clamped to 0...1) of the
+        // tool's own radius, same convention `.slotting`'s own
+        // `openEndedTrochoidalSegments` uses.
+        let clampedEngagement = min(max(radialEngagement, 0), 1)
+        let pitch = max(clampedEngagement, 1e-3) * (tool.diameter / 2.0)
+        guard pitch > 1e-6 else {
             return []
         }
 
-        // How much fresh material (as a fraction of tool.diameter) each single
-        // bite engages, clamped so a single semicircle never tries to overshoot
-        // past the far wall -- see this function's own doc comment.
-        let penetration = min(radialEngagement * tool.diameter/2, loopRadius * tool.diameter/2)
-        guard penetration > 1e-6 else {
-            return []
-        }
-
-        let totalLength = orientedBoundary.pathLength
+        let totalLength = ring.pathLength
         guard totalLength > 1e-9 else {
             return []
         }
 
-        // Bites start every `penetration` along the boundary, starting at distance
-        // 0 and finishing with a final bite pinned exactly at the boundary's own
-        // end -- same fencepost convention `rasterScanlines` uses for its last row
-        // and `calculateZPasses` uses for its last Z depth, rather than landing
-        // short of, or past, the boundary's true end.
-        let rawSteps = totalLength / penetration
-        let epsilon = 1e-9
-        let stepCount: Int
-        if abs(rawSteps.rounded() - rawSteps) < epsilon {
-            stepCount = max(1, Int(rawSteps.rounded()))
-        } else {
-            stepCount = max(1, Int(rawSteps.rounded(.up)))
-        }
-        let cycleCount = stepCount + 1
+        // A closed ring wraps all the way back around to its own start -- no
+        // fencepost "final bite pinned exactly at the end" is needed the way
+        // an open centerline needs one (there's no true end to land exactly
+        // on), so cycles are simply spaced every `pitch` around the full
+        // circumference. The caller's own connecting move (mirroring
+        // `chainedRingSegments`'s convention) closes the gap from this
+        // ring's own last bite to the next ring's first.
+        let cycleCount = max(1, Int((totalLength / pitch).rounded(.up)))
 
-        let cycleDistances: [Double] = (0..<cycleCount).map { i in
-            (i == cycleCount - 1) ? totalLength : penetration * Double(i)
-        }
-
-        let stepsPerSemicircle = 36 // half of `spiralSegments`'s 72-step full circle -- same 5 degrees/step.
-        let hasBridge = penetration < (2 * loopRadius - 1e-9)
+        let isCCW = OffsetTools.isCCWWinding(ring)
+        let inwardSign: Double = isCCW ? 1.0 : -1.0
+        let halfBand = bandWidth / 2.0
+        let stepsPerSemicircle = 36 // same 5-degrees/step resolution `spiralSegments` uses.
 
         var segments: [SC.Segment] = []
-        var previousFinish: CGPoint?
+        var previousWallPoint: CGPoint?
 
-        for (i, distance) in cycleDistances.enumerated() {
-            let origin = point(alongPath: orientedBoundary, distance: distance, totalLength: totalLength)
-            let travelDirection = tangent(alongPath: orientedBoundary, distance: distance, totalLength: totalLength)
+        for i in 0..<cycleCount {
+            let distance = pitch * Double(i)
+            let origin = point(alongPath: ring, distance: distance, totalLength: totalLength)
+            let travelDirection = tangent(alongPath: ring, distance: distance, totalLength: totalLength)
             let normal = CGPoint(x: -travelDirection.y, y: travelDirection.x)
-
-            // Bites alternate which wall they start from -- the wall this bite
-            // finishes against is exactly where the next bite starts.
-            let side: Double = (i % 2 == 0) ? -1.0 : 1.0
 
             func local(_ u: Double, _ v: Double) -> CGPoint {
                 CGPoint(x: origin.x + u * travelDirection.x + v * normal.x,
                         y: origin.y + u * travelDirection.y + v * normal.y)
             }
 
-            let start = local(0, side * loopRadius)
+            let wallPoint = local(0, 0)
 
-            // Advance move from the previous bite's finishing point (already
-            // sitting on this bite's own starting wall) to this bite's start.
-            if let previousFinish, hypot(start.x - previousFinish.x, start.y - previousFinish.y) > 1e-6 {
-                segments.append(.line(start: previousFinish, end: start))
+            // d) Advance forward along the ring from the previous cycle's
+            // own closing point to this cycle's wall point.
+            if let previousWallPoint, hypot(wallPoint.x - previousWallPoint.x, wallPoint.y - previousWallPoint.y) > 1e-6 {
+                segments.append(.line(start: previousWallPoint, end: wallPoint))
             }
 
-            // The semicircle itself: a "D"-shaped lobe whose flat side runs along
-            // this wall from `side * loopRadius` to `side * (loopRadius -
-            // penetration)`, bulging forward (in the direction of travel) by
-            // `penetration / 2` at its midpoint -- see this function's own doc
-            // comment for the geometry this reproduces.
-            let semicircleRadius = penetration / 2
-            let centerV = side * (loopRadius - penetration / 2)
-            let startAngle = side * (Double.pi / 2)
-            let sweepSign = -side // sweeps through angle 0 (the forward bulge), never through pi (backward).
-
-            var previousPoint = start
+            // b) The semicircle itself: starts on the ring (v=0), bulges
+            // `halfBand` forward at its midpoint, and finishes at the
+            // virtual wall `bandWidth` inward (v = inwardSign * bandWidth) --
+            // never past it, and never outward past v=0.
+            var previousPoint = wallPoint
             for step in 1...stepsPerSemicircle {
                 let t = Double(step) / Double(stepsPerSemicircle)
-                let angle = startAngle + sweepSign * Double.pi * t
-                let nextPoint = local(semicircleRadius * cos(angle), centerV + semicircleRadius * sin(angle))
+                let angle = -Double.pi / 2 + Double.pi * t
+                let u = halfBand * cos(angle)
+                let v = inwardSign * (halfBand * sin(angle) + halfBand)
+                let nextPoint = local(u, v)
                 segments.append(.line(start: previousPoint, end: nextPoint))
                 previousPoint = nextPoint
             }
 
-            // Straight line finishing the reach to the opposite wall, through
-            // material the previous (opposite-direction) bite already cleared --
-            // skipped when this bite's own penetration already reached that wall.
-            if hasBridge {
-                let oppositeWall = local(0, -side * loopRadius)
-                segments.append(.line(start: previousPoint, end: oppositeWall))
-                previousFinish = oppositeWall
-            } else {
-                previousFinish = previousPoint
-            }
+            // c) Straight line back to the ring's own path, at this same
+            // position (not yet advanced -- that's step d, above, on the
+            // next cycle).
+            segments.append(.line(start: previousPoint, end: wallPoint))
+            previousWallPoint = wallPoint
         }
 
         return segments
     }
 
-    /// Expands `path` (an already fully interior-covering, direction-oriented
-    /// chain -- e.g. the same chained raster row stack `.raster` itself traces)
-    /// into a series of overlapping full circular loops advancing along it,
-    /// instead of tracing the path directly as straight/arc segments.
-    ///
-    /// Each loop is a true full circle of radius `tool.diameter / 2`, centered
-    /// exactly on the path at that point. Unlike `.slotting`'s own wall-to-wall
-    /// bounce (`SCEngine+Slotting.swift`'s `openEndedTrochoidalSegments`), there's
-    /// no second wall to bounce against here: `path` already comes from
-    /// `rasterScanlines` against a boundary inset by the tool's own radius, so
-    /// every point on it is guaranteed at least `tool.diameter / 2` from every
-    /// true wall -- a full circle centered there can never cross it. The *next
-    /// row over* (not a second wall) is what provides the rest of the lateral
-    /// coverage, so each loop only needs to engage material gradually as it
-    /// advances, not span between two hard constraints.
-    ///
-    /// `radialEngagement` (clamped to `0...1`) sets the forward pitch between
-    /// consecutive loop centers, as a fraction of `tool.diameter / 2` (the
-    /// tool's own radius) -- same convention `.slotting`'s own
-    /// `stepoverPercentage` uses (see that file's doc comment for why a
-    /// percentage is measured against a single radius here, not the full
-    /// diameter).
-    func loopedTrochoidalSegments(from path: [SC.Segment], tool: SC.ToolParams, radialEngagement: Double) -> [SC.Segment] {
-        guard !path.isEmpty else {
-            return []
-        }
-        let loopRadius = tool.diameter / 2.0
-        guard loopRadius > 1e-9 else {
-            return []
-        }
-
-        let clampedEngagement = min(max(radialEngagement, 0), 1)
-        let pitch = max(clampedEngagement, 1e-3) * loopRadius
-        guard pitch > 1e-6 else {
-            return []
-        }
-
-        let totalLength = path.pathLength
-        guard totalLength > 1e-9 else {
-            return []
-        }
-
-        // Loops start every `pitch` along the path, starting at distance 0 and
-        // finishing with a final loop pinned exactly at the path's own end --
-        // same fencepost convention `trochoidalSegments`/`openEndedTrochoidalSegments`
-        // already use.
-        let rawSteps = totalLength / pitch
-        let epsilon = 1e-9
-        let stepCount: Int
-        if abs(rawSteps.rounded() - rawSteps) < epsilon {
-            stepCount = max(1, Int(rawSteps.rounded()))
-        } else {
-            stepCount = max(1, Int(rawSteps.rounded(.up)))
-        }
-        let cycleCount = stepCount + 1
-
-        let cycleDistances: [Double] = (0..<cycleCount).map { i in
-            (i == cycleCount - 1) ? totalLength : pitch * Double(i)
-        }
-
-        let stepsPerLoop = 72 // same 5-degrees/step resolution `spiralSegments` uses.
-
-        var segments: [SC.Segment] = []
-        var previousFinish: CGPoint?
-
-        for distance in cycleDistances {
-            let center = point(alongPath: path, distance: distance, totalLength: totalLength)
-            let start = CGPoint(x: center.x + loopRadius, y: center.y)
-
-            if let previousFinish, hypot(start.x - previousFinish.x, start.y - previousFinish.y) > 1e-6 {
-                segments.append(.line(start: previousFinish, end: start))
-            }
-
-            var previousPoint = start
-            for step in 1...stepsPerLoop {
-                let t = Double(step) / Double(stepsPerLoop)
-                let angle = t * 2 * Double.pi
-                let nextPoint = CGPoint(x: center.x + loopRadius * cos(angle), y: center.y + loopRadius * sin(angle))
-                segments.append(.line(start: previousPoint, end: nextPoint))
-                previousPoint = nextPoint
-            }
-
-            previousFinish = previousPoint
-        }
-
-        return segments
-    }
-    
     /// Walks `segments` (assumed contiguous, as `orientedForDirection`'s output
     /// always is) `distance` along its total arc length and returns the point there --
     /// the same "walk the chain by cumulative length" approach

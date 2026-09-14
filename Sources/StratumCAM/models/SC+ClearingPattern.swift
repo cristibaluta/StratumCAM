@@ -135,8 +135,21 @@ extension SC {
     }
 
     public struct TrochoidalSettings: Sendable, Codable, Equatable {
-        /// Max percent from the radius that engages with the material
+        /// Forward pitch between successive bounce cycles, as a fraction
+        /// (clamped to `0...1`) of the tool's own radius (`tool.diameter /
+        /// 2`) -- see `SCEngine.ringTrochoidalSegments`'s (pocket) and
+        /// `SCEngine.openEndedTrochoidalSegments`'s (slotting) own doc
+        /// comments for why a percentage is measured against a single radius
+        /// here rather than the full diameter.
         let radialEngagement: Double
+
+        /// Unused by `.pocket`'s own `.trochoidal` pattern as of the
+        /// wall-anchored ring-bounce rewrite -- each ring's own inward reach
+        /// is always exactly `stepoverPercentage * tool.diameter` (the same
+        /// ring-to-ring spacing `.offsetPattern` itself uses via
+        /// `pocketRings`), not a separately configurable radius. Kept for
+        /// source compatibility and any future pattern that does need an
+        /// independently tunable bounce radius.
         let loopRadius: Double
 
         public init(radialEngagement: Double, loopRadius: Double) {
