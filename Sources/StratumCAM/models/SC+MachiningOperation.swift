@@ -59,10 +59,10 @@ extension SC {
         ///   - targetDiameter: Finished (nominal/major) thread diameter to reach
         ///     on the last radial pass.
         case threadMilling(pitch: Double,
-                     isInternal: Bool,
-                     direction: ThreadDirection,
-                     radialPasses: Int,
-                     targetDiameter: Double)
+                           isInternal: Bool,
+                           direction: ThreadDirection,
+                           radialPasses: Int,
+                           targetDiameter: Double)
 
         /// Engraves geometry along curves, text, or other shallow features.
         ///
@@ -90,7 +90,7 @@ extension SC {
         ///     before retracting.
         ///   - tabs: Holding tabs left in the profile to prevent the finished
         ///     part from moving or separating from the stock during machining.
-        case contour(side: CutSide,
+        case profile(side: CutSide,
                      direction: CutDirection,
                      entry: EntryStrategy,
                      leadIn: LeadInOut?,

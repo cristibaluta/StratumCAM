@@ -55,7 +55,7 @@ class DemoContour: Demo {
         let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 0.1)
         let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -1.0)
 
-        let operation: SC.MachiningOperation = .contour(side: .outside,
+        let operation: SC.MachiningOperation = .profile(side: .outside,
                                                         direction: .climb,
                                                         entry: .plunge,
                                                         leadIn: nil,
@@ -73,7 +73,7 @@ class DemoContour: Demo {
         let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 0.1)
         let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -1.0)
 
-        let operation: SC.MachiningOperation = .contour(side: .inside,
+        let operation: SC.MachiningOperation = .profile(side: .inside,
                                                         direction: .climb,
                                                         entry: .plunge,
                                                         leadIn: nil,
@@ -94,7 +94,7 @@ class DemoContour: Demo {
         let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 0.1)
         let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -1.0)
 
-        let operation: SC.MachiningOperation = .contour(side: .outside,
+        let operation: SC.MachiningOperation = .profile(side: .outside,
                                                         direction: .climb,
                                                         entry: .ramp(angleDegrees: 3),
                                                         leadIn: nil,
@@ -113,7 +113,7 @@ class DemoContour: Demo {
         let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 0.1)
         let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -1.0)
 
-        let operation: SC.MachiningOperation = .contour(side: .outside,
+        let operation: SC.MachiningOperation = .profile(side: .outside,
                                                         direction: .climb,
                                                         entry: .helix(radius: 2, rampAngleDegrees: 3),
                                                         leadIn: nil,
@@ -136,7 +136,7 @@ class DemoContour: Demo {
         let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -3.0)
         let tab = SC.HoldingTab(positionRatio: 0.5, width: 2.0, height: 1.5)
 
-        let operation: SC.MachiningOperation = .contour(side: .onContour,
+        let operation: SC.MachiningOperation = .profile(side: .onContour,
                                                         direction: .climb,
                                                         entry: .plunge,
                                                         leadIn: nil,

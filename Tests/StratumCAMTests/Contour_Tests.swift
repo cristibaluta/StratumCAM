@@ -64,7 +64,7 @@ struct Contour_Tests {
 
         let toolpaths = engine.generateToolpaths(
             from: [ccwSquareContour()], tool: tool, settings: settings,
-            operation: .contour(side: .outside, direction: .climb, entry: .plunge, leadIn: nil, leadOut: nil, tabs: [])
+            operation: .profile(side: .outside, direction: .climb, entry: .plunge, leadIn: nil, leadOut: nil, tabs: [])
         )
 
         #expect(toolpaths.count == 1)
@@ -86,7 +86,7 @@ struct Contour_Tests {
 
         let toolpaths = engine.generateToolpaths(
             from: [ccwSquareContour()], tool: tool, settings: settings,
-            operation: .contour(side: .inside, direction: .climb, entry: .plunge, leadIn: nil, leadOut: nil, tabs: [])
+            operation: .profile(side: .inside, direction: .climb, entry: .plunge, leadIn: nil, leadOut: nil, tabs: [])
         )
 
         #expect(toolpaths.count == 1)
@@ -153,7 +153,7 @@ struct Contour_Tests {
 
         let toolpaths = engine.generateToolpaths(
             from: [ccwSquareContour()], tool: tool, settings: settings,
-            operation: .contour(side: .outside, direction: .climb, entry: .plunge, leadIn: nil, leadOut: nil, tabs: [])
+            operation: .profile(side: .outside, direction: .climb, entry: .plunge, leadIn: nil, leadOut: nil, tabs: [])
         )
 
         let waypoints = toolpaths[0].passes[0].waypoints
@@ -182,7 +182,7 @@ struct Contour_Tests {
 
         let toolpaths = engine.generateToolpaths(
             from: [ccwSquareContour()], tool: tool, settings: settings,
-            operation: .contour(side: .outside, direction: .climb, entry: .ramp(angleDegrees: 30), leadIn: nil, leadOut: nil, tabs: [])
+            operation: .profile(side: .outside, direction: .climb, entry: .ramp(angleDegrees: 30), leadIn: nil, leadOut: nil, tabs: [])
         )
 
         let waypoints = toolpaths[0].passes[0].waypoints
@@ -223,7 +223,7 @@ struct Contour_Tests {
 
         let toolpaths = engine.generateToolpaths(
             from: [ccwSquareContour()], tool: tool, settings: settings,
-            operation: .contour(side: .outside, direction: .climb, entry: .ramp(angleDegrees: 30), leadIn: nil, leadOut: nil, tabs: [])
+            operation: .profile(side: .outside, direction: .climb, entry: .ramp(angleDegrees: 30), leadIn: nil, leadOut: nil, tabs: [])
         )
 
         #expect(toolpaths[0].passes.count == 2)
@@ -256,7 +256,7 @@ struct Contour_Tests {
 
         let toolpaths = engine.generateToolpaths(
             from: [ccwSquareContour()], tool: tool, settings: settings,
-            operation: .contour(side: .outside, direction: .climb, entry: .ramp(angleDegrees: 30), leadIn: nil, leadOut: nil, tabs: [])
+            operation: .profile(side: .outside, direction: .climb, entry: .ramp(angleDegrees: 30), leadIn: nil, leadOut: nil, tabs: [])
         )
 
         let waypoints = toolpaths[0].passes[0].waypoints
@@ -278,7 +278,7 @@ struct Contour_Tests {
 
         let toolpaths = engine.generateToolpaths(
             from: [ccwSquareContour()], tool: tool, settings: settings,
-            operation: .contour(side: .outside,
+            operation: .profile(side: .outside,
                                 direction: .climb,
                                 entry: .helix(radius: 2, rampAngleDegrees: 30),
                                 leadIn: nil,
@@ -311,7 +311,7 @@ struct Contour_Tests {
 
         let toolpaths = engine.generateToolpaths(
             from: [fourSegmentLineContour()], tool: tool, settings: settings,
-            operation: .contour(side: .onContour,
+            operation: .profile(side: .onContour,
                                 direction: .climb,
                                 entry: .plunge,
                                 leadIn: nil,
