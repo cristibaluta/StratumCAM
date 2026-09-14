@@ -121,13 +121,32 @@ extension SCEngine {
                 }
 
             case .trochoidal(let trochoidalSettings):
-                let oriented = orientedForDirection(baseSegments, side: .inside, direction: direction)
-                boundarySegments = oriented
+                // Full interior clearing, not just a bounce along the outer wall: reuse
+                // the exact same tool-radius-inset wall boundary and raster row
+                // generation `.raster` itself uses -- already correctly covers the
+                // whole interior, respecting concave boundaries and islands, splitting
+                // a row wherever the boundary itself does -- then expand each row into
+                // a chain of overlapping full circular loops instead of tracing it as
+                // a straight line. See `loopedTrochoidalSegments`'s own doc comment for
+                // why a full loop (not `.slotting`'s own wall-to-wall bounce) is the
+                // right shape here: the *next row over*, not a second wall, is what
+                // provides the rest of the coverage.
+                let wallOffset = offsetContour(baseSegments, side: .inside, toolRadius: tool.diameter / 2.0, isClosed: true)
+                guard !wallOffset.isEmpty else {
+                    return nil
+                }
+                boundarySegments = wallOffset
 
-                toolpathSegments = trochoidalSegments(from: oriented,
-                                                      tool: tool,
-                                                      radialEngagement: trochoidalSettings.radialEngagement,
-                                                      loopRadius: trochoidalSettings.loopRadius)
+                let stepover = settings.cutting.stepoverPercentage * tool.diameter
+                let rows = rasterScanlines(within: wallOffset, stepover: stepover, direction: direction)
+                guard !rows.isEmpty else {
+                    return nil
+                }
+                let rowChain = chainedRingSegments(rows)
+
+                toolpathSegments = loopedTrochoidalSegments(from: rowChain,
+                                                             tool: tool,
+                                                             radialEngagement: trochoidalSettings.radialEngagement)
 
             case .adaptive:
                 fatalError("Not implemented yet")
@@ -772,6 +791,94 @@ extension SCEngine {
         return segments
     }
 
+    /// Expands `path` (an already fully interior-covering, direction-oriented
+    /// chain -- e.g. the same chained raster row stack `.raster` itself traces)
+    /// into a series of overlapping full circular loops advancing along it,
+    /// instead of tracing the path directly as straight/arc segments.
+    ///
+    /// Each loop is a true full circle of radius `tool.diameter / 2`, centered
+    /// exactly on the path at that point. Unlike `.slotting`'s own wall-to-wall
+    /// bounce (`SCEngine+Slotting.swift`'s `openEndedTrochoidalSegments`), there's
+    /// no second wall to bounce against here: `path` already comes from
+    /// `rasterScanlines` against a boundary inset by the tool's own radius, so
+    /// every point on it is guaranteed at least `tool.diameter / 2` from every
+    /// true wall -- a full circle centered there can never cross it. The *next
+    /// row over* (not a second wall) is what provides the rest of the lateral
+    /// coverage, so each loop only needs to engage material gradually as it
+    /// advances, not span between two hard constraints.
+    ///
+    /// `radialEngagement` (clamped to `0...1`) sets the forward pitch between
+    /// consecutive loop centers, as a fraction of `tool.diameter / 2` (the
+    /// tool's own radius) -- same convention `.slotting`'s own
+    /// `stepoverPercentage` uses (see that file's doc comment for why a
+    /// percentage is measured against a single radius here, not the full
+    /// diameter).
+    func loopedTrochoidalSegments(from path: [SC.Segment], tool: SC.ToolParams, radialEngagement: Double) -> [SC.Segment] {
+        guard !path.isEmpty else {
+            return []
+        }
+        let loopRadius = tool.diameter / 2.0
+        guard loopRadius > 1e-9 else {
+            return []
+        }
+
+        let clampedEngagement = min(max(radialEngagement, 0), 1)
+        let pitch = max(clampedEngagement, 1e-3) * loopRadius
+        guard pitch > 1e-6 else {
+            return []
+        }
+
+        let totalLength = path.pathLength
+        guard totalLength > 1e-9 else {
+            return []
+        }
+
+        // Loops start every `pitch` along the path, starting at distance 0 and
+        // finishing with a final loop pinned exactly at the path's own end --
+        // same fencepost convention `trochoidalSegments`/`openEndedTrochoidalSegments`
+        // already use.
+        let rawSteps = totalLength / pitch
+        let epsilon = 1e-9
+        let stepCount: Int
+        if abs(rawSteps.rounded() - rawSteps) < epsilon {
+            stepCount = max(1, Int(rawSteps.rounded()))
+        } else {
+            stepCount = max(1, Int(rawSteps.rounded(.up)))
+        }
+        let cycleCount = stepCount + 1
+
+        let cycleDistances: [Double] = (0..<cycleCount).map { i in
+            (i == cycleCount - 1) ? totalLength : pitch * Double(i)
+        }
+
+        let stepsPerLoop = 72 // same 5-degrees/step resolution `spiralSegments` uses.
+
+        var segments: [SC.Segment] = []
+        var previousFinish: CGPoint?
+
+        for distance in cycleDistances {
+            let center = point(alongPath: path, distance: distance, totalLength: totalLength)
+            let start = CGPoint(x: center.x + loopRadius, y: center.y)
+
+            if let previousFinish, hypot(start.x - previousFinish.x, start.y - previousFinish.y) > 1e-6 {
+                segments.append(.line(start: previousFinish, end: start))
+            }
+
+            var previousPoint = start
+            for step in 1...stepsPerLoop {
+                let t = Double(step) / Double(stepsPerLoop)
+                let angle = t * 2 * Double.pi
+                let nextPoint = CGPoint(x: center.x + loopRadius * cos(angle), y: center.y + loopRadius * sin(angle))
+                segments.append(.line(start: previousPoint, end: nextPoint))
+                previousPoint = nextPoint
+            }
+
+            previousFinish = previousPoint
+        }
+
+        return segments
+    }
+    
     /// Walks `segments` (assumed contiguous, as `orientedForDirection`'s output
     /// always is) `distance` along its total arc length and returns the point there --
     /// the same "walk the chain by cumulative length" approach

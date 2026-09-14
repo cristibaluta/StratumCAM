@@ -303,20 +303,20 @@ class DemoPocketing: Demo {
 
     // MARK: - Trochoidal clearing (Step 1B.2)
 
-    /// Clears a 40x24 rectangle with overlapping circular loops advancing along the
-    /// oriented boundary instead of concentric rings or scanlines -- the direct visual
-    /// contrast with `demoPocketRectangle()`/`demoRasterRectangle()`, all three clearing
-    /// the identical rectangle with the identical tool. In the preview this reads as a
-    /// chain of small overlapping circles tracing the rectangle's own perimeter, not a
-    /// pass that fills the rectangle's interior -- see `trochoidalSegments`'s doc
-    /// comment for why: it advances along the boundary chain `.offsetPattern`/`.spiral`
-    /// build via `orientedForDirection`, the same way Track 2B's slotting will
-    /// eventually advance along an open centerline.
+    /// Clears a 40x24 rectangle with overlapping full circular loops advancing
+    /// row by row across the interior, instead of concentric rings or straight
+    /// raster scanlines -- the direct visual contrast with
+    /// `demoPocketRectangle()`/`demoRasterRectangle()`, all three clearing the
+    /// identical rectangle with the identical tool. Reuses the exact same
+    /// tool-radius-inset boundary and row generation `.raster` itself uses (see
+    /// `loopedTrochoidalSegments`'s own doc comment), so the interior is fully
+    /// covered -- the loops just replace each row's straight trace with a chain
+    /// of overlapping circles.
     func demoTrochoidalRectangle() -> Demo.DemoResult {
         let tool = SC.ToolParams(diameter: 6.0)
         let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4)
         let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -1.0)
-        let tro = SC.TrochoidalSettings(radialEngagement: 1.0, loopRadius: 0.5)
+        let tro = SC.TrochoidalSettings(radialEngagement: 0.5, loopRadius: 0) // loopRadius unused for .pocket
 
         let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .trochoidal(settings: tro), entry: .plunge)
 
