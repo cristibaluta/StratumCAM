@@ -50,11 +50,11 @@ class MetalRenderer: NSObject, MTKViewDelegate {
             return
         }
 
-        guard let vertexFunction = library.makeFunction(name: "vertex_main"),
-              let fragmentFunction = library.makeFunction(name: "fragment_main") else {
-            print("❌ Error: Could not find shader functions.")
-            return
-        }
+//        guard let vertexFunction = library.makeFunction(name: "vertex_main"),
+//              let fragmentFunction = library.makeFunction(name: "fragment_main") else {
+//            print("❌ Error: Could not find shader functions.")
+//            return
+//        }
 //        guard let library = device.makeDefaultLibrary() else { return }
         let pipelineDescriptor = MTLRenderPipelineDescriptor()
         pipelineDescriptor.vertexFunction = library.makeFunction(name: "vertex_main")

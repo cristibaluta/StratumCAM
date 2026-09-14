@@ -19,13 +19,17 @@ extension SC {
 
         /// Cleans the top surface of the stock to establish a flat datum plane.
         ///
+        /// There's no `stepover` parameter: the row spacing between facing passes
+        /// is derived from the tool's own diameter (see
+        /// `SCEngine.facingStepover(for:)`), close to full engagement since facing
+        /// has no wall to protect the way a pocket does -- there's nothing here for
+        /// a caller to tune, only a footprint to fully cover.
+        ///
         /// - Parameters:
-        ///   - stepover: Lateral distance between successive facing passes.
         ///   - direction: Cutting direction used for the facing passes.
         ///   - extensionLength: Distance by which the toolpath extends beyond
         ///     the selected facing boundary to ensure complete coverage.
-        case facing(stepover: Double,
-                    direction: CutDirection,
+        case facing(direction: CutDirection,
                     extensionLength: Double)
 
         /// Cuts a linear slot or groove along a center curve or constrained by 2 walls

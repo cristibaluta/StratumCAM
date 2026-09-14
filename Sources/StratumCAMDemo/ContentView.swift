@@ -15,25 +15,11 @@ struct ContentView: View {
     @State private var renderBatches: [RenderBatch] = []
     @State private var gcodeText: String = ""
     @State private var selectedDemoID: String? = nil
-
-    /// Step 5.4: the currently-shown demo's raw toolpath points (Step 5.1), kept
-    /// around so the scrub slider below has something to slice through, and the
-    /// slider's own position -- a `Double` (not `Int`) already, ahead of Step 5.5's
-    /// interpolation, ranged over `0...Double(max(0, toolpathPoints.count - 1))`.
     @State private var toolpathPoints: [SIMD3<Float>] = []
+    @State private var activeTool: SC.ToolParams = SC.ToolParams()
     @State private var scrubIndex: Double = 0
-
-    /// The part of the current demo's `renderBatches` that *isn't* the toolpath --
-    /// the blue base-contour batch, currently, though this doesn't assume there's
-    /// exactly one. Kept separate from `renderBatches` so `rebuildRenderBatches()`
-    /// can recompute just the sliced-toolpath + marker batches on every scrub
-    /// change without re-running the whole demo.
     @State private var staticBatches: [RenderBatch] = []
 
-    /// Used only to build the sliced-prefix/marker batches below -- a plain `Demo`
-    /// (not a `DemoEngraving`/`DemoPocketing` subclass) works fine since
-    /// `pointsPrefix`/`renderBatch`/`markerBatch` don't touch any demo-specific
-    /// fixtures, just `device`.
     private let previewDemo = Demo()
 
     var body: some View {
@@ -180,8 +166,8 @@ struct ContentView: View {
                     demoButton("Rectangle with Extension") {
                         show(DemoFacing().demoFacingRectangleWithExtension())
                     }
-                    demoButton("Large Stock, Fine Stepover") {
-                        show(DemoFacing().demoFacingLargeStockFineStepover())
+                    demoButton("Large Stock, Small Tool") {
+                        show(DemoFacing().demoFacingLargeStockSmallTool())
                     }
                     demoButton("Batch (Two Stocks)") {
                         show(DemoFacing().demoFacingBatch())
@@ -288,6 +274,7 @@ struct ContentView: View {
     private func show(_ result: Demo.DemoResult) {
         gcodeText = result.gcode
         toolpathPoints = result.toolpathPoints
+        activeTool = result.tool
 
         // The full toolpath batch is always the last one `run(contours:...)`
         // appends whenever `toolpathPoints` is non-empty (step 4 there) -- everything
@@ -321,7 +308,9 @@ struct ContentView: View {
                 batches.append(slicedBatch)
             }
             if let markerPoint = Demo.interpolatedPoint(toolpathPoints, at: scrubIndex),
-               let marker = previewDemo.markerBatch(at: markerPoint) {
+               let marker = previewDemo.markerBatch(at: markerPoint,
+                                                    diameter: Float(activeTool.diameter),
+                                                    height: Float(activeTool.fluteLength)) {
                 batches.append(marker)
             }
         }

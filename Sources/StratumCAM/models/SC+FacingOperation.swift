@@ -17,20 +17,22 @@ extension SC {
         public var stock: Stock
         public var tool: ToolParams
         public var settings: MachineSettings
-        public var stepover: Double
         public var direction: CutDirection
         public var extensionLength: Double
 
+        /// No `stepover` here on purpose: facing has no wall to protect the way a
+        /// pocket does, so there's no finish/chip-load tradeoff for a caller to tune --
+        /// the engine derives row spacing directly from `tool.diameter` (see
+        /// `SCEngine.facingStepover(for:)`) so the full footprint is always covered
+        /// with no unmilled strip between rows, regardless of which tool is passed in.
         public init(stock: Stock,
                     tool: ToolParams,
                     settings: MachineSettings,
-                    stepover: Double,
                     direction: CutDirection = .climb,
                     extensionLength: Double = 0) {
             self.stock = stock
             self.tool = tool
             self.settings = settings
-            self.stepover = stepover
             self.direction = direction
             self.extensionLength = extensionLength
         }

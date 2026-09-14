@@ -63,11 +63,9 @@ public final class SCEngine {
                 stock: operation.stock,
                 tool: operation.tool,
                 settings: operation.settings,
-                stepover: operation.stepover,
                 direction: operation.direction,
                 extensionLength: operation.extensionLength,
-                operation: .facing(stepover: operation.stepover,
-                                   direction: operation.direction,
+                operation: .facing(direction: operation.direction,
                                    extensionLength: operation.extensionLength)
             )
         }

@@ -410,17 +410,17 @@ class Demo {
     /// does above. Kept as an instance method (not `static`) only because it needs
     /// `device` for the buffer, same split as `pointsPrefix`/`renderBatch` above.
     func markerBatch(at point: SIMD3<Float>,
-                     diameter: Float = 2.0,
-                     height: Float = 4.0,
+                     diameter: Float = 6.0,
+                     height: Float = 12.0,
                      segments: Int = 28,
                      strutCount: Int = 4,
                      color: SIMD4<Float> = SIMD4<Float>(1.0, 0.05, 0.05, 1.0)) -> RenderBatch? {
         let vertices = Demo.markerCylinderVertices(at: point,
-                                                    diameter: diameter,
-                                                    height: height,
-                                                    segments: segments,
-                                                    strutCount: strutCount,
-                                                    color: color)
+                                                   diameter: diameter,
+                                                   height: height,
+                                                   segments: segments,
+                                                   strutCount: strutCount,
+                                                   color: color)
         guard !vertices.isEmpty,
               let buffer = device.makeBuffer(bytes: vertices,
                                              length: vertices.count * MemoryLayout<RenderVertex>.stride,

@@ -10,31 +10,26 @@ import StratumCAM
 
 class DemoFacing: Demo {
 
-    // MARK: - Fixtures
-    // Mirrors the fixtures in Facing_Tests.swift so each demo below reproduces
-    // the exact scenario a corresponding unit test asserts on.
-
     private func rectangleStock(width: Double, height: Double, thickness: Double = 6.0) -> SC.Stock {
         SC.Stock(width: width, height: height, thickness: thickness, origin: .zero)
     }
 
     // MARK: - Basic facing pass
 
-    /// Faces a 20x10 stock at 5mm stepover, climb direction, no extension. Mirrors
+    /// Faces a 20x10 stock with a 6mm tool, climb direction, no extension. Mirrors
     /// "Facing produces a single pass at target depth, rows chained into one
-    /// continuous trace": 3 rows (y=0,5,10) chained into one rapid-plunge-trace-retract
-    /// pass at -abs(targetDepth).
+    /// continuous trace": rows spaced by the engine's own tool-derived stepover,
+    /// chained into one rapid-plunge-trace-retract pass at -abs(targetDepth).
     func demoFacingRectangleClimb() -> Demo.DemoResult {
-        let tool = SC.ToolParams(diameter: 6.0)
+        let tool = SC.ToolParams(diameter: 3.175)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0), safeZ: 5.0, targetDepth: 0.5)
         let stock = rectangleStock(width: 20, height: 10)
-
-        let operation = SC.FacingOperation(stock: stock, tool: tool, settings: settings, stepover: 5.0, direction: .climb, extensionLength: 0)
+        let operation = SC.FacingOperation(stock: stock, tool: tool, settings: settings, direction: .climb, extensionLength: 0)
 
         return self.run(facing: operation)
     }
 
-    /// Same 20x10 footprint and stepover as `demoFacingRectangleClimb`, but
+    /// Same 20x10 footprint and tool as `demoFacingRectangleClimb`, but
     /// conventional direction -- mirrors "Facing scanline order flips with
     /// direction": the same row count and Z depth, just each row (starting with
     /// the first) traveling the opposite way.
@@ -43,7 +38,7 @@ class DemoFacing: Demo {
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0), safeZ: 5.0, targetDepth: 0.5)
         let stock = rectangleStock(width: 20, height: 10)
 
-        let operation = SC.FacingOperation(stock: stock, tool: tool, settings: settings, stepover: 5.0, direction: .conventional, extensionLength: 0)
+        let operation = SC.FacingOperation(stock: stock, tool: tool, settings: settings, direction: .conventional, extensionLength: 0)
 
         return self.run(facing: operation)
     }
@@ -61,22 +56,24 @@ class DemoFacing: Demo {
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0), safeZ: 5.0, targetDepth: 1.0)
         let stock = rectangleStock(width: 20, height: 10)
 
-        let operation = SC.FacingOperation(stock: stock, tool: tool, settings: settings, stepover: 5.0, direction: .climb, extensionLength: 4.0)
+        let operation = SC.FacingOperation(stock: stock, tool: tool, settings: settings, direction: .climb, extensionLength: 4.0)
 
         return self.run(facing: operation)
     }
 
-    // MARK: - Finer stepover
+    // MARK: - Smaller tool, tighter rows
 
-    /// Faces a larger 60x40 stock at a tighter 3mm stepover with a bigger facing
-    /// tool -- shows several more rows chained together than the small-footprint
-    /// demos above, closer to a real datum-facing pass on a sheet of stock.
-    func demoFacingLargeStockFineStepover() -> Demo.DemoResult {
-        let tool = SC.ToolParams(type: .flatEndMill, diameter: 12.0)
+    /// Faces a larger 60x40 stock with a smaller 4mm tool -- since row spacing now
+    /// comes from the tool's own diameter rather than a hand-picked stepover, a
+    /// smaller tool alone produces several more, tighter rows chained together
+    /// than the small-footprint demos above, closer to a real datum-facing pass
+    /// on a sheet of stock.
+    func demoFacingLargeStockSmallTool() -> Demo.DemoResult {
+        let tool = SC.ToolParams(type: .flatEndMill, diameter: 4.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1500.0, plungeRate: 400.0), safeZ: 6.0, targetDepth: 0.3)
         let stock = rectangleStock(width: 60, height: 40)
 
-        let operation = SC.FacingOperation(stock: stock, tool: tool, settings: settings, stepover: 3.0, direction: .climb, extensionLength: 1.0)
+        let operation = SC.FacingOperation(stock: stock, tool: tool, settings: settings, direction: .climb, extensionLength: 1.0)
 
         return self.run(facing: operation)
     }
@@ -96,10 +93,10 @@ class DemoFacing: Demo {
         let settingsB = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1200.0, plungeRate: 350.0), safeZ: 8.0, targetDepth: 1.5)
 
         let first = SC.FacingOperation(stock: rectangleStock(width: 20, height: 10),
-                                       tool: smallTool, settings: settingsA, stepover: 5.0, direction: .climb, extensionLength: 0)
+                                       tool: smallTool, settings: settingsA, direction: .climb, extensionLength: 0)
         let second = SC.FacingOperation(stock: rectangleStock(width: 30, height: 15, thickness: 6.0)
                                           .translated(x: 30, y: 0),
-                                        tool: bigTool, settings: settingsB, stepover: 6.0, direction: .conventional, extensionLength: 2.0)
+                                        tool: bigTool, settings: settingsB, direction: .conventional, extensionLength: 2.0)
 
         let firstResult = self.run(facing: first)
         let secondResult = self.run(facing: second)

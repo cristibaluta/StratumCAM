@@ -36,10 +36,33 @@ extension SCEngine {
          maxY: stock.origin.y + stock.height + extensionLength)
     }
 
+    /// Row spacing for `.facing`, derived from the tool instead of taken as a
+    /// caller-supplied parameter.
+    ///
+    /// Facing has no wall to protect the way a pocket does -- `.pocket` uses
+    /// `stepoverPercentage * tool.diameter` (typically ~0.4) to keep radial
+    /// engagement low against a wall it's about to trim, but a facing pass is
+    /// just a flat-bottom sweep over open ground. There's no finish/chip-load
+    /// tradeoff for a caller to tune, so rather than exposing another number to
+    /// set, the engine runs the tool at close to its own full diameter.
+    ///
+    /// `facingStepoverEngagement` (90%) is deliberately just under 100%, not
+    /// exactly 100%: at exactly one diameter apart, two adjacent passes' swept
+    /// strips only just touch at a shared edge, so a hairline of floating-point
+    /// error could leave an unmilled seam running the full length of the row.
+    /// 90% keeps a real overlap margin so that can't happen, while still being
+    /// close enough to full engagement that facing stays a fast, small-row-count
+    /// operation rather than a fine finishing pass.
+    private var facingStepoverEngagement: Double { 0.9 }
+
+    func facingStepover(for tool: SC.ToolParams) -> Double {
+        max(tool.diameter * facingStepoverEngagement, 1e-6)
+    }
+
     /// Generates the raster scanline geometry for `.facing`: parallel horizontal
-    /// passes spaced `stepover` apart, each spanning the full width of
-    /// `facingArea(stock:extensionLength:)` -- geometry only, no waypoints yet. That's
-    /// left to `buildFacingToolpath` (Step 2A.2) below, same shape as
+    /// passes spaced `facingStepover(for: tool)` apart, each spanning the full width
+    /// of `facingArea(stock:extensionLength:)` -- geometry only, no waypoints yet.
+    /// That's left to `buildFacingToolpath` (Step 2A.2) below, same shape as
     /// `buildPocketWaypoints` turning `rasterScanlines`' rows into an actual rapid/
     /// plunge/retract pass.
     ///
@@ -53,18 +76,25 @@ extension SCEngine {
     /// `.conventional` right-to-left) -- same as pocketing's raster, there's no wall
     /// cut in a plain rectangular fill for climb/conventional to otherwise apply to.
     ///
-    /// The last row is snapped exactly onto the footprint's far edge rather than
-    /// landing short or overshooting -- same fencepost convention `rasterScanlines`
-    /// and `calculateZPasses` use.
+    /// The first and last rows are snapped exactly onto the footprint's near/far
+    /// edges rather than landing short -- this is also what keeps every corner of
+    /// the footprint covered: each edge row's start point sits exactly on that
+    /// edge (and exactly on the footprint's corner at its first/last row), so the
+    /// tool's own swept disc at that point has zero distance to close, no matter
+    /// how wide `facingStepoverEngagement` makes the gap between the interior rows.
+    /// The last interior gap is snapped narrower rather than overshooting past the
+    /// far edge -- same fencepost convention `rasterScanlines` and
+    /// `calculateZPasses` use.
     ///
     /// Each row is returned as a single-segment `[SC.Segment]`, matching
     /// `rasterScanlines`' per-row shape, so `buildFacingToolpath` below can reuse
     /// `chainedRingSegments` to link rows exactly the way pocketing's raster does.
     func facingScanlines(stock: SC.Stock,
                          extensionLength: Double,
-                         stepover: Double,
+                         tool: SC.ToolParams,
                          direction: SC.CutDirection) -> [[SC.Segment]] {
 
+        let stepover = facingStepover(for: tool)
         guard stepover > 1e-6, stock.width > 0, stock.height > 0 else {
             return []
         }
@@ -131,14 +161,13 @@ extension SCEngine {
     func buildFacingToolpath(stock: SC.Stock,
                              tool: SC.ToolParams,
                              settings: SC.MachineSettings,
-                             stepover: Double,
                              direction: SC.CutDirection,
                              extensionLength: Double,
                              operation: SC.MachiningOperation) -> SC.OutputToolpath? {
 
         let rows = facingScanlines(stock: stock,
                                    extensionLength: extensionLength,
-                                   stepover: stepover,
+                                   tool: tool,
                                    direction: direction)
         guard !rows.isEmpty else {
             return nil

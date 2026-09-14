@@ -66,8 +66,8 @@ struct MetalCanvasView: NSViewRepresentable {
                 camera.rotation.x = max(-.pi/2 + 0.0, min(.pi/2 - 0.0, camera.rotation.x + Float(translation.y) * sensitivity))
 
                 // --- PRINT ROTATION VALUES ---
-                let pitchDeg = camera.rotation.x * 180 / .pi
-                let yawDeg = camera.rotation.y * 180 / .pi
+//                let pitchDeg = camera.rotation.x * 180 / .pi
+//                let yawDeg = camera.rotation.y * 180 / .pi
 //                print(String(format: "🎥 Pitch (X): %.2f rad (%.1f°) | Yaw (Y): %.2f rad (%.1f°)", camera.rotation.x, pitchDeg, camera.rotation.y, yawDeg))
             } else {
                 // Pan Camera (Shift + Drag)
