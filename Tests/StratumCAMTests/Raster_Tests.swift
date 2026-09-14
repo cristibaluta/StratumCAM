@@ -248,7 +248,7 @@ struct Raster_Tests {
         // final gap (7 -> 8) narrower than the other 2 (each exactly 2.5mm) -- the
         // same fencepost rule `calculateZPasses` already applies to Z stepdown.
         let tool = SC.ToolParams(diameter: 4.0)
-        let boundary = engine.offsetContour(engine.linearize(contour: ccwRectangleContour()),
+        let boundary = engine.offsetContour(ccwRectangleContour().linearizedSegments,
                                             side: .inside,
                                             toolRadius: tool.diameter / 2.0,
                                             isClosed: true)
@@ -277,7 +277,7 @@ struct Raster_Tests {
     @Test("Raster skips a row that re-enters the boundary more than once instead of bridging the gap")
     func testRasterSkipsConcaveReentrantRows() {
         let engine = SCEngine()
-        let boundary = engine.linearize(contour: staplePolygonContour())
+        let boundary = staplePolygonContour().linearizedSegments
 
         // Stepover 2 over the full 0-10 height -> rows at y = 0, 2, 4, 6, 8, 10.
         // Only y=0 and y=2 sit below the notch (full-width single span); y=4, 6, 8,

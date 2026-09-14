@@ -139,7 +139,7 @@ extension SCEngine {
         // [0, -1, -2, -3] reversed is [-3, -2, -1, 0]: start at the bottom, finish at
         // the top, and the odd leftover turn (if any) lands as the very first,
         // shortest turn off the bottom rather than the last one off the top.
-        let turnDepths = calculateZPasses(targetDepth: settings.targetDepth, stepdown: pitchMagnitude)
+        let turnDepths = EngineTools.calculateZPasses(targetDepth: settings.targetDepth, stepdown: pitchMagnitude)
         let boundaries = Array(([0.0] + turnDepths).reversed())
         let bottomZ = boundaries.first ?? 0.0
 

@@ -73,7 +73,7 @@ struct Pocket_Tests {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 4.0)
 
-        let baseSegments = engine.linearize(contour: ccwRectangleContour())
+        let baseSegments = ccwRectangleContour().linearizedSegments
         let oriented = engine.orientedForDirection(baseSegments, side: .inside, direction: .climb)
 
         let rings = engine.pocketRings(from: oriented, tool: tool, stepoverPercentage: 0.5)

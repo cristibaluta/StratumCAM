@@ -13,22 +13,14 @@ struct ZPasses_Tests {
 
     @Test("An evenly divisible depth produces exactly the right pass count, no extra pass")
     func testEvenDivisionProducesExactPassCount() {
-        let engine = SCEngine()
-
-        let passes = engine.calculateZPasses(targetDepth: -1.0, stepdown: 0.1)
-
-        // This is the exact case from the old TODO: 1.0 / 0.1 used to drift into an
-        // 11th pass. It must produce exactly 10.
+        let passes = EngineTools.calculateZPasses(targetDepth: -1.0, stepdown: 0.1)
         #expect(passes.count == 10, "Test Failed: expected exactly 10 passes, got \(passes.count)")
         #expect(passes.last == -1.0, "Test Failed: final pass should land exactly on target depth")
     }
 
     @Test("An unevenly divisible depth rounds up and still ends exactly on target")
     func testUnevenDivisionRoundsUpAndEndsAtTarget() {
-        let engine = SCEngine()
-
-        let passes = engine.calculateZPasses(targetDepth: -1.0, stepdown: 0.3)
-
+        let passes = EngineTools.calculateZPasses(targetDepth: -1.0, stepdown: 0.3)
         // 1.0 / 0.3 -> 3.33... -> rounds up to 4 passes (0.3, 0.6, 0.9, 1.0).
         #expect(passes.count == 4, "Test Failed: expected 4 passes, got \(passes.count)")
         #expect(passes.last == -1.0, "Test Failed: final pass should land exactly on target depth")
@@ -41,27 +33,19 @@ struct ZPasses_Tests {
 
     @Test("A stepdown larger than the target depth produces a single pass")
     func testStepdownLargerThanTargetProducesSinglePass() {
-        let engine = SCEngine()
-
-        let passes = engine.calculateZPasses(targetDepth: -1.0, stepdown: 5.0)
-
+        let passes = EngineTools.calculateZPasses(targetDepth: -1.0, stepdown: 5.0)
         #expect(passes == [-1.0], "Test Failed: expected a single pass at full target depth")
     }
 
     @Test("A zero stepdown produces a single pass at full target depth")
     func testZeroStepdownProducesSinglePass() {
-        let engine = SCEngine()
-
-        let passes = engine.calculateZPasses(targetDepth: -2.0, stepdown: 0.0)
-
+        let passes = EngineTools.calculateZPasses(targetDepth: -2.0, stepdown: 0.0)
         #expect(passes == [-2.0], "Test Failed: expected a single pass at full target depth")
     }
 
     @Test("A remainder smaller than stepdown is absorbed into a shorter final pass")
     func testRemainderIsAbsorbedIntoFinalPass() {
-        let engine = SCEngine()
-
-        let passes = engine.calculateZPasses(targetDepth: -1.05, stepdown: 0.1)
+        let passes = EngineTools.calculateZPasses(targetDepth: -1.05, stepdown: 0.1)
 
         // 10 full 0.1mm passes, then a final 0.05mm pass to land exactly on -1.05 --
         // not 11 full-depth passes, and not stopping short at -1.0.

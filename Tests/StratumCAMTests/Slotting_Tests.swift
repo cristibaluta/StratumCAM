@@ -45,7 +45,8 @@ struct Slotting_Tests {
     }
 
     private func slottingStrategy(depthPerPass: Double, entry: SC.EntryStrategy = .plunge) -> SC.MachiningOperation {
-        .slotting(depthPerPass: depthPerPass, entry: entry)
+        let pattern = SC.SlotClearingPattern.raster
+        return .slotting(depthPerPass: depthPerPass, pattern: pattern, entry: entry)
     }
 
     // MARK: - Centerline: no lateral offset
@@ -377,7 +378,7 @@ struct Slotting_Tests {
         #expect(centerline != nil, "Test Failed: expected a valid centerline for a rectangle matching the tool's diameter")
         guard let centerline else { return }
 
-        let segments = engine.linearize(contour: centerline)
+        let segments = centerline.linearizedSegments
         #expect(segments.count == 1, "Test Failed: expected a single line segment as the derived centerline")
         guard case .line(let start, let end) = segments[0] else {
             Issue.record("Test Failed: expected the derived centerline to be a straight line")
@@ -396,6 +397,7 @@ struct Slotting_Tests {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 6.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0), safeZ: 5.0, targetDepth: -1.0)
+        let pattern = SC.SlotClearingPattern.raster
 
         let boundary = rectangleBoundaryContour(length: 30, width: 6)
         guard let centerline = engine.rectangleSlotCenterline(fromBoundary: boundary, tool: tool) else {
@@ -407,7 +409,7 @@ struct Slotting_Tests {
             from: [centerline],
             tool: tool,
             settings: settings,
-            operation: .slotting(depthPerPass: 1.0, entry: .plunge)
+            operation: .slotting(depthPerPass: 1.0, pattern: pattern, entry: .plunge)
         )[0]
 
         let xs = toolpath.passes[0].waypoints.map { $0.position.x }
@@ -438,7 +440,7 @@ struct Slotting_Tests {
         #expect(centerline != nil, "Test Failed: expected a valid centerline for a rotated rectangle")
         guard let centerline else { return }
 
-        let segments = engine.linearize(contour: centerline)
+        let segments = centerline.linearizedSegments
         guard case .line(let start, let end) = segments[0] else {
             Issue.record("Test Failed: expected a straight line")
             return

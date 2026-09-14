@@ -37,4 +37,33 @@ struct EngineTools {
             return probe <= s + 1e-9 && probe >= e - 1e-9
         }
     }
+
+    /// Gives a list of passes
+    static func calculateZPasses(targetDepth: Double, stepdown: Double) -> [Double] {
+        let absoluteTarget = abs(targetDepth)
+        let step = abs(stepdown)
+        guard step > 0, absoluteTarget > 0 else {
+            return [-absoluteTarget]
+        }
+
+        // Number of full-depth passes needed. Dividing doubles can land a hair on either
+        // side of a whole number (e.g. 1.0 / 0.1 == 9.999999999999998), so snap to the
+        // nearest integer when we're within a tiny tolerance of one before rounding up --
+        // otherwise a perfectly even depth/stepdown pair would silently gain an extra
+        // pass. Once the count is fixed, each depth is derived by multiplication rather
+        // than repeated addition, so there's no accumulated drift across passes either.
+        let rawCount = absoluteTarget / step
+        let epsilon = 1e-9
+        let passCount: Int
+        if abs(rawCount.rounded() - rawCount) < epsilon {
+            passCount = max(1, Int(rawCount.rounded()))
+        } else {
+            passCount = max(1, Int(rawCount.rounded(.up)))
+        }
+
+        return (0..<passCount).map { i in
+            let depth = (i == passCount - 1) ? absoluteTarget : step * Double(i + 1)
+            return -depth
+        }
+    }
 }

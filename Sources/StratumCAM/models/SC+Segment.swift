@@ -157,4 +157,25 @@ extension [SC.Segment] {
 
         return (minX, maxX, minY, maxY)
     }
+
+    /// Total arc length of a segment chain -- shared by `trochoidalSegments`'s loop
+    /// spacing and `point(alongPath:distance:totalLength:)` below, which places a loop
+    /// center a given distance along the chain.
+    var pathLength: Double {
+        self.reduce(0.0) { $0 + $1.pathLength }
+    }
+}
+
+extension SC.Segment {
+
+    var pathLength: Double {
+        switch self {
+            case .line(let start, let end):
+                return hypot(end.x - start.x, end.y - start.y)
+
+            case .arc(_, let radius, let startAngle, let endAngle, let isCCW):
+                let sweep = isCCW ? (endAngle - startAngle) : (startAngle - endAngle)
+                return radius * abs(sweep)
+        }
+    }
 }

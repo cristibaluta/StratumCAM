@@ -33,7 +33,7 @@ extension SCEngine {
                                              isClosed: contour.isClosed)
 
         // 2. Calculate Z depth passes based on the configured cutting stepdown
-        let zDepths = calculateZPasses(targetDepth: settings.targetDepth, stepdown: settings.cutting.stepdown)
+        let zDepths = EngineTools.calculateZPasses(targetDepth: settings.targetDepth, stepdown: settings.cutting.stepdown)
 
         // 3. Build waypoints per pass
         var passes: [SC.ToolpathPass] = []
@@ -73,7 +73,7 @@ extension SCEngine {
             return nil
         }
 
-        let zDepths = calculateZPasses(targetDepth: settings.targetDepth, stepdown: settings.cutting.stepdown)
+        let zDepths = EngineTools.calculateZPasses(targetDepth: settings.targetDepth, stepdown: settings.cutting.stepdown)
         let totalDepth = abs(settings.targetDepth)
 
         var passes: [SC.ToolpathPass] = []
@@ -136,7 +136,7 @@ extension SCEngine {
                                        leadOut: SC.LeadInOut?,
                                        tabs: [SC.HoldingTab]) -> [SC.Waypoint] {
 
-        let contourStart = startPointOf(segment: firstSegment)
+        let contourStart = firstSegment.startPoint
         let startTangent = direction(of: firstSegment, atEnd: false)
 
         var waypoints: [SC.Waypoint] = []
@@ -268,10 +268,10 @@ extension SCEngine {
     /// Internal rather than `private` so `SCEngine+Pocketing.swift` can reuse it for
     /// pocket entry (Step 1.2) instead of duplicating the ramp geometry.
     func rampWaypoints(firstSegment: SC.Segment,
-                               angleDegrees: Double,
-                               fromZ: Double,
-                               toZ: Double,
-                               settings: SC.MachineSettings) -> [SC.Waypoint] {
+                       angleDegrees: Double,
+                       fromZ: Double,
+                       toZ: Double,
+                       settings: SC.MachineSettings) -> [SC.Waypoint] {
 
         let totalDrop = fromZ - toZ
         let angleRad = angleDegrees * .pi / 180.0
@@ -347,21 +347,23 @@ extension SCEngine {
     /// Internal rather than `private` so `SCEngine+Pocketing.swift` can reuse it for
     /// pocket entry (Step 1.2) instead of duplicating the helix geometry.
     func helixEntryWaypoints(contourStart: CGPoint,
-                                     startTangent: CGPoint,
-                                     side: SC.CutSide,
-                                     segments: [SC.Segment],
-                                     firstSegment: SC.Segment,
-                                     radius: Double,
-                                     angleDegrees: Double,
-                                     fromZ: Double,
-                                     toZ: Double,
-                                     settings: SC.MachineSettings) -> [SC.Waypoint] {
+                             startTangent: CGPoint,
+                             side: SC.CutSide,
+                             segments: [SC.Segment],
+                             firstSegment: SC.Segment,
+                             radius: Double,
+                             angleDegrees: Double,
+                             fromZ: Double,
+                             toZ: Double,
+                             settings: SC.MachineSettings) -> [SC.Waypoint] {
 
         let totalDrop = fromZ - toZ
         let angleRad = angleDegrees * .pi / 180.0
 
         guard totalDrop > 1e-9, angleDegrees > 0, angleDegrees < 90, radius > 1e-9 else {
-            return [SC.Waypoint(position: SIMD3(contourStart.x, contourStart.y, toZ), motion: .linear, feedRate: settings.cutting.plungeRate)]
+            return [SC.Waypoint(position: SIMD3(contourStart.x, contourStart.y, toZ),
+                                motion: .linear,
+                                feedRate: settings.cutting.plungeRate)]
         }
 
         // Shift the circle's tangent point `radius` forward along the segment -- clamped

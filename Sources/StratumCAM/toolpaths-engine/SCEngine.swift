@@ -167,42 +167,13 @@ public final class SCEngine {
         }
     }
 
-    /// Gives a list of passes
-    func calculateZPasses(targetDepth: Double, stepdown: Double) -> [Double] {
-        let absoluteTarget = abs(targetDepth)
-        let step = abs(stepdown)
-        guard step > 0, absoluteTarget > 0 else {
-            return [-absoluteTarget]
-        }
-
-        // Number of full-depth passes needed. Dividing doubles can land a hair on either
-        // side of a whole number (e.g. 1.0 / 0.1 == 9.999999999999998), so snap to the
-        // nearest integer when we're within a tiny tolerance of one before rounding up --
-        // otherwise a perfectly even depth/stepdown pair would silently gain an extra
-        // pass. Once the count is fixed, each depth is derived by multiplication rather
-        // than repeated addition, so there's no accumulated drift across passes either.
-        let rawCount = absoluteTarget / step
-        let epsilon = 1e-9
-        let passCount: Int
-        if abs(rawCount.rounded() - rawCount) < epsilon {
-            passCount = max(1, Int(rawCount.rounded()))
-        } else {
-            passCount = max(1, Int(rawCount.rounded(.up)))
-        }
-
-        return (0..<passCount).map { i in
-            let depth = (i == passCount - 1) ? absoluteTarget : step * Double(i + 1)
-            return -depth
-        }
-    }
-
     public func buildWaypoints(for segments: [SC.Segment], atZ z: Double, settings: SC.MachineSettings) -> [SC.Waypoint] {
         var waypoints: [SC.Waypoint] = []
 
         guard let first = segments.first else {
             return []
         }
-        let startPoint = startPointOf(segment: first)
+        let startPoint = first.startPoint
 
         // 1. Rapid move above start point at Safe Z
         waypoints.append(SC.Waypoint(position: SIMD3(startPoint.x, startPoint.y, settings.safeZ),
@@ -242,15 +213,6 @@ public final class SCEngine {
         }
 
         return waypoints
-    }
-
-    func startPointOf(segment: SC.Segment) -> CGPoint {
-        switch segment {
-        case .line(let start, _):
-            return start
-        case .arc(let center, let radius, let startAngle, _, _):
-            return CGPoint(x: center.x + radius * cos(startAngle), y: center.y + radius * sin(startAngle))
-        }
     }
 }
 

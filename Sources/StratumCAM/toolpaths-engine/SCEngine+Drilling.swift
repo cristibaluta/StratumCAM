@@ -89,7 +89,7 @@ extension SCEngine {
     /// would waste rapid travel on a deep hole. The final retract after the last peck
     /// does go all the way to `safeZ`, matching the plain (non-peck) drill cycle.
     func peckDrillingWaypoints(at point: CGPoint, peckDepth: Double, settings: SC.MachineSettings) -> [SC.Waypoint] {
-        let peckDepths = calculateZPasses(targetDepth: settings.targetDepth, stepdown: peckDepth)
+        let peckDepths = EngineTools.calculateZPasses(targetDepth: settings.targetDepth, stepdown: peckDepth)
 
         var waypoints: [SC.Waypoint] = [
             SC.Waypoint(position: SIMD3(point.x, point.y, settings.safeZ), motion: .rapid, feedRate: settings.cutting.feedRate)

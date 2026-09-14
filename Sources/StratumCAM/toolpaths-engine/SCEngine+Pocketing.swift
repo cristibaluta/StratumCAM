@@ -139,11 +139,7 @@ extension SCEngine {
             return nil
         }
 
-        // Step 1.3: multi-pass Z stepdown, same `calculateZPasses` reuse as `.contour`.
-        // The ring/scanline geometry above was computed once and is reused unchanged
-        // for every pass -- only the Z depth (and, for ramp/helix, the previous pass's
-        // depth) changes per iteration.
-        let zDepths = calculateZPasses(targetDepth: settings.targetDepth, stepdown: settings.cutting.stepdown)
+        let zDepths = EngineTools.calculateZPasses(targetDepth: settings.targetDepth, stepdown: settings.cutting.stepdown)
 
         var passes: [SC.ToolpathPass] = []
         var previousZ = 0.0 // top of stock -- pass 0 ramps/helixes down from here, same convention `.contour` uses.
@@ -210,7 +206,7 @@ extension SCEngine {
             return buildWaypoints(for: segments, atZ: z, settings: settings)
         }
 
-        let startPoint = startPointOf(segment: firstSegment)
+        let startPoint = firstSegment.startPoint
         let startTangent = direction(of: firstSegment, atEnd: false)
 
         var waypoints: [SC.Waypoint] = [
@@ -636,7 +632,7 @@ extension SCEngine {
         return xs
     }
 
-    // MARK: - Step 1B.2: trochoidal pocket
+    // MARK: - Trochoidal pocket
 
     /// Turns the same oriented boundary chain `.offsetPattern`/`.spiral` build via
     /// `orientedForDirection` (or, for `.slotting`, a slot's own centerline) into a
@@ -670,11 +666,14 @@ extension SCEngine {
     /// short straight advance moves from one bite's own finishing point to the
     /// next bite's starting point, mirroring `chainedRingSegments`'s
     /// one-move-per-transition convention.
-    func trochoidalSegments(from orientedBoundary: [SC.Segment], tool: SC.ToolParams, radialEngagement: Double, loopRadius: Double) -> [SC.Segment] {
+    func trochoidalSegments(from orientedBoundary: [SC.Segment],
+                            tool: SC.ToolParams,
+                            radialEngagement: Double,
+                            loopRadius: Double) -> [SC.Segment] {
+
         guard !orientedBoundary.isEmpty else {
             return []
         }
-
         guard loopRadius > 1e-9 else {
             return []
         }
@@ -682,12 +681,12 @@ extension SCEngine {
         // How much fresh material (as a fraction of tool.diameter) each single
         // bite engages, clamped so a single semicircle never tries to overshoot
         // past the far wall -- see this function's own doc comment.
-        let penetration = min(radialEngagement * tool.diameter, 2 * loopRadius)
+        let penetration = min(radialEngagement * tool.diameter/2, loopRadius * tool.diameter/2)
         guard penetration > 1e-6 else {
             return []
         }
 
-        let totalLength = pathLength(of: orientedBoundary)
+        let totalLength = orientedBoundary.pathLength
         guard totalLength > 1e-9 else {
             return []
         }
@@ -773,24 +772,6 @@ extension SCEngine {
         return segments
     }
 
-    /// Total arc length of a segment chain -- shared by `trochoidalSegments`'s loop
-    /// spacing and `point(alongPath:distance:totalLength:)` below, which places a loop
-    /// center a given distance along the chain.
-    private func pathLength(of segments: [SC.Segment]) -> Double {
-        segments.reduce(0.0) { $0 + segmentArcLength($1) }
-    }
-
-    private func segmentArcLength(_ segment: SC.Segment) -> Double {
-        switch segment {
-            case .line(let start, let end):
-                return hypot(end.x - start.x, end.y - start.y)
-
-            case .arc(_, let radius, let startAngle, let endAngle, let isCCW):
-                let sweep = isCCW ? (endAngle - startAngle) : (startAngle - endAngle)
-                return radius * abs(sweep)
-        }
-    }
-
     /// Walks `segments` (assumed contiguous, as `orientedForDirection`'s output
     /// always is) `distance` along its total arc length and returns the point there --
     /// the same "walk the chain by cumulative length" approach
@@ -805,7 +786,7 @@ extension SCEngine {
         var cumulative = 0.0
 
         for (index, segment) in segments.enumerated() {
-            let length = segmentArcLength(segment)
+            let length = segment.pathLength
             let isLast = index == segments.count - 1
             if clamped <= cumulative + length + 1e-9 || isLast {
                 let remaining = min(max(clamped - cumulative, 0), length)
@@ -850,7 +831,7 @@ extension SCEngine {
         var cumulative = 0.0
 
         for (index, segment) in segments.enumerated() {
-            let length = segmentArcLength(segment)
+            let length = segment.pathLength
             let isLast = index == segments.count - 1
             if clamped <= cumulative + length + 1e-9 || isLast {
                 let remaining = min(max(clamped - cumulative, 0), length)

@@ -38,7 +38,7 @@ extension SCEngine {
             return nil
         }
 
-        let zDepths = calculateZPasses(targetDepth: settings.targetDepth, stepdown: depthPerPass)
+        let zDepths = EngineTools.calculateZPasses(targetDepth: settings.targetDepth, stepdown: depthPerPass)
 
         var passes: [SC.ToolpathPass] = []
         var previousZ = 0.0 // top of stock -- pass 0 ramps/helixes down from here, same convention `.contour`/`.pocket` use.
@@ -98,7 +98,7 @@ extension SCEngine {
                                                     stepoverPercentage: stepoverPercentage)
         }
 
-        let startPoint = startPointOf(segment: firstSegment)
+        let startPoint = firstSegment.startPoint
         let startTangent = direction(of: firstSegment, atEnd: false)
 
         var waypoints: [SC.Waypoint] = [
