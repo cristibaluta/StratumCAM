@@ -68,5 +68,43 @@ extension SC {
         ///   - radius: Radius of helical spiral entry path in workspace units (mm/inches).
         ///   - rampAngleDegrees: Helical descent pitch angle relative to horizontal plane (typically 1.5°–3.0°).
         case helix(radius: Double, rampAngleDegrees: Double)
+
+        /// Feeds in sideways from outside the stock, through an open end of the
+        /// feature, using overlapping trochoidal loops rather than descending
+        /// through solid material at all.
+        ///
+        /// ```text
+        ///   (free air)   (stock edge)      (material)
+        ///        ╭╮  ╭╮  ┊  ╭╮  ╭╮  ╭╮
+        ///        │╰──╯│  ┊  │╰──╯│  ╰──╯ ───► (Loops advance in from outside,
+        ///        ╰────╯  ┊  ╰────╯            engaging gradually as they cross
+        ///                ┊                    the stock edge)
+        /// ```
+        ///
+        /// Only meaningful for a feature that is genuinely open at the end the
+        /// tool starts from -- e.g. a slot that runs off the edge of the stock --
+        /// since it relies on there being no material at the starting point to
+        /// rapid straight down into. The geometry itself is expected to already
+        /// extend past that open end (see `openEndedSlotCenterline(fromBoundary:
+        /// tool:)`), so this case only controls how the tool traces that geometry,
+        /// not where the geometry starts.
+        ///
+        /// - Real-World Impact: Lets the tool reach full cutting depth before it
+        ///   ever touches material, then sweep into the feature loop by loop --
+        ///   each loop only partially engaged until it's fully inside the walls --
+        ///   instead of engaging the full cutter width the instant it crosses the
+        ///   stock edge.
+        /// - Pros: No plunge/ramp/helix needed at all; avoids the sudden full-width
+        ///   engagement a straight feed-in from outside would otherwise cause.
+        /// - Cons: Only applicable where the feature is actually open to free air
+        ///   on the side the tool approaches from.
+        /// - Standard Use: Open-ended slots, keyways, and channels that run off
+        ///   the edge of the stock.
+        ///
+        /// - Parameter stepoverPercentage: Center-to-center advance between
+        ///   successive loops, as a fraction of `tool.diameter` -- same convention
+        ///   `settings.cutting.stepoverPercentage` and `.pocket`'s `.trochoidal`
+        ///   pattern already use.
+        case fromOpenEnd(stepoverPercentage: Double)
     }
 }

@@ -188,26 +188,11 @@ struct ContentView: View {
                     }
                 }
                 Section("Slotting") {
-                    demoButton("Straight Line (Plunge)") {
-                        show(DemoSlotting().demoSlottingStraightLine())
-                    }
-                    demoButton("L-Shape (Plunge)") {
-                        show(DemoSlotting().demoSlottingLShape())
-                    }
-                    demoButton("Multi-Pass Depth") {
-                        show(DemoSlotting().demoSlottingMultiPass())
-                    }
-                    demoButton("Ramp Entry") {
-                        show(DemoSlotting().demoSlottingRampEntry())
-                    }
-                    demoButton("Helix Entry") {
-                        show(DemoSlotting().demoSlottingHelixEntry())
-                    }
-                    demoButton("Closed Circular Channel") {
-                        show(DemoSlotting().demoSlottingClosedCircle())
-                    }
                     demoButton("From Rectangle Boundary") {
                         show(DemoSlotting().demoSlottingRectangleBoundary())
+                    }
+                    demoButton("Open-Ended Boundary (Trochoidal Entry)") {
+                        show(DemoSlotting().demoSlottingOpenEnded())
                     }
                 }
                 Section("Thread Milling") {

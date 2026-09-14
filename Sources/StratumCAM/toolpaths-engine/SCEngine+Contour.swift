@@ -212,6 +212,9 @@ extension SCEngine {
                                                     toZ: z,
                                                     settings: settings)
                 )
+                
+            case .fromOpenEnd(stepoverPercentage: _):
+                break
         }
 
         // Trace the contour itself, clamping Z at any holding tabs.

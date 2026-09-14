@@ -252,6 +252,8 @@ extension SCEngine {
                                                     toZ: z,
                                                     settings: settings)
                 )
+            case .fromOpenEnd(stepoverPercentage: _):
+                break;
         }
 
         // Trace the chained pocket geometry -- mirrors `buildWaypoints`' own trace step.

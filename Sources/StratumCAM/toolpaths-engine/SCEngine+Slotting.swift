@@ -44,6 +44,7 @@ extension SCEngine {
         for (i, z) in zDepths.enumerated() {
             let waypoints = buildSlottingWaypoints(for: segments,
                                                    firstSegment: firstSegment,
+                                                   tool: tool,
                                                    atZ: z,
                                                    previousZ: previousZ,
                                                    settings: settings,
@@ -76,6 +77,7 @@ extension SCEngine {
     /// first-pass behavior.
     private func buildSlottingWaypoints(for segments: [SC.Segment],
                                         firstSegment: SC.Segment,
+                                        tool: SC.ToolParams,
                                         atZ z: Double,
                                         previousZ: Double,
                                         settings: SC.MachineSettings,
@@ -83,6 +85,14 @@ extension SCEngine {
 
         guard entry != .plunge else {
             return buildWaypoints(for: segments, atZ: z, settings: settings)
+        }
+
+        if case .fromOpenEnd(let stepoverPercentage) = entry {
+            return buildOpenEndedSlottingWaypoints(for: segments,
+                                                    tool: tool,
+                                                    atZ: z,
+                                                    settings: settings,
+                                                    stepoverPercentage: stepoverPercentage)
         }
 
         let startPoint = startPointOf(segment: firstSegment)
@@ -97,6 +107,9 @@ extension SCEngine {
         switch entry {
             case .plunge:
                 break // Handled above via `buildWaypoints`.
+
+            case .fromOpenEnd:
+                break // Handled above via `buildOpenEndedSlottingWaypoints`.
 
             case .ramp(let angleDegrees):
                 waypoints.append(
@@ -147,6 +160,30 @@ extension SCEngine {
         }
 
         return waypoints
+    }
+
+    /// `.fromOpenEnd`'s own trace step -- expands `segments` (the derived
+    /// centerline, already extended past the open mouth by
+    /// `openEndedSlotCenterline`) into a chain of overlapping trochoidal loops via
+    /// `trochoidalSegments`, the same loop-advance machinery `.pocket`'s own
+    /// `.trochoidal` pattern already uses for its wall boundary, then hands that
+    /// expanded chain to the ordinary `buildWaypoints` wrapper -- exactly the way
+    /// `.pocket`'s `buildPocketWaypoints` already treats `.trochoidal` + `.plunge`
+    /// together (`case .plunge: return buildWaypoints(for: segments, ...)`, where
+    /// `segments` there is likewise the post-trochoidal-expansion chain, not the
+    /// raw boundary). That means the rapid-then-plunge lands exactly on the first
+    /// loop's own start point (out in free air, per the centerline's own
+    /// extension), not the raw centerline's start -- there's no separate Z-entry
+    /// move to write here at all, since engagement builds up gradually loop by
+    /// loop as soon as the trace itself begins.
+    private func buildOpenEndedSlottingWaypoints(for segments: [SC.Segment],
+                                                 tool: SC.ToolParams,
+                                                 atZ z: Double,
+                                                 settings: SC.MachineSettings,
+                                                 stepoverPercentage: Double) -> [SC.Waypoint] {
+
+        let loopSegments = trochoidalSegments(from: segments, tool: tool, stepoverPercentage: stepoverPercentage)
+        return buildWaypoints(for: loopSegments, atZ: z, settings: settings)
     }
 
     // MARK: - Slot boundary recognition (rectangle -> centerline)
@@ -231,16 +268,8 @@ extension SCEngine {
 
         // Adjacent sides must be perpendicular -- rules out a non-rectangular
         // parallelogram that happens to have equal opposite side lengths.
-        func isPerpendicular(_ p0: CGPoint, _ p1: CGPoint, _ p2: CGPoint) -> Bool {
-            let v1 = CGPoint(x: p1.x - p0.x, y: p1.y - p0.y)
-            let v2 = CGPoint(x: p2.x - p1.x, y: p2.y - p1.y)
-            let len1 = hypot(v1.x, v1.y)
-            let len2 = hypot(v2.x, v2.y)
-            guard len1 > tolerance, len2 > tolerance else { return false }
-            let cosAngle = (v1.x * v2.x + v1.y * v2.y) / (len1 * len2)
-            return abs(cosAngle) < tolerance * 10 // near-zero dot product, scaled for the same tolerance
-        }
-        guard isPerpendicular(a, b, c), isPerpendicular(b, c, d) else {
+        guard isPerpendicularCorner(a, b, c, tolerance: tolerance),
+              isPerpendicularCorner(b, c, d, tolerance: tolerance) else {
             return nil
         }
 
@@ -288,4 +317,139 @@ extension SCEngine {
             SC.Contour.Chained(entity: .line(a: DXF.Point(start.x, start.y), b: DXF.Point(end.x, end.y), layer: "0", color: 7), reversed: false)
         ], isClosed: false)
     }
+
+    // MARK: - Slot boundary recognition (open-ended "U" -> centerline)
+
+    /// The open-ended counterpart to `rectangleSlotCenterline` above: a slot whose
+    /// boundary runs off the edge of the stock rather than closing back on itself
+    /// on all four sides. Physically that boundary is a "U" -- two parallel walls
+    /// `tool.diameter` apart, joined by one closed short end, with the opposite
+    /// short end left off the drawing entirely, since that's where the stock ends
+    /// and free air begins; there's no wall to draw there. Exactly 3 straight
+    /// segments, `contour.isClosed == false`, ordered the way any of these fixtures
+    /// naturally is: side one from the open mouth to the closed corner, across the
+    /// closed end, then side two from the other closed corner back out to the
+    /// mouth (see `Slotting_Tests.swift`/`DemoSlotting.swift`'s own fixture for the
+    /// exact shape expected).
+    ///
+    /// Returns a centerline that starts `approachDistance` *before* the open mouth
+    /// -- out in free air, clear of the stock -- and ends inset by the tool radius
+    /// from the closed end, the same rounding-the-square-corner reasoning
+    /// `rectangleSlotCenterline` already uses at both of its ends. The extension
+    /// past the mouth is what lets `.fromOpenEnd` rapid straight down to depth and
+    /// start its first trochoidal loop already clear of material, rather than
+    /// starting exactly at the stock edge and engaging full width immediately.
+    ///
+    /// `approachDistance` defaults to `tool.diameter` -- enough clearance that the
+    /// first trochoidal loop (radius `tool.diameter / 2`) doesn't touch the stock
+    /// edge at all before the tool is already at full depth.
+    ///
+    /// Deliberately as narrow in scope as `rectangleSlotCenterline`: only a plain
+    /// 3-straight-segment "U", one pair of opposite (side) walls within
+    /// `tolerance` of `tool.diameter`, both corners against the closed end square.
+    /// Returns `nil` for anything that isn't recognizably that shape -- a closed
+    /// contour (that's `rectangleSlotCenterline`'s own case), not exactly 3
+    /// segments, a curved side, corners that aren't right angles, side walls of
+    /// unequal length, a closed end that isn't `tool.diameter` wide, or a slot no
+    /// longer than its own width once the closed end is inset -- rather than
+    /// guessing.
+    ///
+    /// > Flag: same wider-than-tool gap `rectangleSlotCenterline` already flags --
+    /// > this only ever derives a centerline for a slot exactly `tool.diameter`
+    /// > wide. A boundary wider than the tool needs the pattern-based clearing
+    /// > `SlottingPattern.raster`/`.trochoidal` describe (model exists, still
+    /// > unwired into `.slotting`), not this recognition step.
+    public func openEndedSlotCenterline(fromBoundary contour: SC.Contour,
+                                        tool: SC.ToolParams,
+                                        approachDistance: Double? = nil,
+                                        tolerance: Double = 1e-3) -> SC.Contour? {
+
+        guard !contour.isClosed else {
+            return nil
+        }
+
+        let segments = linearize(contour: contour)
+        guard segments.count == 3 else {
+            return nil
+        }
+
+        // Every side must be a straight line -- no curved walls handled here.
+        for segment in segments {
+            guard case .line = segment else {
+                return nil
+            }
+        }
+
+        // p0 -> p1: first side wall, mouth to closed corner.
+        // p1 -> p2: the closed end itself.
+        // p2 -> p3: second side wall, closed corner back out to the mouth.
+        let p0 = segments[0].startPoint
+        let p1 = segments[1].startPoint
+        let p2 = segments[2].startPoint
+        let p3 = segments[2].endPoint
+
+        let side1Length = hypot(p1.x - p0.x, p1.y - p0.y)
+        let side2Length = hypot(p3.x - p2.x, p3.y - p2.y)
+        let closedEndLength = hypot(p2.x - p1.x, p2.y - p1.y)
+
+        // The two side walls must be equal length -- a necessary (not sufficient,
+        // see the perpendicularity check below) condition for a proper "U".
+        guard abs(side1Length - side2Length) < tolerance, side1Length > tolerance else {
+            return nil
+        }
+
+        // The closed end must match the tool's own diameter -- that's the slot's
+        // width, same requirement `rectangleSlotCenterline` places on its own
+        // width-pairing side.
+        guard abs(closedEndLength - tool.diameter) < tolerance else {
+            return nil
+        }
+
+        // Both corners against the closed end must be right angles -- together
+        // with the equal-length side walls above, this guarantees the two sides
+        // are parallel and `closedEndLength` apart along their whole run, ruling
+        // out a trapezoidal "U" that happens to have equal-length sides.
+        guard isPerpendicularCorner(p0, p1, p2, tolerance: tolerance),
+              isPerpendicularCorner(p1, p2, p3, tolerance: tolerance) else {
+            return nil
+        }
+
+        let mouthMid = CGPoint(x: (p0.x + p3.x) / 2.0, y: (p0.y + p3.y) / 2.0)
+        let closedMid = CGPoint(x: (p1.x + p2.x) / 2.0, y: (p1.y + p2.y) / 2.0)
+        let length = hypot(closedMid.x - mouthMid.x, closedMid.y - mouthMid.y)
+
+        let toolRadius = tool.diameter / 2.0
+
+        // A "U" no longer than its own width has no straight run left once the
+        // closed end is inset by the tool radius -- same fencepost reasoning
+        // `rectangleSlotCenterline` applies to both of its own ends.
+        guard length > toolRadius else {
+            return nil
+        }
+
+        let dir = CGPoint(x: (closedMid.x - mouthMid.x) / length, y: (closedMid.y - mouthMid.y) / length)
+        let approach = approachDistance ?? tool.diameter
+
+        let start = CGPoint(x: mouthMid.x - dir.x * approach, y: mouthMid.y - dir.y * approach)
+        let end = CGPoint(x: closedMid.x - dir.x * toolRadius, y: closedMid.y - dir.y * toolRadius)
+
+        return SC.Contour(entities: [
+            SC.Contour.Chained(entity: .line(a: DXF.Point(start.x, start.y), b: DXF.Point(end.x, end.y), layer: "0", color: 7), reversed: false)
+        ], isClosed: false)
+    }
+}
+
+/// Shared by `rectangleSlotCenterline` and `openEndedSlotCenterline`: whether the
+/// corner at `p1` (between the leg `p0->p1` and the leg `p1->p2`) is a right
+/// angle, i.e. whether the two legs' direction vectors have a near-zero dot
+/// product. Free function (not a method) since it needs no `SCEngine` state --
+/// pure geometry on three points.
+private func isPerpendicularCorner(_ p0: CGPoint, _ p1: CGPoint, _ p2: CGPoint, tolerance: Double) -> Bool {
+    let v1 = CGPoint(x: p1.x - p0.x, y: p1.y - p0.y)
+    let v2 = CGPoint(x: p2.x - p1.x, y: p2.y - p1.y)
+    let len1 = hypot(v1.x, v1.y)
+    let len2 = hypot(v2.x, v2.y)
+    guard len1 > tolerance, len2 > tolerance else { return false }
+    let cosAngle = (v1.x * v2.x + v1.y * v2.y) / (len1 * len2)
+    return abs(cosAngle) < tolerance * 10 // near-zero dot product, scaled for the same tolerance
 }
