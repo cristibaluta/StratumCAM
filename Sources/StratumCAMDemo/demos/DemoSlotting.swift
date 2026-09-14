@@ -45,6 +45,58 @@ class DemoSlotting: Demo {
         ], isClosed: false)
     }
 
+    /// A both-ends-open ("screw head") slot boundary -- just the two parallel side
+    /// walls, `width` apart, with *neither* short end drawn: the slot runs off the
+    /// edge of the stock on both sides into free air, the way a screwdriver slot
+    /// runs clean across the head rather than stopping short anywhere. Each wall is
+    /// its own independent segment (no shared corner to chain them, unlike the
+    /// single-open-end "U"'s 3 segments), one from x=0 to x=length, the other drawn
+    /// the same direction so `bothEndsOpenSlotCenterline`'s nearest-end pairing has
+    /// an unambiguous match either way. Matches the fixture
+    /// `Slotting_Tests.swift` will use for both-ends-open boundary recognition.
+    private func bothEndsOpenSlotBoundaryContour(length: Double, width: Double) -> SC.Contour {
+        SC.Contour(entities: [
+            SC.Contour.Chained(entity: .line(a: DXF.Point(0, 0), b: DXF.Point(length, 0), layer: "0", color: 7), reversed: false),
+            SC.Contour.Chained(entity: .line(a: DXF.Point(0, width), b: DXF.Point(length, width), layer: "0", color: 7), reversed: false)
+        ], isClosed: false)
+    }
+
+    // MARK: - Stock sizing for open-ended slots
+
+    /// A synthetic stock block for a slot that runs off the edge of the stock on
+    /// one or both ends -- unlike `Demo.syntheticStock` (built for a fully closed
+    /// boundary, margin padded on every side), an open mouth's wall should sit
+    /// flush with the stock's own edge, the same way a real screw-head slot's
+    /// walls run right up to the part's edge rather than floating with clearance
+    /// around them. `openMinX`/`openMaxX`, when provided, pin that edge of the
+    /// stock to the boundary's own mouth coordinate (no margin); when `nil` (a
+    /// closed end still inside solid material, e.g. the single-open-end case's
+    /// far side), that edge falls back to the usual tool-scaled margin past the
+    /// combined boundary+toolpath bounding box, same as `Demo.syntheticStock`.
+    /// The Y (width) direction and Z (depth) always get that same margin/backing,
+    /// since only the slot's own long axis ever runs off the stock.
+    private func stockForOpenEndedSlot(boundaryPoints: [SIMD3<Float>],
+                                       toolpathPoints: [SIMD3<Float>],
+                                       openMinX: Double?,
+                                       openMaxX: Double?,
+                                       tool: SC.ToolParams,
+                                       settings: SC.MachineSettings) -> SC.Stock? {
+        guard let bbox = Demo.boundingBox(of: boundaryPoints, toolpathPoints) else {
+            return nil
+        }
+
+        let margin = max(4.0, tool.diameter * 1.5)
+        let backingMargin = 2.0
+
+        let minX = openMinX ?? (Double(bbox.minX) - margin)
+        let maxX = openMaxX ?? (Double(bbox.maxX) + margin)
+
+        return SC.Stock(width: maxX - minX,
+                        height: Double(bbox.maxY - bbox.minY) + margin * 2,
+                        thickness: abs(settings.targetDepth) + backingMargin,
+                        origin: SIMD3<Double>(minX, Double(bbox.minY) - margin, 0))
+    }
+
     // MARK: - Rectangle boundary -> derived centerline (real-world blind slot)
 
     /// The real-world blind-slot case: instead of handing `.slotting` a centerline
@@ -159,9 +211,100 @@ class DemoSlotting: Demo {
             }
         }
 
+        // Purple stock: flush with the open mouth (x=0) -- no margin on that side,
+        // since that's exactly where the stock's own edge is -- but the usual
+        // tool-scaled margin past the closed end (x=length), which is still
+        // surrounded by solid material.
         var batches: [RenderBatch] = []
-        if let bbox = Demo.boundingBox(of: boundaryPoints, toolpathPoints),
-           let stockBatch = stockBatch(stock: Demo.syntheticStock(around: bbox, tool: tool, settings: settings)) {
+        if let stock = stockForOpenEndedSlot(boundaryPoints: boundaryPoints,
+                                             toolpathPoints: toolpathPoints,
+                                             openMinX: 0,
+                                             openMaxX: nil,
+                                             tool: tool,
+                                             settings: settings),
+           let stockBatch = stockBatch(stock: stock) {
+            batches.append(stockBatch)
+        }
+        if let baseBatch = renderBatch(forPoints: boundaryPoints,
+                                       color: SIMD4<Float>(0.2, 0.8, 1.0, 1.0),
+                                       isDashed: true,
+                                       dashLength: 0.4) {
+            batches.append(baseBatch)
+        }
+        if let toolpathBatch = renderBatch(forPoints: toolpathPoints,
+                                           color: SIMD4<Float>(1.0, 0.8, 0.0, 1.0)) {
+            batches.append(toolpathBatch)
+        }
+
+        let gcode = gcodeEngine.generateGCode(from: toolpaths, settings: settings)
+
+        return Demo.DemoResult(batches: batches, gcode: gcode, toolpathPoints: toolpathPoints, tool: tool)
+    }
+
+    // MARK: - Both-ends-open boundary -> derived centerline (real-world "screw head" slot)
+
+    /// The real-world both-ends-open case: the slot's boundary is just its two
+    /// parallel side walls, open to free air on *both* ends rather than closed on
+    /// one -- the classic screwdriver slot, cut straight across the part. Neither
+    /// end needs a plunge/ramp/helix into solid material, and neither end needs a
+    /// tool-radius inset the way a closed corner does: the tool rapids down in
+    /// free air just outside one edge, feeds in via overlapping trochoidal loops
+    /// (`entry: .fromOpenEnd`, same mechanism `demoSlottingOpenEnded` uses) across
+    /// the full length, and exits into free air on the far side exactly the same
+    /// way it entered.
+    ///
+    /// `bothEndsOpenSlotCenterline(fromBoundary:tool:)` derives that centerline
+    /// from the boundary the same way `openEndedSlotCenterline` does for the
+    /// single-open-end case, just extended past *both* mouths by one tool
+    /// diameter instead of only one -- see that function's own doc comment for
+    /// why no inset is needed at either end here.
+    ///
+    /// Both mouths sit exactly on the stock's own X edges in this demo (no margin
+    /// on either side, same `stockForOpenEndedSlot` helper `demoSlottingOpenEnded`
+    /// uses), so the preview reads the way a real screw head does: the slot
+    /// running clean across the part rather than floating inset from its edges.
+    func demoSlottingBothEndsOpen() -> Demo.DemoResult {
+        let tool = SC.ToolParams(diameter: 6.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0), safeZ: 5.0, targetDepth: -1.0)
+        let length = 30.0
+        let boundary = bothEndsOpenSlotBoundaryContour(length: length, width: 6)
+
+        guard let centerline = engine.bothEndsOpenSlotCenterline(fromBoundary: boundary, tool: tool) else {
+            // Shouldn't happen for this fixture -- the boundary's own width
+            // matches the tool exactly -- but a demo should never crash even if
+            // the fixture above is ever edited to no longer qualify.
+            return Demo.DemoResult(batches: [], gcode: "", toolpathPoints: [], tool: tool)
+        }
+
+        // Blue reference: the boundary itself (the physical slot walls that will
+        // exist once both open ends have been cut), not the derived centerline.
+        let boundarySegments = engine.linearize(contour: boundary)
+        let boundaryWaypoints = engine.buildWaypoints(for: boundarySegments, atZ: 0, settings: settings)
+        let boundaryPoints = tessellateForRender(boundaryWaypoints)
+
+        let toolpaths = engine.generateToolpaths(
+            from: [centerline],
+            tool: tool,
+            settings: settings,
+            operation: .slotting(depthPerPass: 1.0, entry: .fromOpenEnd(stepoverPercentage: 0.5))
+        )
+        var toolpathPoints: [SIMD3<Float>] = []
+        for toolpath in toolpaths {
+            for pass in toolpath.passes {
+                toolpathPoints.append(contentsOf: tessellateForRender(pass.waypoints))
+            }
+        }
+
+        // Purple stock: flush with both mouths (x=0 and x=length) -- no margin on
+        // either end, since the slot genuinely spans the full stock, edge to edge.
+        var batches: [RenderBatch] = []
+        if let stock = stockForOpenEndedSlot(boundaryPoints: boundaryPoints,
+                                             toolpathPoints: toolpathPoints,
+                                             openMinX: 0,
+                                             openMaxX: length,
+                                             tool: tool,
+                                             settings: settings),
+           let stockBatch = stockBatch(stock: stock) {
             batches.append(stockBatch)
         }
         if let baseBatch = renderBatch(forPoints: boundaryPoints,

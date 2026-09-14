@@ -194,6 +194,9 @@ struct ContentView: View {
                     demoButton("Open-Ended Boundary (Trochoidal Entry)") {
                         show(DemoSlotting().demoSlottingOpenEnded())
                     }
+                    demoButton("Both Ends Open (Screw Head)") {
+                        show(DemoSlotting().demoSlottingBothEndsOpen())
+                    }
                 }
                 Section("Thread Milling") {
                     demoButton("Internal M3") {

@@ -437,6 +437,139 @@ extension SCEngine {
             SC.Contour.Chained(entity: .line(a: DXF.Point(start.x, start.y), b: DXF.Point(end.x, end.y), layer: "0", color: 7), reversed: false)
         ], isClosed: false)
     }
+
+    // MARK: - Slot boundary recognition (both ends open, "screw head" slot -> centerline)
+
+    /// The both-ends-open counterpart to `openEndedSlotCenterline` above: a slot
+    /// whose boundary runs off the edge of the stock on *both* ends rather than
+    /// just one -- the classic screw-head slot, cut straight across the part with
+    /// free air waiting on either side. Physically that boundary is just two
+    /// parallel walls `tool.diameter` apart -- no closed end at all, since there's
+    /// no side left where the stock still surrounds the slot. Exactly 2 straight
+    /// segments, `contour.isClosed == false`, each one drawn independently (they
+    /// don't chain into each other the way a "U"'s 3 segments do, since there's no
+    /// shared corner between them) -- see `Slotting_Tests.swift`/
+    /// `DemoSlotting.swift`'s own fixture for the exact shape expected.
+    ///
+    /// Returns a centerline that starts `approachDistance` before one mouth and
+    /// ends `approachDistance` past the other -- out in free air on both ends,
+    /// clear of the stock -- unlike `rectangleSlotCenterline`/
+    /// `openEndedSlotCenterline`, there's no tool-radius inset anywhere, since
+    /// there's no closed end left to round off. The extension past both mouths is
+    /// what lets `.fromOpenEnd` rapid straight down to depth clear of material on
+    /// either side it's handed, and start its first trochoidal loop already clear
+    /// of material, rather than starting exactly at a stock edge and engaging full
+    /// width immediately.
+    ///
+    /// `approachDistance` defaults to `tool.diameter`, same convention
+    /// `openEndedSlotCenterline` uses -- enough clearance that the first/last
+    /// trochoidal loop (radius `tool.diameter / 2`) doesn't touch either stock
+    /// edge before the tool is already at full depth.
+    ///
+    /// Deliberately as narrow in scope as `rectangleSlotCenterline`/
+    /// `openEndedSlotCenterline`: only a plain pair of straight, equal-length,
+    /// parallel walls exactly `tool.diameter` apart. Returns `nil` -- rather than
+    /// guessing -- for anything that isn't recognizably that shape: a closed
+    /// contour (that's `rectangleSlotCenterline`'s own case), not exactly 2
+    /// segments, a curved wall, walls of unequal length, walls that aren't
+    /// parallel, or walls that aren't `tool.diameter` apart.
+    ///
+    /// > Flag: same wider-than-tool gap `rectangleSlotCenterline`/
+    /// > `openEndedSlotCenterline` already flag -- this only ever derives a
+    /// > centerline for a slot exactly `tool.diameter` wide. A boundary wider
+    /// > than the tool needs the pattern-based clearing `SlottingPattern.raster`/
+    /// > `.trochoidal` describe (model exists, still unwired into `.slotting`),
+    /// > not this recognition step.
+    public func bothEndsOpenSlotCenterline(fromBoundary contour: SC.Contour,
+                                           tool: SC.ToolParams,
+                                           approachDistance: Double? = nil,
+                                           tolerance: Double = 1e-3) -> SC.Contour? {
+
+        guard !contour.isClosed else {
+            return nil
+        }
+
+        let segments = linearize(contour: contour)
+        guard segments.count == 2 else {
+            return nil
+        }
+
+        // Both walls must be straight lines -- no curved walls handled here.
+        for segment in segments {
+            guard case .line = segment else {
+                return nil
+            }
+        }
+
+        let a0 = segments[0].startPoint
+        let a1 = segments[0].endPoint
+        let b0 = segments[1].startPoint
+        let b1 = segments[1].endPoint
+
+        let sideLengthA = hypot(a1.x - a0.x, a1.y - a0.y)
+        let sideLengthB = hypot(b1.x - b0.x, b1.y - b0.y)
+
+        // Equal-length walls -- a necessary (not sufficient, see the parallel
+        // check below) condition for two opposite sides of the same slot.
+        guard abs(sideLengthA - sideLengthB) < tolerance, sideLengthA > tolerance else {
+            return nil
+        }
+
+        // The two segments are drawn independently (no shared corner to chain
+        // them the way the "U" case's 3 segments do), so the second wall might
+        // run the same rotational way as the first, or the opposite way -- pair
+        // each end of wall A with whichever end of wall B is actually nearest it,
+        // rather than assuming a fixed start-to-start correspondence.
+        let dist00 = hypot(b0.x - a0.x, b0.y - a0.y)
+        let dist01 = hypot(b1.x - a0.x, b1.y - a0.y)
+        let bNearA0: CGPoint
+        let bNearA1: CGPoint
+        if dist00 <= dist01 {
+            bNearA0 = b0
+            bNearA1 = b1
+        } else {
+            bNearA0 = b1
+            bNearA1 = b0
+        }
+
+        // Parallel walls -- direction vectors must point the same way once paired
+        // by nearest end, ruling out two equal-length lines that happen to be
+        // skew to one another.
+        let dirA = CGPoint(x: (a1.x - a0.x) / sideLengthA, y: (a1.y - a0.y) / sideLengthA)
+        let dirB = CGPoint(x: (bNearA1.x - bNearA0.x) / sideLengthA, y: (bNearA1.y - bNearA0.y) / sideLengthA)
+        let cross = dirA.x * dirB.y - dirA.y * dirB.x
+        let dot = dirA.x * dirB.x + dirA.y * dirB.y
+        guard abs(cross) < tolerance * 10, dot > 0 else {
+            return nil
+        }
+
+        // The two walls must be tool.diameter apart -- that's the slot's width,
+        // same requirement the closed and single-open-end cases place on theirs.
+        let separation = hypot(bNearA0.x - a0.x, bNearA0.y - a0.y)
+        guard abs(separation - tool.diameter) < tolerance else {
+            return nil
+        }
+
+        let mouthMid = CGPoint(x: (a0.x + bNearA0.x) / 2.0, y: (a0.y + bNearA0.y) / 2.0)
+        let farMid = CGPoint(x: (a1.x + bNearA1.x) / 2.0, y: (a1.y + bNearA1.y) / 2.0)
+        let length = hypot(farMid.x - mouthMid.x, farMid.y - mouthMid.y)
+        guard length > tolerance else {
+            return nil
+        }
+
+        let dir = CGPoint(x: (farMid.x - mouthMid.x) / length, y: (farMid.y - mouthMid.y) / length)
+        let approach = approachDistance ?? tool.diameter
+
+        // No tool-radius inset at either end -- unlike the closed/single-open-end
+        // cases, there's no closed corner left to round off, so both ends simply
+        // extend past their own mouth into free air.
+        let start = CGPoint(x: mouthMid.x - dir.x * approach, y: mouthMid.y - dir.y * approach)
+        let end = CGPoint(x: farMid.x + dir.x * approach, y: farMid.y + dir.y * approach)
+
+        return SC.Contour(entities: [
+            SC.Contour.Chained(entity: .line(a: DXF.Point(start.x, start.y), b: DXF.Point(end.x, end.y), layer: "0", color: 7), reversed: false)
+        ], isClosed: false)
+    }
 }
 
 /// Shared by `rectangleSlotCenterline` and `openEndedSlotCenterline`: whether the
