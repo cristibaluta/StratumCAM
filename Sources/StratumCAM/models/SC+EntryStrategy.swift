@@ -101,10 +101,13 @@ extension SC {
         /// - Standard Use: Open-ended slots, keyways, and channels that run off
         ///   the edge of the stock.
         ///
-        /// - Parameter stepoverPercentage: Center-to-center advance between
-        ///   successive loops, as a fraction of `tool.diameter` -- same convention
-        ///   `settings.cutting.stepoverPercentage` and `.pocket`'s `.trochoidal`
-        ///   pattern already use.
+        /// - Parameter stepoverPercentage: Forward advance between successive
+        ///   bites, as a fraction (clamped to `0...1`) of `tool.diameter / 2`
+        ///   (the tool's own radius, not its full diameter) -- see
+        ///   `SCEngine.openEndedTrochoidalSegments`'s own doc comment for why a
+        ///   percentage is measured against a single radius here rather than
+        ///   `.pocket`'s `.trochoidal`/`settings.cutting.stepoverPercentage`
+        ///   convention of a fraction of the full diameter.
         case fromOpenEnd(stepoverPercentage: Double)
     }
 }

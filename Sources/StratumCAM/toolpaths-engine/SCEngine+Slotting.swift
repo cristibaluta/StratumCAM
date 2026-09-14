@@ -230,8 +230,9 @@ extension SCEngine {
     ///   c) A straight line moves back to wall A, at the *same* position along
     ///      the centerline (not yet advanced) -- closing off this bite.
     ///   d) A straight line advances forward along wall A by `stepoverPercentage
-    ///      * tool.diameter`, ready for the next cycle's own semicircle (step b
-    ///      again).
+    ///      * tool.radius` (`stepoverPercentage` clamped to `0...1`, so this
+    ///      never advances more than one tool radius per cycle), ready for the
+    ///      next cycle's own semicircle (step b again).
     /// Every cycle re-anchors on the *same* wall (wall A) rather than
     /// alternating sides bite to bite -- an alternating zig-zag isn't what a
     /// wall-constrained cutter actually does; it's always anchored on one side,
@@ -258,7 +259,12 @@ extension SCEngine {
             return segments
         }
 
-        let pitch = max(stepoverPercentage, 1e-3) * tool.diameter
+        // The forward pitch per cycle: a fraction (clamped to 0...1, since this
+        // is a percentage of a single radius, never several) of the tool's own
+        // *radius*, not its diameter -- `stepoverPercentage == 1.0` advances by
+        // exactly one tool radius per bite, not a full diameter.
+        let clampedStepover = min(max(stepoverPercentage, 0), 1)
+        let pitch = max(clampedStepover, 1e-3) * (tool.diameter / 2.0)
         guard pitch > 1e-6 else {
             return []
         }
@@ -306,7 +312,6 @@ extension SCEngine {
             }
 
             let wallA = local(0, -loopRadius)
-
             // d) Advance forward along wall A from the previous cycle's own
             // closing point to this cycle's wall-A point.
             if let previousWallAPoint, hypot(wallA.x - previousWallAPoint.x, wallA.y - previousWallAPoint.y) > 1e-6 {
