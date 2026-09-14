@@ -274,10 +274,30 @@ extension SCEngine {
             return []
         }
 
+        // Every bite's own semicircle bulges `loopRadius` *forward* of its own
+        // origin (see step b below) -- so pinning the last bite's origin at the
+        // centerline's own raw end (`totalLength`) would let that last bulge
+        // overshoot past it by `loopRadius`, exceeding the slot's actual limits
+        // (the centerline's own end is already correctly inset from the true
+        // wall by the tool radius -- see `openEndedSlotCenterline` -- so
+        // anything beyond it is genuinely past the wall, not just past this
+        // function's own bookkeeping). Reserving `loopRadius` of travel here,
+        // and pinning the last bite's *origin* at `usableLength` rather than
+        // `totalLength`, keeps that last bulge's own forward peak landing
+        // exactly on the centerline's true end instead of past it.
+        let usableLength = max(totalLength - loopRadius, 0)
+        guard usableLength > 1e-9 else {
+            // Too short for even one bulge without overshooting past the end --
+            // just trace the centerline itself, straight in.
+            return segments
+        }
+
         // Bites start every `pitch` along the centerline, starting at distance 0
-        // and finishing with a final bite pinned exactly at the centerline's own
-        // end -- same fencepost convention `trochoidalSegments` itself uses.
-        let rawSteps = totalLength / pitch
+        // and finishing with a final bite pinned exactly at `usableLength` --
+        // same fencepost convention `trochoidalSegments` itself uses for its own
+        // last ring, just measured against `usableLength` rather than
+        // `totalLength` for the reason above.
+        let rawSteps = usableLength / pitch
         let epsilon = 1e-9
         let stepCount: Int
         if abs(rawSteps.rounded() - rawSteps) < epsilon {
@@ -288,7 +308,7 @@ extension SCEngine {
         let cycleCount = stepCount + 1
 
         let cycleDistances: [Double] = (0..<cycleCount).map { i in
-            (i == cycleCount - 1) ? totalLength : pitch * Double(i)
+            (i == cycleCount - 1) ? usableLength : pitch * Double(i)
         }
 
         let stepsPerSemicircle = 36 // same 5-degrees/step resolution `trochoidalSegments` uses.
@@ -311,8 +331,7 @@ extension SCEngine {
                         y: origin.y + u * travelDirection.y + v * normal.y)
             }
 
-            let wallA = local(0, -loopRadius)
-            // d) Advance forward along wall A from the previous cycle's own
+            let wallA = local(0, -loopRadius)            // d) Advance forward along wall A from the previous cycle's own
             // closing point to this cycle's wall-A point.
             if let previousWallAPoint, hypot(wallA.x - previousWallAPoint.x, wallA.y - previousWallAPoint.y) > 1e-6 {
                 result.append(.line(start: previousWallAPoint, end: wallA))
