@@ -11,10 +11,14 @@ import simd
 extension SC {
 
     public struct Stock: Sendable, Equatable {
-        public var width: Double            // X size
-        public var height: Double           // Y size
-        public var thickness: Double        // Z size
-        public var origin: SIMD3<Double>    // Work coordinate offset (WCS G54 origin)
+        /// Size on X axis
+        public var width: Double
+        /// Size on Y axis
+        public var height: Double
+        /// Size on Z axis
+        public var thickness: Double
+        // Work coordinate offset
+        public var origin: SIMD3<Double>
 
         public init(width: Double, height: Double, thickness: Double, origin: SIMD3<Double> = .zero) {
             self.width = width

@@ -11,11 +11,16 @@ extension SC {
 
     public struct MachineSettings: Sendable, Equatable {
 
-        public var cutting: CuttingData     // Spindle/feed/stepdown/stepover cutting conditions
-        public var safeZ: Double            // Rapid clearance plane above stock
-        public var retractZ: Double         // Short lift clearance between close cuts
-        public var targetDepth: Double      // Total depth of cut (positive depth into stock)
-        public var dwell: Double?           // Optional drilling dwell in seconds
+        // Spindle/feed/stepdown/stepover cutting conditions
+        public var cutting: CuttingData
+        /// Rapid clearance plane above stock
+        public var safeZ: Double
+        /// Short lift clearance between close cuts
+        public var retractZ: Double
+        /// Total depth of cut (positive depth into stock)
+        public var targetDepth: Double
+        /// Optional drilling dwell in seconds
+        public var dwell: Double?
 
         public init(cutting: CuttingData = CuttingData(),
                     safeZ: Double = 5.0,

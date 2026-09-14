@@ -41,7 +41,7 @@ extension SC {
         public init(spindleSpeed: Double = 12000.0,
                     feedRate: Double = 1200.0,
                     plungeRate: Double = 300.0,
-                    stepdown: Double = 1.5,
+                    stepdown: Double = 0.1,
                     stepoverPercentage: Double = 0.4,
                     maxOptimalLoad: Double = 0.0) {
 

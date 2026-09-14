@@ -6,10 +6,10 @@ MachiningOperation
 ├── facing
 ├── slotting
 ├── contour
-├── pocket ──────────────────────┐
-├── drilling                     │
-├── chamfer                      │
-└── boring                       │
+├── pocket ─────────────────────┐
+├── drilling                    │
+├── chamfer                     │
+└── boring                      │
                                 │
                                 ▼
                          ClearingPattern

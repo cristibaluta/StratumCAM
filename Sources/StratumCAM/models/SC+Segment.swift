@@ -14,6 +14,7 @@ extension SC {
         case line(start: CGPoint,
                   end: CGPoint)
 
+        /// angle is in radians
         case arc(center: CGPoint,
                  radius: Double,
                  startAngle: Double,
@@ -171,10 +172,12 @@ extension SC.Segment {
     var pathLength: Double {
         switch self {
             case .line(let start, let end):
+                // straight-line distance between two 2D points
                 return hypot(end.x - start.x, end.y - start.y)
 
-            case .arc(_, let radius, let startAngle, let endAngle, let isCCW):
-                let sweep = isCCW ? (endAngle - startAngle) : (startAngle - endAngle)
+            case .arc(_, let radius, let startAngle, let endAngle, _):
+                // Calculates the arc length
+                let sweep = endAngle - startAngle
                 return radius * abs(sweep)
         }
     }

@@ -12,15 +12,7 @@ extension SC {
     /// Describes one facing operation against a stock's top-face footprint.
     ///
     /// `.facing` has no selected contour to iterate -- unlike every other
-    /// `MachiningOperation`, it clears the whole `Stock` footprint once -- so it
-    /// can't go through `generateToolpaths(from contours:tool:settings:operation:)`'s
-    /// per-contour dispatch the way `.pocket`/`.contour`/etc. do. This mirrors
-    /// `DrillingOperation`'s existing solution to the same kind of signature
-    /// mismatch (drilling's per-hole batch, here facing's per-stock one): a small,
-    /// dedicated struct bundling the stock with its own tool/settings, consumed by
-    /// a matching `generateToolpaths(from operations: [FacingOperation])` overload
-    /// rather than forcing facing through the per-contour path just because that's
-    /// what's already wired up.
+    /// `MachiningOperation`, it clears the whole `Stock` footprint once
     public struct FacingOperation: Sendable {
         public var stock: Stock
         public var tool: ToolParams

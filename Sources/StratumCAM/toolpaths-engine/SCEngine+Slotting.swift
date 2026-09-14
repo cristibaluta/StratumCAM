@@ -116,25 +116,25 @@ extension SCEngine {
 
             case .ramp(let angleDegrees):
                 waypoints.append(
-                    contentsOf: rampWaypoints(firstSegment: firstSegment,
-                                              angleDegrees: angleDegrees,
-                                              fromZ: previousZ,
-                                              toZ: z,
-                                              settings: settings)
+                    contentsOf: RampTools.rampWaypoints(firstSegment: firstSegment,
+                                                        angleDegrees: angleDegrees,
+                                                        fromZ: previousZ,
+                                                        toZ: z,
+                                                        settings: settings)
                 )
 
             case .helix(let radius, let angleDegrees):
                 waypoints.append(
-                    contentsOf: helixEntryWaypoints(contourStart: startPoint,
-                                                    startTangent: startTangent,
-                                                    side: .onContour,
-                                                    segments: segments,
-                                                    firstSegment: firstSegment,
-                                                    radius: radius,
-                                                    angleDegrees: angleDegrees,
-                                                    fromZ: previousZ,
-                                                    toZ: z,
-                                                    settings: settings)
+                    contentsOf: RampTools.helixEntryWaypoints(contourStart: startPoint,
+                                                              startTangent: startTangent,
+                                                              side: .onContour,
+                                                              segments: segments,
+                                                              firstSegment: firstSegment,
+                                                              radius: radius,
+                                                              angleDegrees: angleDegrees,
+                                                              fromZ: previousZ,
+                                                              toZ: z,
+                                                              settings: settings)
                 )
         }
 

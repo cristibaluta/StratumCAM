@@ -9,6 +9,7 @@ import Foundation
 
 extension SC {
 
+    // TODO: what is this?
     public struct LeadInOut: Sendable, Equatable {
         
         public enum Style: Sendable, Equatable {

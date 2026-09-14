@@ -221,25 +221,25 @@ extension SCEngine {
 
             case .ramp(let angleDegrees):
                 waypoints.append(
-                    contentsOf: rampWaypoints(firstSegment: firstSegment,
-                                              angleDegrees: angleDegrees,
-                                              fromZ: previousZ,
-                                              toZ: z,
-                                              settings: settings)
+                    contentsOf: RampTools.rampWaypoints(firstSegment: firstSegment,
+                                                        angleDegrees: angleDegrees,
+                                                        fromZ: previousZ,
+                                                        toZ: z,
+                                                        settings: settings)
                 )
 
             case .helix(let radius, let angleDegrees):
                 waypoints.append(
-                    contentsOf: helixEntryWaypoints(contourStart: startPoint,
-                                                    startTangent: startTangent,
-                                                    side: .inside,
-                                                    segments: boundary,
-                                                    firstSegment: firstSegment,
-                                                    radius: radius,
-                                                    angleDegrees: angleDegrees,
-                                                    fromZ: previousZ,
-                                                    toZ: z,
-                                                    settings: settings)
+                    contentsOf: RampTools.helixEntryWaypoints(contourStart: startPoint,
+                                                              startTangent: startTangent,
+                                                              side: .inside,
+                                                              segments: boundary,
+                                                              firstSegment: firstSegment,
+                                                              radius: radius,
+                                                              angleDegrees: angleDegrees,
+                                                              fromZ: previousZ,
+                                                              toZ: z,
+                                                              settings: settings)
                 )
             case .fromOpenEnd(stepoverPercentage: _):
                 break;
@@ -324,7 +324,7 @@ extension SCEngine {
             return rings
         }
 
-        let winding = isCCWWinding(firstRing)
+        let winding = OffsetTools.isCCWWinding(firstRing)
         var current = firstRing
 
         // Safety cap: the full-collapse check and the winding-flip check below are
@@ -342,7 +342,7 @@ extension SCEngine {
                 // longer fits *anywhere* on this ring.
                 break
             }
-            guard isCCWWinding(next) == winding else {
+            guard OffsetTools.isCCWWinding(next) == winding else {
                 break // Straight-edge collapse: the ring inverted through its own center.
             }
 
