@@ -183,9 +183,11 @@ class DemoSlotting: Demo {
     /// first trochoidal loop starts entirely clear of the stock.
     func demoSlottingOpenEnded() -> Demo.DemoResult {
         let tool = SC.ToolParams(diameter: 6.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0), safeZ: 5.0, targetDepth: -1.0)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -1.0)
         let boundary = openEndedSlotBoundaryContour(length: 30, width: 8)
-        let pattern = SC.SlotClearingPattern.trochoidal(settings: SC.TrochoidalSettings(radialEngagement: 50, loopRadius: 0))
+        let pattern: SC.SlotClearingPattern =
+            .trochoidal(settings: SC.TrochoidalSettings(radialEngagement: 0.5, loopRadius: 0))
 
         // Blue reference: the boundary itself (the physical slot walls that will
         // exist once the open end has been cut), not the derived centerline.

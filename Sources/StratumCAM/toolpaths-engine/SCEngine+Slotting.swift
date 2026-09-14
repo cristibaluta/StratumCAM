@@ -20,11 +20,6 @@ extension SCEngine {
     /// `helixEntryWaypoints` machinery `.contour`/`.pocket` already use -- see
     /// `buildSlottingWaypoints` below.
     ///
-    /// As of Step 2B.2, `depthPerPass` is the Z stepdown increment down to
-    /// `settings.targetDepth` -- the same `calculateZPasses` reuse `.contour`/
-    /// `.pocket` already do for their own `settings.cutting.stepdown`, just fed
-    /// `depthPerPass` instead, since slotting's per-pass depth is the operation's
-    /// own parameter rather than a shared machine-wide cutting setting.
     func buildSlottingToolpath(for contour: SC.Contour,
                                tool: SC.ToolParams,
                                settings: SC.MachineSettings,
@@ -41,7 +36,7 @@ extension SCEngine {
         let zDepths = EngineTools.calculateZPasses(targetDepth: settings.targetDepth, stepdown: depthPerPass)
 
         var passes: [SC.ToolpathPass] = []
-        var previousZ = 0.0 // top of stock -- pass 0 ramps/helixes down from here, same convention `.contour`/`.pocket` use.
+        var previousZ = 0.0 // top of stock -- pass 0 ramps/helixes down from here
         for (i, z) in zDepths.enumerated() {
             let waypoints = buildSlottingWaypoints(for: segments,
                                                    firstSegment: firstSegment,
