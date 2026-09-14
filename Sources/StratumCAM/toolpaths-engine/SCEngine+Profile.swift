@@ -285,7 +285,7 @@ extension SCEngine {
                 let center = CGPoint(x: contourStart.x + normal.x * signedOffset, y: contourStart.y + normal.y * signedOffset)
                 let isCCW = signedOffset > 0
                 let contourAngle = atan2(contourStart.y - center.y, contourStart.x - center.x)
-                let sweepRad = sweepDegrees * .pi / 180.0
+                let sweepRad = sweepDegrees.degreesToRadians
                 // Walk backwards from the contour point to find where the lead-in arc starts.
                 let entryAngle = isCCW ? contourAngle - sweepRad : contourAngle + sweepRad
                 let entryPoint = CGPoint(x: center.x + radius * cos(entryAngle), y: center.y + radius * sin(entryAngle))
@@ -322,7 +322,7 @@ extension SCEngine {
                 let center = CGPoint(x: contourEnd.x + normal.x * signedOffset, y: contourEnd.y + normal.y * signedOffset)
                 let isCCW = signedOffset > 0
                 let contourAngle = atan2(contourEnd.y - center.y, contourEnd.x - center.x)
-                let sweepRad = sweepDegrees * .pi / 180.0
+                let sweepRad = sweepDegrees.degreesToRadians
                 let exitAngle = isCCW ? contourAngle + sweepRad : contourAngle - sweepRad
                 let exitPoint = CGPoint(x: center.x + radius * cos(exitAngle), y: center.y + radius * sin(exitAngle))
                 let move = SC.Waypoint(position: SIMD3(exitPoint.x, exitPoint.y, z),
@@ -446,8 +446,8 @@ extension SC.Contour {
                 }
 
             case let .arc(center, radius, startDeg, endDeg, _, _):
-                let start = startDeg * .pi / 180.0
-                var end = endDeg * .pi / 180.0
+                let start = startDeg.degreesToRadians
+                var end = endDeg.degreesToRadians
 
                 // DXF arcs sweep CCW start -> end. Normalize end angle.
                 while end < start {

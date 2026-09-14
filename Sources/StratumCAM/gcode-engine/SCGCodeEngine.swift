@@ -93,15 +93,15 @@ public struct SCGCodeEngine {
                     //
                     // Therefore the penultimate waypoint is the final cutting
                     // move in both cases.
-                    if isDrilling,
-                       index == pass.waypoints.count - 2,
-                       let dwell = toolpath.settings.dwell,
-                       dwell > 0 {
-
-                        lines.append(
-                            "G04 P\(String(format: "%.3f", dwell)) (Drilling dwell)"
-                        )
-                    }
+//                    if isDrilling,
+//                       index == pass.waypoints.count - 2,
+//                       let dwell = toolpath.settings.dwell,
+//                       dwell > 0 {
+//
+//                        lines.append(
+//                            "G04 P\(String(format: "%.3f", dwell)) (Drilling dwell)"
+//                        )
+//                    }
 
                     if let boringDwellTime, boringDwellTime > 0, index == lastArcIndex {
                         lines.append(

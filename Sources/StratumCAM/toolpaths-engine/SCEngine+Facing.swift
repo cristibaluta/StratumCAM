@@ -134,8 +134,6 @@ extension SCEngine {
         return rows
     }
 
-    // MARK: - Step 2A.2: facing toolpath
-
     /// Turns `facingScanlines`' rows into an actual toolpath: chains them with
     /// `chainedRingSegments` (the same row-linking helper pocketing's raster uses --
     /// a list of rows is the same "segment groups needing connecting transitions"

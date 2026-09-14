@@ -136,20 +136,10 @@ extension SC {
 
     public struct TrochoidalSettings: Sendable, Codable, Equatable {
         /// Forward pitch between successive bounce cycles, as a fraction
-        /// (clamped to `0...1`) of the tool's own radius (`tool.diameter /
-        /// 2`) -- see `SCEngine.ringTrochoidalSegments`'s (pocket) and
-        /// `SCEngine.openEndedTrochoidalSegments`'s (slotting) own doc
-        /// comments for why a percentage is measured against a single radius
-        /// here rather than the full diameter.
+        /// (clamped to `0...1`) of the tool's own radius
         let radialEngagement: Double
 
-        /// Unused by `.pocket`'s own `.trochoidal` pattern as of the
-        /// wall-anchored ring-bounce rewrite -- each ring's own inward reach
-        /// is always exactly `stepoverPercentage * tool.diameter` (the same
-        /// ring-to-ring spacing `.offsetPattern` itself uses via
-        /// `pocketRings`), not a separately configurable radius. Kept for
-        /// source compatibility and any future pattern that does need an
-        /// independently tunable bounce radius.
+        // TODO: what is this?
         let loopRadius: Double
 
         public init(radialEngagement: Double, loopRadius: Double) {
@@ -185,12 +175,6 @@ extension SC {
         /// - Real-World Impact: Produces predictable, boundary-following passes
         ///   with relatively uniform motion around the pocket.
         ///
-        /// - Pros: Simple, predictable, and effective for pockets with regular
-        ///   boundaries.
-        ///
-        /// - Cons: Offset geometry can create difficult transitions or sharp
-        ///   directional changes in complex concave geometry.
-        ///
         /// - Standard Use: General-purpose pocket clearing where predictable
         ///   boundary offsets are preferred.
         case offset
@@ -209,13 +193,6 @@ extension SC {
         ///
         /// - Real-World Impact: Uses simple, predictable linear passes to sweep
         ///   across the available material.
-        ///
-        /// - Pros: Easy to compute, predictable, and effective for simple
-        ///   rectangular or open clearing regions.
-        ///
-        /// - Cons: Requires frequent direction changes or linking moves at
-        ///   boundaries and may leave scallops or directional marks that require
-        ///   a separate finishing pass.
         ///
         /// - Standard Use: Simple pockets, facing-like clearing, and open areas.
         case raster
@@ -274,12 +251,6 @@ extension SC {
         /// - Real-World Impact: Provides continuous tool motion with fewer
         ///   abrupt directional changes than independent offset passes.
         ///
-        /// - Pros: Smooth motion and efficient linking between successive
-        ///   regions when the pocket geometry is suitable for a spiral.
-        ///
-        /// - Cons: Best suited to circular, elliptical, or otherwise smooth
-        ///   boundaries. Irregular geometry may require a fallback strategy.
-        ///
         /// - Standard Use: Circular pockets, bores, smooth cavities, and
         ///   suitable facing or clearing regions.
         ///
@@ -291,28 +262,6 @@ extension SC {
         /// Smoothly interpolates paths between two differing inner and outer
         /// boundaries.
         ///
-        /// ```text
-        /// ┌───────────────────────┐
-        /// │     ╭──────────╮      │
-        /// │   ╭─╯──────────╰─╮    │
-        /// │  │    ╭──────╮    │   │
-        /// │  │   │   ( )  │    │   │ ───►
-        /// │  │    ╰──────╯    │   │
-        /// │   ╰─╮──────────╭─╯    │
-        /// │     ╰──────────╯      │
-        /// └───────────────────────┘
-        /// ```
-        ///
-        /// - Real-World Impact: Gradually morphs the toolpath geometry between
-        ///   inner and outer boundaries instead of relying solely on independent
-        ///   offsets.
-        ///
-        /// - Pros: Can distribute passes smoothly across irregular or
-        ///   non-concentric cavities.
-        ///
-        /// - Cons: More computationally complex and requires suitable boundary
-        ///   geometry to avoid undesirable self-intersections or abrupt changes.
-        ///
         /// - Standard Use: Irregular pockets, mold cavities, pockets around
         ///   islands, and regions where inner and outer boundaries differ
         ///   significantly.
@@ -321,36 +270,8 @@ extension SC {
         /// Forward-progressing looping or oscillating motion designed to keep
         /// radial cutter engagement relatively small.
         ///
-        /// ```text
-        /// ┌────────────────────────────┐
-        /// │ ╭╮  ╭╮  ╭╮  ╭╮  ╭╮  ╭╮    │
-        /// │ │╰──╯│  │╰──╯│  │╰──╯│     │ ───►
-        /// │ ╰────╯  ╰────╯  ╰────╯     │
-        /// └────────────────────────────┘
-        /// ```
-        ///
-        /// The cutter does not normally complete a circle, stop, advance by
-        /// a discrete step, and then repeat. Instead, forward motion and the
-        /// lateral/looping motion occur continuously, producing a succession
-        /// of overlapping arcs or loops as the cutter advances.
-        ///
-        /// - Real-World Impact: Keeps radial engagement relatively small during
-        ///   slot or channel cutting, reducing cutting forces, heat, and the
-        ///   risk of chip packing compared with conventional full-width slotting.
-        ///
-        /// - Pros: Particularly effective for deep narrow slots and channels
-        ///   where full-width cutter engagement would overload the tool.
-        ///
-        /// - Cons: Produces a longer toolpath than a direct single-pass slot
-        ///   and may be unnecessary when the desired radial engagement is already
-        ///   small.
-        ///
         /// - Standard Use: Deep narrow slots, channels, keyways, and other
         ///   narrow regions requiring controlled radial engagement.
-        ///
-        /// - Note: Trochoidal motion is a specific trajectory technique.
-        ///   Adaptive clearing may also generate trochoidal-like looping motion
-        ///   as part of its dynamic engagement-control strategy.
         case trochoidal(settings: TrochoidalSettings)
     }
 }

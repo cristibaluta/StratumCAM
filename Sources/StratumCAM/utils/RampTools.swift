@@ -20,7 +20,7 @@ struct RampTools {
                               settings: SC.MachineSettings) -> [SC.Waypoint] {
 
         let totalDrop = fromZ - toZ
-        let angleRad = angleDegrees * .pi / 180.0
+        let angleRad = angleDegrees.degreesToRadians
 
         let a = firstSegment.startPoint
         let b = firstSegment.endPoint
@@ -104,7 +104,7 @@ struct RampTools {
                                     settings: SC.MachineSettings) -> [SC.Waypoint] {
 
         let totalDrop = fromZ - toZ
-        let angleRad = angleDegrees * .pi / 180.0
+        let angleRad = angleDegrees.degreesToRadians
 
         guard totalDrop > 1e-9, angleDegrees > 0, angleDegrees < 90, radius > 1e-9 else {
             return [SC.Waypoint(position: SIMD3(contourStart.x, contourStart.y, toZ),

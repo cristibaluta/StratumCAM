@@ -37,7 +37,7 @@ extension SCEngine {
 
         // The bevel's horizontal reach at the resolved depth is what we offset the
         // centerline path by, same corner-fillet/trim machinery as a profile cut.
-        let horizontalReach = abs(z) * tan((tool.vAngle ?? 0) / 2.0 * .pi / 180.0)
+        let horizontalReach = abs(z) * tan(((tool.vAngle ?? 0) / 2.0).degreesToRadians)
         let toolpathSegments = offsetContour(oriented,
                                              side: params.side,
                                              toolRadius: horizontalReach,

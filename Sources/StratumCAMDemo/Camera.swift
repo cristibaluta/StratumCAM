@@ -18,15 +18,10 @@ class Camera {
     var target: SIMD3<Float> = [0, 0, 0]
     var up: SIMD3<Float> = [0, 1, 0]
 
-    var fov: Float = 45.0 * (.pi / 180.0)
+    var fov: Float = 0.0 * (.pi / 180.0)
     var aspectRatio: Float = 1.0
     var nearZ: Float = 0.1
-    // Was 1000 -- less than `distance`'s own 2000 max in MetalCanvasView's scroll
-    // handler, so zooming out past 1000 clipped the entire scene out of view
-    // (pre-existing, independent of the perspective/orthographic switch above).
-    // Raised past the max zoomed-out distance so the far clip plane never sits
-    // closer than the camera itself can get.
-    var farZ: Float = 4000.0
+    var farZ: Float = 2000.0
 
     // Default 3D View Angle
     // Pitch (X-axis): -0.6 radians (~-35° looking down)

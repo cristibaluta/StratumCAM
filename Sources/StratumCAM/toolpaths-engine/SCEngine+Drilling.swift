@@ -12,37 +12,6 @@ import simd
 
 extension SCEngine {
 
-    /// Extracts a single drill point (XY) from a contour, if the contour represents
-    /// one. Two shapes are recognized as "drill here" markers:
-    /// - A single `.point` entity -- the explicit case.
-    /// - A single closed `.circle` entity -- common in DXF for marking hole centers,
-    ///   since many CAD tools don't have a dedicated point primitive for this. `isClosed`
-    ///   must be `true` so a circle used for other strategies (e.g. engraving a ring)
-    ///   isn't silently reinterpreted as a hole.
-    ///
-    /// Any other contour shape (lines, arcs, polylines, multiple entities, an open
-    /// circle) returns `nil` -- it isn't a drillable point, it's geometry for another
-    /// strategy.
-    func drillPoint(for contour: SC.Contour) -> CGPoint? {
-        guard contour.entities.count == 1 else {
-            return nil
-        }
-
-        switch contour.entities[0].entity {
-            case let .point(at, _, _):
-                return at.cgPoint
-
-            case let .circle(center, _, _, _):
-                guard contour.isClosed else {
-                    return nil
-                }
-                return center.cgPoint
-
-            default:
-                return nil
-        }
-    }
-
     /// Builds a drill cycle: rapid to the hole's XY at Safe Z, then either a single
     /// straight plunge (`peckDepth == nil`) or a peck cycle (`peckDepth != nil`), ending
     /// with a retract to Safe Z. One `ToolpathPass` either way, since a drill cycle
@@ -54,7 +23,7 @@ extension SCEngine {
                                peckDepth: Double?,
                                operation: SC.MachiningOperation) -> SC.OutputToolpath? {
 
-        guard let point = drillPoint(for: contour) else {
+        guard let point = contour.drillPoint else {
             return nil
         }
 
@@ -92,15 +61,25 @@ extension SCEngine {
         let peckDepths = EngineTools.calculateZPasses(targetDepth: settings.targetDepth, stepdown: peckDepth)
 
         var waypoints: [SC.Waypoint] = [
-            SC.Waypoint(position: SIMD3(point.x, point.y, settings.safeZ), motion: .rapid, feedRate: settings.cutting.feedRate)
+            SC.Waypoint(position: SIMD3(point.x, point.y, settings.safeZ),
+                        motion: .rapid,
+                        feedRate: settings.cutting.feedRate)
         ]
 
         for (index, depth) in peckDepths.enumerated() {
-            waypoints.append(SC.Waypoint(position: SIMD3(point.x, point.y, depth), motion: .linear, feedRate: settings.cutting.plungeRate))
+            waypoints.append(
+                SC.Waypoint(position: SIMD3(point.x, point.y, depth),
+                            motion: .linear,
+                            feedRate: settings.cutting.plungeRate)
+            )
 
             let isLastPeck = index == peckDepths.count - 1
             let retractTo = isLastPeck ? settings.safeZ : settings.retractZ
-            waypoints.append(SC.Waypoint(position: SIMD3(point.x, point.y, retractTo), motion: .rapid, feedRate: settings.cutting.feedRate))
+            waypoints.append(
+                SC.Waypoint(position: SIMD3(point.x, point.y, retractTo),
+                            motion: .rapid,
+                            feedRate: settings.cutting.feedRate)
+            )
         }
 
         return waypoints

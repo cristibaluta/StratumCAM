@@ -2,13 +2,11 @@
 //  SCOffsetEngine.swift
 //  StratumCAM
 //
-//  Tool-radius compensation: offsets a chain of segments by the tool
-//  radius so `.inside` / `.outside` profile cuts leave the part at its
-//  true drawn size instead of following the contour at cutter-center.
-//
 
 import Foundation
 import CoreGraphics
+
+// Calculate offsets
 
 extension SCEngine {
 
@@ -158,10 +156,13 @@ extension SCEngine {
         switch (a, b) {
             case let (.line(p1, p2), .line(p3, p4)):
                 return GeoTools.lineLineIntersection(p1, p2, p3, p4)
+
             case let (.line(p1, p2), .arc(center, radius, _, _, _)):
                 return GeoTools.circleLineIntersections(center: center, radius: radius, p1: p1, p2: p2)
+
             case let (.arc(center, radius, _, _, _), .line(p1, p2)):
                 return GeoTools.circleLineIntersections(center: center, radius: radius, p1: p1, p2: p2)
+
             case let (.arc(c1, r1, _, _, _), .arc(c2, r2, _, _, _)):
                 return GeoTools.circleCircleIntersections(c1: c1, r1: r1, c2: c2, r2: r2)
         }

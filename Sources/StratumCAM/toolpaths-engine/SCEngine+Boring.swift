@@ -47,7 +47,7 @@ extension SCEngine {
                              shiftRetract: Bool,
                              operation: SC.MachiningOperation) -> SC.OutputToolpath? {
 
-        guard let point = drillPoint(for: contour) else {
+        guard let point = contour.drillPoint else {
             return nil
         }
 
@@ -67,7 +67,7 @@ extension SCEngine {
             SC.Waypoint(position: SIMD3(start.x, start.y, z), motion: .arcCCW(center: point), feedRate: settings.cutting.feedRate)
         ]
 
-        // Step 2C.2: shift off the freshly bored wall before retracting, at depth, so the
+        // Shift off the freshly bored wall before retracting, at depth, so the
         // rapid retract that follows doesn't drag the tool's edge straight back across the
         // finished bore -- the reason a plain drill cycle's straight-up retract isn't good
         // enough here. Shifted inward toward `point` by the tool's own radius (clamped so
@@ -77,14 +77,23 @@ extension SCEngine {
         if shiftRetract {
             let shiftDistance = min(tool.diameter / 2.0, radius)
             retractPoint = CGPoint(x: start.x - shiftDistance, y: start.y)
-            waypoints.append(SC.Waypoint(position: SIMD3(retractPoint.x, retractPoint.y, z), motion: .linear, feedRate: settings.cutting.feedRate))
+            waypoints.append(
+                SC.Waypoint(position: SIMD3(retractPoint.x, retractPoint.y, z),
+                            motion: .linear,
+                            feedRate: settings.cutting.feedRate)
+            )
         } else {
             retractPoint = start
         }
 
-        waypoints.append(SC.Waypoint(position: SIMD3(retractPoint.x, retractPoint.y, settings.safeZ), motion: .rapid, feedRate: settings.cutting.feedRate))
+        waypoints.append(
+            SC.Waypoint(position: SIMD3(retractPoint.x, retractPoint.y, settings.safeZ),
+                        motion: .rapid,
+                        feedRate: settings.cutting.feedRate)
+        )
 
         let pass = SC.ToolpathPass(passIndex: 0, depthZ: z, waypoints: waypoints)
+
         return SC.OutputToolpath(operation: operation, tool: tool, settings: settings, passes: [pass])
     }
 }

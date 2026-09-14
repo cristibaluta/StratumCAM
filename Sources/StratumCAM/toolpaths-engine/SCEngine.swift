@@ -7,7 +7,6 @@
 
 import Foundation
 import simd
-import SwiftDXF
 
 public final class SCEngine {
 
@@ -211,11 +210,5 @@ public final class SCEngine {
         }
 
         return waypoints
-    }
-}
-
-extension DXF.Point {
-    var cgPoint: CGPoint {
-        CGPoint(x: x, y: y)
     }
 }

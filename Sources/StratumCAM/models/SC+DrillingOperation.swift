@@ -10,10 +10,6 @@ import Foundation
 extension SC {
 
     /// Describes one drilling operation in a batch of holes.
-    ///
-    /// Keeping the tool and machine settings with each contour allows a single
-    /// `generateToolpaths` call to contain holes using different drill tools and
-    /// different peck strategies.
     public struct DrillingOperation: Sendable {
         public var contour: Contour
         public var tool: ToolParams

@@ -46,7 +46,7 @@ extension SC.ChamferParams {
         guard tool.type == .vBit, let vAngle = tool.vAngle, vAngle > 0 else {
             return nil
         }
-        let halfAngleRad = (vAngle / 2.0) * .pi / 180.0
+        let halfAngleRad = (vAngle / 2.0).degreesToRadians
         return -(width / tan(halfAngleRad))
     }
 }
