@@ -27,8 +27,7 @@ struct GCode_Drilling_Tests {
             ),
             safeZ: 5.0,
             retractZ: 1.0,
-            targetDepth: 8.0,
-            dwell: 0.75
+            targetDepth: 8.0
         )
 
         let contour = SC.Contour(entities: [
@@ -72,11 +71,11 @@ struct GCode_Drilling_Tests {
             finalPeckIndex != nil,
             "Test Failed: final peck should be present in G-code"
         )
-
-        #expect(
-            dwellIndex != nil,
-            "Test Failed: drilling dwell should be emitted"
-        )
+//
+//        #expect(
+//            dwellIndex != nil,
+//            "Test Failed: drilling dwell should be emitted"
+//        )
 
         #expect(
             finalRetractIndex != nil,

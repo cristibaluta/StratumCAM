@@ -24,7 +24,7 @@ struct Drilling_Tests {
             .init(entity: .point(at: DXF.Point(5, 7), layer: "0", color: 7), reversed: false)
         ], isClosed: false)
 
-        let point = engine.drillPoint(for: contour)
+        let point = contour.drillPoint
 
         #expect(point != nil, "Test Failed: expected a drill point")
         #expect(abs(point!.x - 5.0) < 1e-9 && abs(point!.y - 7.0) < 1e-9, "Test Failed: drill point XY mismatch")
@@ -37,7 +37,7 @@ struct Drilling_Tests {
             .init(entity: .circle(center: DXF.Point(3, 4), radius: 2.5, layer: "0", color: 7), reversed: false)
         ], isClosed: true)
 
-        let point = engine.drillPoint(for: contour)
+        let point = contour.drillPoint
 
         #expect(point != nil, "Test Failed: expected a drill point")
         #expect(abs(point!.x - 3.0) < 1e-9 && abs(point!.y - 4.0) < 1e-9, "Test Failed: drill point should be the circle's center")
@@ -50,7 +50,7 @@ struct Drilling_Tests {
             .init(entity: .circle(center: DXF.Point(3, 4), radius: 2.5, layer: "0", color: 7), reversed: false)
         ], isClosed: false)
 
-        #expect(engine.drillPoint(for: contour) == nil, "Test Failed: an unclosed circle should not resolve to a drill point")
+        #expect(contour.drillPoint == nil, "Test Failed: an unclosed circle should not resolve to a drill point")
     }
 
     @Test("A line is not recognized as a drill point")
@@ -60,7 +60,7 @@ struct Drilling_Tests {
             .init(entity: .line(a: DXF.Point(0, 0), b: DXF.Point(10, 0), layer: "0", color: 7), reversed: false)
         ], isClosed: false)
 
-        #expect(engine.drillPoint(for: contour) == nil, "Test Failed: a line should not resolve to a drill point")
+        #expect(contour.drillPoint == nil, "Test Failed: a line should not resolve to a drill point")
     }
 
     @Test("A multi-entity contour is not recognized as a drill point")
@@ -71,7 +71,7 @@ struct Drilling_Tests {
             .init(entity: .point(at: DXF.Point(5, 5), layer: "0", color: 7), reversed: false)
         ], isClosed: false)
 
-        #expect(engine.drillPoint(for: contour) == nil, "Test Failed: a multi-entity contour should not resolve to a single drill point")
+        #expect(contour.drillPoint == nil, "Test Failed: a multi-entity contour should not resolve to a single drill point")
     }
 
     // MARK: - Basic drill cycle
