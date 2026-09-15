@@ -40,17 +40,17 @@ struct ContentView: View {
                         show(DemoEngraving().demoWordSTRATUM())
                     }
                 }
-                Section("Contours") {
+                Section("Profiling") {
                     demoButton("Outside Square") {
                         show(DemoContour().demoOutsideSquare())
                     }
                     demoButton("Inside Square") {
                         show(DemoContour().demoInsideSquare())
                     }
-                    demoButton("Ramp Entry") {
+                    demoButton("Ramp Entry prifiling") {
                         show(DemoContour().demoRampEntry())
                     }
-                    demoButton("Helix Entry") {
+                    demoButton("Helix Entry profiling") {
                         show(DemoContour().demoHelixEntry())
                     }
                     demoButton("Holding Tab") {
@@ -95,10 +95,10 @@ struct ContentView: View {
                     demoButton("Multi-pass Depth") {
                         show(DemoCounterbore().demoCounterboreMultiPassDepth())
                     }
-                    demoButton("Ramp Entry") {
+                    demoButton("Ramp Entry counterbore") {
                         show(DemoCounterbore().demoCounterboreWithRampEntry())
                     }
-                    demoButton("Helix Entry") {
+                    demoButton("Helix Entry counterbore") {
                         show(DemoCounterbore().demoCounterboreWithHelixEntry())
                     }
                     demoButton("Conventional Direction") {
@@ -153,8 +153,7 @@ struct ContentView: View {
                     demoButton("Concave Staple (Bridging Row Fix)") {
                         show(DemoPocketing().demoRasterConcaveStapleSkipsBridgingRows())
                     }
-                }
-                Section("Pocketing — Spiral") {
+                    Divider()
                     demoButton("Spiral Circle insideOut") {
                         show(DemoPocketing().demoSpiralCircleInsideOut())
                     }
@@ -164,8 +163,7 @@ struct ContentView: View {
                     demoButton("Spiral Fallback on Rectangle") {
                         show(DemoPocketing().demoSpiralFallbackOnRectangle())
                     }
-                }
-                Section("Pocketing — Trochoidal") {
+                    Divider()
                     demoButton("Trochoidal Rectangle (Climb)") {
                         show(DemoPocketing().demoTrochoidalRectangle())
                     }

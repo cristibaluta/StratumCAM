@@ -288,6 +288,19 @@ extension SCEngine {
                 break // Handled above via `buildWaypoints`.
 
             case .ramp(let angleDegrees):
+                // Travel at safeZ, but rapid down to previousZ first -- same fix
+                // `buildProfileWaypoints`/`buildCounterboreWaypoints` already apply:
+                // `RampTools.rampWaypoints` assumes the tool is already positioned at
+                // `(start XY, previousZ)` when its own waypoint list begins, it doesn't
+                // establish that position itself. Without this step the tessellated
+                // render -- and the actual toolpath -- shows a straight drop from
+                // safeZ before the ramp visibly starts, instead of starting at
+                // previousZ (0 / top-of-stock on the first pass) the way it's supposed to.
+                waypoints.append(
+                    SC.Waypoint(position: SIMD3(startPoint.x, startPoint.y, previousZ),
+                                motion: .rapid,
+                                feedRate: settings.cutting.feedRate)
+                )
                 waypoints.append(
                     contentsOf: RampTools.rampWaypoints(firstSegment: firstSegment,
                                                         angleDegrees: angleDegrees,
@@ -297,6 +310,12 @@ extension SCEngine {
                 )
 
             case .helix(let radius, let angleDegrees):
+                // Same reasoning as `.ramp` above.
+                waypoints.append(
+                    SC.Waypoint(position: SIMD3(startPoint.x, startPoint.y, previousZ),
+                                motion: .rapid,
+                                feedRate: settings.cutting.feedRate)
+                )
                 waypoints.append(
                     contentsOf: RampTools.helixEntryWaypoints(contourStart: startPoint,
                                                               startTangent: startTangent,

@@ -171,6 +171,11 @@ extension SCEngine {
     /// DXF-circle handling and `buildBoringToolpath`'s own circular pass -- a single arc
     /// command whose start and end position are identical is ambiguous (zero sweep vs. a
     /// full revolution) on many controllers, so every ring here is split in two as well.
+    ///
+    /// Reviewed under Step 6.10: no guard sites at all -- unlike its siblings in this
+    /// file, this one always has a `center`/`radius` to build from (`counterboreRings`
+    /// only ever calls it with radii it already validated), so there's nothing here
+    /// for the utility-layer pass to convert or document further.
     private func circleSegments(center: CGPoint, radius: Double, isCCW: Bool) -> [SC.Segment] {
         if isCCW {
             return [
@@ -259,6 +264,23 @@ extension SCEngine {
                 break // Handled above, before this switch.
 
             case .ramp(let angleDegrees):
+                // Travel at safeZ, but the ramp itself only needs to cover this pass's
+                // fresh stepdown -- it starts at the depth the previous pass already
+                // reached (0 / top-of-stock for the first pass), not safeZ. Same
+                // "rapid down to previousZ before handing off to RampTools" step
+                // `buildProfileWaypoints` already takes for `.contour`'s own ramp/helix
+                // entries -- `RampTools.rampWaypoints`/`helixEntryWaypoints` assume the
+                // tool is already sitting at `(start XY, previousZ)` when their own
+                // waypoint list begins, they don't establish that position themselves.
+                // Missing this step (as this function did until it was added here) means
+                // the tessellated render -- and the actual toolpath -- shows a straight
+                // drop from safeZ before the ramp visibly starts, instead of the ramp
+                // starting from previousZ the way it's supposed to.
+                waypoints.append(
+                    SC.Waypoint(position: SIMD3(startPoint.x, startPoint.y, previousZ),
+                                motion: .rapid,
+                                feedRate: settings.cutting.feedRate)
+                )
                 waypoints.append(
                     contentsOf: RampTools.rampWaypoints(firstSegment: firstSegment,
                                                         angleDegrees: angleDegrees,
@@ -268,6 +290,13 @@ extension SCEngine {
                 )
 
             case .helix(let radius, let angleDegrees):
+                // Same reasoning as `.ramp` above: travel at safeZ, but rapid down to
+                // previousZ first so the helix itself starts from there, not from safeZ.
+                waypoints.append(
+                    SC.Waypoint(position: SIMD3(startPoint.x, startPoint.y, previousZ),
+                                motion: .rapid,
+                                feedRate: settings.cutting.feedRate)
+                )
                 waypoints.append(
                     contentsOf: RampTools.helixEntryWaypoints(contourStart: startPoint,
                                                               startTangent: startTangent,
