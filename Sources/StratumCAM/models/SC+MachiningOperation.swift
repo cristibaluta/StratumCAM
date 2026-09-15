@@ -166,6 +166,39 @@ extension SC {
         case boring(targetDiameter: Double,
                     dwellTime: Double?,
                     shiftRetract: Bool)
+
+        /// Machines a shallow, flat-bottomed recess around an existing hole -- e.g. so a
+        /// screw head sits flush or buried -- using an ordinary end mill rather than a
+        /// dedicated counterbore/spot-face cutter, which most desktop CNC users don't have.
+        ///
+        /// The whole point of this being its own operation rather than just drawing the
+        /// recess as a circle and running `.pocket` on it: there's nothing to draw. The
+        /// recess is derived entirely from `diameter` and `depth` around the same
+        /// point/closed-circle hole marker `.drilling`/`.boring` already recognize
+        /// (`Contour.drillPoint`) -- mark the hole, say how wide and how deep the
+        /// counterbore should be, done.
+        ///
+        /// Cut as concentric circular rings growing outward from the hole's own center,
+        /// one full stepover band at a time (mirroring `.pocket`'s `.offset` ring stack,
+        /// just built directly from a center point and a diameter instead of offsetting a
+        /// drawn boundary), repeated at each of several Z depths -- not a single continuous
+        /// helical descent that reaches full radius and full depth at once, which would let
+        /// radial engagement grow with however wide the recess is by the time it bottoms
+        /// out.
+        ///
+        /// - Parameters:
+        ///   - diameter: Finished diameter of the counterbore recess.
+        ///   - depth: Depth of the counterbore recess below the top surface -- separate
+        ///     from `MachineSettings.targetDepth`, since a job can easily mix holes needing
+        ///     different screw-head depths.
+        ///   - direction: Determines the cutting direction, such as climb or conventional
+        ///     milling.
+        ///   - entry: Defines how the tool enters the material for the first ring of each
+        ///     Z pass, for example by plunging, ramping, or a helical spiral.
+        case counterbore(diameter: Double,
+                         depth: Double,
+                         direction: CutDirection,
+                         entry: EntryStrategy)
     }
 
 }

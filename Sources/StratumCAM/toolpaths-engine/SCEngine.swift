@@ -161,6 +161,16 @@ public final class SCEngine {
                                            targetDiameter: targetDiameter,
                                            shiftRetract: shiftRetract,
                                            operation: operation)
+
+            case .counterbore(let diameter, let depth, let direction, let entry):
+                return buildCounterboreToolpath(for: contour,
+                                                tool: tool,
+                                                settings: settings,
+                                                diameter: diameter,
+                                                depth: depth,
+                                                direction: direction,
+                                                entry: entry,
+                                                operation: operation)
         }
     }
 
