@@ -87,7 +87,8 @@ extension SCEngine {
                                                        atZ: z,
                                                        previousZ: previousZ,
                                                        settings: settings,
-                                                       entry: entry)
+                                                       entry: entry,
+                                                       center: center)
             passes.append(SC.ToolpathPass(passIndex: i, depthZ: z, waypoints: waypoints))
             previousZ = z
         }
@@ -189,18 +190,35 @@ extension SCEngine {
                                            atZ z: Double,
                                            previousZ: Double,
                                            settings: SC.MachineSettings,
-                                           entry: SC.EntryStrategy) -> [SC.Waypoint] {
+                                           entry: SC.EntryStrategy,
+                                           center: CGPoint) -> [SC.Waypoint] {
 
         guard let firstSegment = segments.first else {
             return []
         }
 
-        guard entry != .plunge else {
-            return buildWaypoints(for: segments, atZ: z, settings: settings)
-        }
-
         let startPoint = firstSegment.startPoint
         let startTangent = direction(of: firstSegment, atEnd: false)
+
+        // `.plunge` rapids and plunges straight down through the hole's own marked
+        // `center`, not the first ring's start point -- unlike every other entry
+        // strategy below, whose rapid target *is* the first ring's start point,
+        // because a plunge is meant to land exactly where the hole itself is marked,
+        // matching a drill-style straight-down entry (and how the input point itself
+        // reads on screen). It then feeds out to the first ring's start before the
+        // trace step below picks up the ring stack -- not a second plunge there, just
+        // a normal-feed linear move, since the center itself is already fully swept
+        // once the first ring engages (see `counterboreRings`' own doc comment on why
+        // the first ring's radius is capped at `toolRadius`).
+        guard entry != .plunge else {
+            var waypoints: [SC.Waypoint] = [
+                SC.Waypoint(position: SIMD3(center.x, center.y, settings.safeZ), motion: .rapid, feedRate: settings.cutting.feedRate),
+                SC.Waypoint(position: SIMD3(center.x, center.y, z), motion: .linear, feedRate: settings.cutting.plungeRate),
+                SC.Waypoint(position: SIMD3(startPoint.x, startPoint.y, z), motion: .linear, feedRate: settings.cutting.feedRate)
+            ]
+            waypoints.append(contentsOf: traceRingWaypoints(for: segments, atZ: z, settings: settings))
+            return waypoints
+        }
 
         var waypoints: [SC.Waypoint] = [
             SC.Waypoint(position: SIMD3(startPoint.x, startPoint.y, settings.safeZ),
@@ -210,7 +228,7 @@ extension SCEngine {
 
         switch entry {
             case .plunge:
-                break // Handled above via `buildWaypoints`.
+                break // Handled above, before this switch.
 
             case .ramp(let angleDegrees):
                 waypoints.append(
@@ -243,7 +261,19 @@ extension SCEngine {
                 )
         }
 
-        // Trace the chained ring geometry -- mirrors `buildWaypoints`' own trace step.
+        waypoints.append(contentsOf: traceRingWaypoints(for: segments, atZ: z, settings: settings))
+
+        return waypoints
+    }
+
+    /// Traces the chained ring geometry at `z` and retracts to `safeZ` afterward --
+    /// mirrors `buildWaypoints`' own trace + retract steps, pulled out here so both
+    /// the `.plunge` branch above (entering at `center`) and every other entry
+    /// strategy (entering at the first ring's own start point) share the same
+    /// tracing code instead of duplicating it.
+    private func traceRingWaypoints(for segments: [SC.Segment], atZ z: Double, settings: SC.MachineSettings) -> [SC.Waypoint] {
+        var waypoints: [SC.Waypoint] = []
+
         for segment in segments {
             switch segment {
                 case .line(_, let end):
