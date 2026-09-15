@@ -271,7 +271,7 @@ struct ThreadMilling_Tests {
     /// two setup rapids to center and the linear wall-engage move) for a single-turn
     /// thread mill, so each case below only needs to check one waypoint rather than
     /// re-deriving the full waypoint layout.
-    private func firstArcIsCCW(isInternal: Bool, direction: SC.ThreadDirection) -> Bool {
+    private func firstArcIsCCW(isInternal: Bool, direction: SC.ThreadDirection) throws -> Bool {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 3.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -1.0)
@@ -287,26 +287,26 @@ struct ThreadMilling_Tests {
     }
 
     @Test("A right-hand thread on an internal hole winds CCW as it climbs")
-    func testInternalRightHandWindsCCW() {
-        #expect(firstArcIsCCW(isInternal: true, direction: .rightHand) == true,
+    func testInternalRightHandWindsCCW() throws {
+        #expect(try firstArcIsCCW(isInternal: true, direction: .rightHand) == true,
                 "Test Failed: right-hand should wind CCW")
     }
 
     @Test("A left-hand thread on an internal hole winds CW as it climbs")
-    func testInternalLeftHandWindsCW() {
-        #expect(firstArcIsCCW(isInternal: true, direction: .leftHand) == false,
+    func testInternalLeftHandWindsCW() throws {
+        #expect(try firstArcIsCCW(isInternal: true, direction: .leftHand) == false,
                 "Test Failed: left-hand should wind CW")
     }
 
     @Test("A right-hand thread on an external boss also winds CCW -- handedness doesn't flip with isInternal")
-    func testExternalRightHandWindsCCW() {
-        #expect(firstArcIsCCW(isInternal: false, direction: .rightHand) == true,
+    func testExternalRightHandWindsCCW() throws {
+        #expect(try firstArcIsCCW(isInternal: false, direction: .rightHand) == true,
                 "Test Failed: right-hand should wind CCW regardless of isInternal -- a right-hand nut only mates with a right-hand bolt")
     }
 
     @Test("A left-hand thread on an external boss also winds CW -- handedness doesn't flip with isInternal")
-    func testExternalLeftHandWindsCW() {
-        #expect(firstArcIsCCW(isInternal: false, direction: .leftHand) == false,
+    func testExternalLeftHandWindsCW() throws {
+        #expect(try firstArcIsCCW(isInternal: false, direction: .leftHand) == false,
                 "Test Failed: left-hand should wind CW regardless of isInternal")
     }
 
