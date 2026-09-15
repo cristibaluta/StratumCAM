@@ -111,7 +111,8 @@ class DemoSlotting: Demo {
     /// stopping short of or overshooting them.
     func demoSlottingRectangleBoundary() -> Demo.DemoResult {
         let tool = SC.ToolParams(diameter: 6.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0), safeZ: 5.0, targetDepth: -1.0)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -1.0)
         let boundary = rectangleBoundaryContour(length: 30, width: 6)
         let pattern = SC.SlotClearingPattern.trochoidal(settings: SC.TrochoidalSettings(radialEngagement: 50, loopRadius: 0))
 
@@ -141,7 +142,7 @@ class DemoSlotting: Demo {
                 from: [centerline],
                 tool: tool,
                 settings: settings,
-                operation: .slotting(depthPerPass: 1.0, pattern: pattern, entry: .plunge)
+                operation: .slotting(depthPerPass: 1.0, pattern: pattern, entry: .ramp(angleDegrees: 3))
             )
         } catch {
             print("generateToolpaths failed: \(error)")

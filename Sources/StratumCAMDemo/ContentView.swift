@@ -133,8 +133,7 @@ struct ContentView: View {
                     demoButton("Helix Entry (Multi-pass)") {
                         show(DemoPocketing().demoHelixEntryMultiPass())
                     }
-                }
-                Section("Pocketing — Raster") {
+                    Divider()
                     demoButton("Raster Rectangle (Climb)") {
                         show(DemoPocketing().demoRasterRectangle())
                     }
@@ -192,13 +191,13 @@ struct ContentView: View {
                     }
                 }
                 Section("Slotting") {
-                    demoButton("From Rectangle Boundary") {
+                    demoButton("Rectangle Boundary (ramp entry)") {
                         show(DemoSlotting().demoSlottingRectangleBoundary())
                     }
                     demoButton("Open-Ended Boundary (Trochoidal Entry)") {
                         show(DemoSlotting().demoSlottingOpenEnded())
                     }
-                    demoButton("Both Ends Open (Screw Head)") {
+                    demoButton("Both Ends Open") {
                         show(DemoSlotting().demoSlottingBothEndsOpen())
                     }
                 }
@@ -231,11 +230,6 @@ struct ContentView: View {
             // Interactive 3D Metal Canvas
             MetalCanvasView(batches: $renderBatches)
                 .overlay(alignment: .bottomLeading) {
-                    // Step 5.4: scrub slider lives in the same corner as the orbit/pan
-                    // hint, stacked above it, since both are canvas-control chrome.
-                    // Hidden entirely when the current demo has no toolpath points at
-                    // all (shouldn't happen for any demo today, but `pointsPrefix`
-                    // already handles an empty array safely if it ever does).
                     VStack(alignment: .leading, spacing: 8) {
                         if !toolpathPoints.isEmpty {
                             HStack(spacing: 8) {
@@ -267,9 +261,6 @@ struct ContentView: View {
         }
     }
 
-    /// A sidebar row that highlights itself when it was the last demo run, so the
-    /// current 3D preview/G-code always has an obvious source in the list -- handy
-    /// once a section has this many similarly-named buttons in it.
     private func demoButton(_ title: String, action: @escaping () -> Void) -> some View {
         let isSelected = selectedDemoID == title
 
@@ -285,40 +276,18 @@ struct ContentView: View {
         .listRowBackground(isSelected ? Color.accentColor.opacity(0.15) : Color.clear)
     }
 
-    /// Called whenever a sidebar demo button fires. Stores the new demo's raw
-    /// toolpath points (Step 5.1) and resets `scrubIndex` to the *last* index so
-    /// switching demos always starts fully drawn, rather than at a stale scrub
-    /// position left over from whatever was previously selected.
     private func show(_ result: Demo.DemoResult) {
         gcodeText = result.gcode
         toolpathPoints = result.toolpathPoints
         activeTool = result.tool
-
-        // The full toolpath batch is always the last one `run(contours:...)`
-        // appends whenever `toolpathPoints` is non-empty (step 4 there) -- everything
-        // before it (the blue base-contour batch, today) is scrub-independent and
-        // gets reused as-is by every `rebuildRenderBatches()` call below.
         staticBatches = toolpathPoints.isEmpty ? result.batches : Array(result.batches.dropLast())
-
         scrubIndex = Double(max(0, toolpathPoints.count - 1))
         rebuildRenderBatches()
     }
 
-    /// Step 5.4: rebuilds `renderBatches` as `[contour batch, sliced toolpath batch
-    /// (5.2), marker batch (5.3)]` from the current `scrubIndex` -- called once from
-    /// `show(_:)` after a new demo loads, and again on every slider change. Step 5.5:
-    /// the drawn prefix stays index-based (floored to the last fully-reached point),
-    /// but the marker's own position now interpolates between that point and the
-    /// next one, so it glides smoothly ahead of the drawn line on coarse paths
-    /// instead of jumping point-to-point.
     private func rebuildRenderBatches() {
         var batches = staticBatches
         if !toolpathPoints.isEmpty {
-            // Floor, not nearest-rounding, so the drawn prefix always ends exactly
-            // where the interpolated marker starts interpolating *from* -- with
-            // nearest-rounding the prefix could round up past the marker's current
-            // fractional position, making the marker appear to trail behind the end
-            // of the drawn line instead of riding its leading edge.
             let prefixIndex = Int(scrubIndex.rounded(.down))
             let prefix = Demo.pointsPrefix(toolpathPoints, upTo: prefixIndex)
 
