@@ -129,12 +129,24 @@ class DemoSlotting: Demo {
         let boundaryWaypoints = engine.buildWaypoints(for: boundarySegments, atZ: 0, settings: settings)
         let boundaryPoints = tessellateForRender(boundaryWaypoints)
 
-        let toolpaths = engine.generateToolpaths(
-            from: [centerline],
-            tool: tool,
-            settings: settings,
-            operation: .slotting(depthPerPass: 1.0, pattern: pattern, entry: .plunge)
-        )
+        // `generateToolpaths(from: [SC.Contour], ...)` has thrown since Step 6.2 --
+        // same non-throwing-`run`-helper, catch-and-log fallback `Demo.run(contours:...)`
+        // uses, since this demo builds its own result directly rather than going
+        // through that shared helper (it needs two independent reference geometries --
+        // the boundary for blue, the derived centerline for yellow -- see
+        // `tessellateForRender`'s own doc comment on why `DemoSlotting` bypasses `run`).
+        let toolpaths: [SC.OutputToolpath]
+        do {
+            toolpaths = try engine.generateToolpaths(
+                from: [centerline],
+                tool: tool,
+                settings: settings,
+                operation: .slotting(depthPerPass: 1.0, pattern: pattern, entry: .plunge)
+            )
+        } catch {
+            print("generateToolpaths failed: \(error)")
+            toolpaths = []
+        }
         var toolpathPoints: [SIMD3<Float>] = []
         for toolpath in toolpaths {
             for pass in toolpath.passes {
@@ -214,12 +226,20 @@ class DemoSlotting: Demo {
         let boundaryWaypoints = engine.buildWaypoints(for: boundarySegments, atZ: 0, settings: settings)
         let boundaryPoints = tessellateForRender(boundaryWaypoints)
 
-        let toolpaths = engine.generateToolpaths(
-            from: [centerline],
-            tool: tool,
-            settings: settings,
-            operation: .slotting(depthPerPass: 1.0, pattern: pattern, entry: .fromOpenEnd(stepoverPercentage: 0.5))
-        )
+        // See the earlier `demoSlottingRectangleBoundary`'s own comment on why this
+        // catches rather than propagating `throws`.
+        let toolpaths: [SC.OutputToolpath]
+        do {
+            toolpaths = try engine.generateToolpaths(
+                from: [centerline],
+                tool: tool,
+                settings: settings,
+                operation: .slotting(depthPerPass: 1.0, pattern: pattern, entry: .fromOpenEnd(stepoverPercentage: 0.5))
+            )
+        } catch {
+            print("generateToolpaths failed: \(error)")
+            toolpaths = []
+        }
         var toolpathPoints: [SIMD3<Float>] = []
         for toolpath in toolpaths {
             for pass in toolpath.passes {
@@ -306,12 +326,20 @@ class DemoSlotting: Demo {
         let boundaryWaypoints = engine.buildWaypoints(for: boundarySegments, atZ: 0, settings: settings)
         let boundaryPoints = tessellateForRender(boundaryWaypoints)
 
-        let toolpaths = engine.generateToolpaths(
-            from: [centerline],
-            tool: tool,
-            settings: settings,
-            operation: .slotting(depthPerPass: 1.0, pattern: pattern, entry: .fromOpenEnd(stepoverPercentage: 0.5))
-        )
+        // See `demoSlottingRectangleBoundary`'s own comment on why this catches
+        // rather than propagating `throws`.
+        let toolpaths: [SC.OutputToolpath]
+        do {
+            toolpaths = try engine.generateToolpaths(
+                from: [centerline],
+                tool: tool,
+                settings: settings,
+                operation: .slotting(depthPerPass: 1.0, pattern: pattern, entry: .fromOpenEnd(stepoverPercentage: 0.5))
+            )
+        } catch {
+            print("generateToolpaths failed: \(error)")
+            toolpaths = []
+        }
         var toolpathPoints: [SIMD3<Float>] = []
         for toolpath in toolpaths {
             for pass in toolpath.passes {

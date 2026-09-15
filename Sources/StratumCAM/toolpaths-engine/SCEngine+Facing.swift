@@ -89,6 +89,17 @@ extension SCEngine {
     /// Each row is returned as a single-segment `[SC.Segment]`, matching
     /// `rasterScanlines`' per-row shape, so `buildFacingToolpath` below can reuse
     /// `chainedRingSegments` to link rows exactly the way pocketing's raster does.
+    /// Not converted to `throws` in Step 6.9 -- `buildFacingToolpath`'s own top-level
+    /// `stock.width > 0, stock.height > 0` guard already validates the stock before
+    /// ever calling this, so that half of the guard below is unreachable through the
+    /// normal call chain (kept only so a direct caller -- e.g. a test exercising this
+    /// helper alone -- gets an empty result rather than a crash, same reasoning
+    /// `counterboreRings`'s own unreachable guard gives). `stepover > 1e-6` and
+    /// `span > 1e-9` are genuinely reachable (a near-zero `tool.diameter`, or an
+    /// `extensionLength` negative enough to collapse the grown footprint) and
+    /// genuinely a "nothing to raster here" result rather than a broken input --
+    /// `buildFacingToolpath`'s own `!rows.isEmpty` guard is what turns *that* into a
+    /// thrown `SC.Error.geometryCollapsed`, not this function itself.
     func facingScanlines(stock: SC.Stock,
                          extensionLength: Double,
                          tool: SC.ToolParams,
@@ -156,24 +167,38 @@ extension SCEngine {
     /// resolved by `facingScanlines`, which alternates every row after that); there's
     /// no wall cut in a plain rectangular fill for climb/conventional to otherwise
     /// apply to, same as pocketing's raster.
+    ///
+    /// Throws (Step 6.9, same pattern established in 6.2-6.8) at its own top-level
+    /// guards: `SC.Error.invalidStock` when the stock's own width or height is zero
+    /// (or negative) -- there's no footprint to face at all, the one case `SC.Error`
+    /// already carries a dedicated stock-specific case for, rather than the generic
+    /// `geometryCollapsed` -- and `SC.Error.geometryCollapsed` if `facingScanlines`
+    /// or `chainedRingSegments` still comes back empty for an otherwise-valid stock
+    /// (an unfittable tool, or an `extensionLength` negative enough to collapse the
+    /// grown footprint). See `facingScanlines`'s own doc comment for why its internal
+    /// guards stay non-throwing rather than duplicating these checks.
     func buildFacingToolpath(stock: SC.Stock,
                              tool: SC.ToolParams,
                              settings: SC.MachineSettings,
                              direction: SC.CutDirection,
                              extensionLength: Double,
-                             operation: SC.MachiningOperation) -> SC.OutputToolpath? {
+                             operation: SC.MachiningOperation) throws -> SC.OutputToolpath {
+
+        guard stock.width > 0, stock.height > 0 else {
+            throw SC.Error.invalidStock
+        }
 
         let rows = facingScanlines(stock: stock,
                                    extensionLength: extensionLength,
                                    tool: tool,
                                    direction: direction)
         guard !rows.isEmpty else {
-            return nil
+            throw SC.Error.geometryCollapsed
         }
 
         let toolpathSegments = chainedRingSegments(rows)
         guard !toolpathSegments.isEmpty else {
-            return nil
+            throw SC.Error.geometryCollapsed
         }
 
         let z = -abs(settings.targetDepth)

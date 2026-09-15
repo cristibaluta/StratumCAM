@@ -252,7 +252,21 @@ class Demo {
 
         // 2. Convert the FacingOperation to a toolpath then to 3d simd points, via
         // the Stock-driven overload Step 2A.2 added.
-        let toolpaths = engine.generateToolpaths(from: [operation])
+        //
+        // `generateToolpaths(from: [SC.FacingOperation])` started throwing in Step 6.9
+        // (an invalid stock/geometry now throws rather than silently dropping the
+        // operation). Same non-throwing-`run`, catch-and-log-to-console fallback
+        // `run(contours:...)` above already uses for the per-contour overload's own
+        // Step 6.2 `throws` -- see that function's doc comment for why `run` itself
+        // stays a plain `-> DemoResult` rather than pushing `throws` through every
+        // Demo*.swift button.
+        let toolpaths: [SC.OutputToolpath]
+        do {
+            toolpaths = try engine.generateToolpaths(from: [operation])
+        } catch {
+            print("generateToolpaths failed: \(error)")
+            toolpaths = []
+        }
         var toolpathPoints: [SIMD3<Float>] = []
         for toolpath in toolpaths {
             for pass in toolpath.passes {

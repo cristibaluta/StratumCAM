@@ -20,17 +20,36 @@ extension SCEngine {
     /// `helixEntryWaypoints` machinery `.contour`/`.pocket` already use -- see
     /// `buildSlottingWaypoints` below.
     ///
+    /// Throws `SC.Error.invalidContour` (Step 6.8, same pattern established in
+    /// 6.2-6.7a) when `contour` linearizes to zero segments -- the only top-level
+    /// guard this function has, since (unlike `.pocket`) slotting has no closed/open
+    /// requirement of its own to check first.
+    ///
+    /// Everything downstream of this guard -- `openEndedTrochoidalSegments` and the
+    /// boundary-recognition trio below (`rectangleSlotCenterline`,
+    /// `openEndedSlotCenterline`, `bothEndsOpenSlotCenterline`) -- deliberately stays
+    /// non-throwing. Applying 6.7b's same "helper mixes genuine failure with
+    /// legitimate empty result" judgment here (this file has the most guard sites of
+    /// any in the engine, per the roadmap) lands in the same place 6.7b did: every one
+    /// of them is either unreachable through the normal call chain (this function's
+    /// own guard already validates what they need) or a genuinely reachable, genuinely
+    /// legitimate non-error result -- see each helper's own doc comment for which case
+    /// applies. The boundary-recognition trio in particular follows the precedent
+    /// already set by `contour.drillPoint`/`tapCircle`: a pure shape recognizer that
+    /// answers "is this drawing that shape?" with `nil` for "no," left for its own
+    /// caller (a demo, here, not this function) to decide what a "no" means -- not a
+    /// `buildSlottingToolpath` input at all, so not this function's error to throw.
     func buildSlottingToolpath(for contour: SC.Contour,
                                tool: SC.ToolParams,
                                settings: SC.MachineSettings,
                                pattern: SC.SlotClearingPattern,
                                depthPerPass: Double,
                                entry: SC.EntryStrategy,
-                               operation: SC.MachiningOperation) -> SC.OutputToolpath? {
+                               operation: SC.MachiningOperation) throws -> SC.OutputToolpath {
 
         let segments = contour.linearizedSegments
         guard let firstSegment = segments.first else {
-            return nil
+            throw SC.Error.invalidContour
         }
 
         let zDepths = EngineTools.calculateZPasses(targetDepth: settings.targetDepth, stepdown: depthPerPass)
@@ -243,6 +262,20 @@ extension SCEngine {
     /// already fills the whole width), this degrades to simply tracing
     /// `segments` directly with no lateral bounce whatsoever -- the physically
     /// correct behavior when there's genuinely no room to bounce in.
+    /// Not converted to `throws` in Step 6.8 -- see `buildSlottingToolpath`'s own doc
+    /// comment on why this and the boundary-recognition trio below stay non-throwing.
+    /// Each guard here is one of two things:
+    ///  - `!segments.isEmpty`: unreachable through the normal call chain --
+    ///    `buildSlottingToolpath` already throws `SC.Error.invalidContour` before this
+    ///    function is ever reached if `segments` came back empty -- kept only so a
+    ///    direct caller (a test exercising this helper alone) gets an empty,
+    ///    unsurprising result instead of a crash, same reasoning
+    ///    `counterboreRings`'/`buildCounterboreWaypoints`'s own unreachable guards give.
+    ///  - `pitch > 1e-6` / `totalLength > 1e-9`: genuinely reachable (a near-zero
+    ///    `tool.diameter`, or a centerline whose points are all coincident) and
+    ///    genuinely a "nothing to build here" result rather than a broken input --
+    ///    same "empty is a valid result" case `rasterScanlines`'s own degenerate rows
+    ///    fall into, not a `SC.Error` case.
     func openEndedTrochoidalSegments(from segments: [SC.Segment],
                                       tool: SC.ToolParams,
                                       wallOffset: Double,
@@ -401,6 +434,10 @@ extension SCEngine {
     /// > and `.morph` (see `ROADMAP.md`, end of Track 1 and Step 1B.3). Revisit once
     /// > that model change lands; until then, circular slots are drawn as their own
     /// > centerline, not derived from a boundary.
+    /// Stays optional-returning (not converted to `throws` in Step 6.8): a pure
+    /// recognizer, same role `contour.drillPoint`/`tapCircle` already play for their
+    /// own operations -- see `buildSlottingToolpath`'s doc comment for why this
+    /// function isn't itself an input to that build path at all.
     public func rectangleSlotCenterline(fromBoundary contour: SC.Contour,
                                  tool: SC.ToolParams,
                                  tolerance: Double = 1e-3) -> SC.Contour? {
@@ -531,6 +568,7 @@ extension SCEngine {
     /// walls of unequal length, a closed end narrower than the tool itself, or a
     /// slot no longer than its own width once the closed end is inset -- rather
     /// than guessing.
+    /// Stays optional-returning, same reasoning as `rectangleSlotCenterline` above.
     public func openEndedSlotCenterline(fromBoundary contour: SC.Contour,
                                         tool: SC.ToolParams,
                                         approachDistance: Double? = nil,
@@ -651,6 +689,7 @@ extension SCEngine {
     /// `rectangleSlotCenterline`'s own case), not exactly 2 segments, a curved
     /// wall, walls of unequal length, walls that aren't parallel, or walls
     /// closer together than the tool itself.
+    /// Stays optional-returning, same reasoning as `rectangleSlotCenterline` above.
     public func bothEndsOpenSlotCenterline(fromBoundary contour: SC.Contour,
                                            tool: SC.ToolParams,
                                            approachDistance: Double? = nil,

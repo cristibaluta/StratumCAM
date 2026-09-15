@@ -23,13 +23,16 @@ public final class SCEngine {
     /// (`.engrave`, `.profile` -- both share `buildContourTracingToolpath`/
     /// `buildContourToolpath`'s pipeline, so `.engrave` starts throwing here too even
     /// though 6.4 is nominally `.profile`'s step), 6.5 (`.counterbore`), 6.6
-    /// (`.threadMilling`), and 6.7a (`.pocket`, at its own top-level guards only --
-    /// see `buildPocketToolpath`'s doc comment on why 6.7b, the private geometry
-    /// helpers underneath it, is a separate step). Every other operation still
-    /// returns `nil` for "nothing machinable" exactly as before until its own step in
-    /// the roadmap converts it. A thrown error aborts the whole batch rather than
-    /// skipping just the offending contour -- see the doc comment on `buildToolpath`
-    /// below for why that's the intended behavior change, not a bug.
+    /// (`.threadMilling`), 6.7a (`.pocket`, at its own top-level guards only -- see
+    /// `buildPocketToolpath`'s doc comment on why 6.7b, the private geometry helpers
+    /// underneath it, is a separate step), 6.8 (`.slotting`), and 6.9 (`.facing`,
+    /// which now always throws `SC.Error.unsupportedOperation` when routed through
+    /// this per-contour path -- see `buildToolpath`'s own doc comment below). As of
+    /// 6.9 every case in `buildToolpath`'s switch throws or succeeds; there's no
+    /// operation left that returns `nil` for "nothing machinable" the way earlier
+    /// steps' still-unconverted cases did. A thrown error aborts the whole batch
+    /// rather than skipping just the offending contour -- see the doc comment on
+    /// `buildToolpath` below for why that's the intended behavior change, not a bug.
     public func generateToolpaths(from contours: [SC.Contour],
                                   tool: SC.ToolParams,
                                   settings: SC.MachineSettings,
@@ -68,9 +71,14 @@ public final class SCEngine {
     /// Step 2A.1's flag on this exact gap). This is a dedicated overload for that,
     /// mirroring the `DrillingOperation` overload above's solution to the same kind
     /// of signature mismatch.
-    public func generateToolpaths(from operations: [SC.FacingOperation]) -> [SC.OutputToolpath] {
-        operations.compactMap { operation in
-            buildFacingToolpath(
+    ///
+    /// `throws` as of Step 6.9 (`buildFacingToolpath` now throws rather than
+    /// returning `nil` per operation) -- `.map` rather than `.compactMap` now that
+    /// there's no `nil` left to filter out; same batch-aborts-on-throw behavior the
+    /// `DrillingOperation` overload above already has.
+    public func generateToolpaths(from operations: [SC.FacingOperation]) throws -> [SC.OutputToolpath] {
+        try operations.map { operation in
+            try buildFacingToolpath(
                 stock: operation.stock,
                 tool: operation.tool,
                 settings: operation.settings,
@@ -88,13 +96,22 @@ public final class SCEngine {
     /// contour has nothing machinable (e.g. an empty/degenerate contour) or -- for now --
     /// when the strategy's real geometry isn't implemented yet (see TODOs below).
     ///
-    /// `throws` as of Step 6.2, extended in 6.3, 6.4, 6.5, 6.6, and 6.7a -- `.drilling`,
-    /// `.chamfer`, `.boring`, `.engrave`, `.profile`, `.counterbore`, `.threadMilling`,
-    /// and `.pocket` now throw (see `buildDrillingToolpath`/`buildChamferToolpath`/
-    /// `buildBoringToolpath`/`buildContourTracingToolpath`/`buildContourToolpath`/
-    /// `buildCounterboreToolpath`/`buildThreadMillingToolpath`/`buildPocketToolpath`) --
-    /// every other case below still returns `nil` unchanged, converting one operation at
-    /// a time per the roadmap. Note the difference in what
+    /// `throws` as of Step 6.2, extended in 6.3, 6.4, 6.5, 6.6, 6.7a, 6.8, and 6.9 --
+    /// `.drilling`, `.chamfer`, `.boring`, `.engrave`, `.profile`, `.counterbore`,
+    /// `.threadMilling`, `.pocket`, and `.slotting` now throw (see
+    /// `buildDrillingToolpath`/`buildChamferToolpath`/`buildBoringToolpath`/
+    /// `buildContourTracingToolpath`/`buildContourToolpath`/`buildCounterboreToolpath`/
+    /// `buildThreadMillingToolpath`/`buildPocketToolpath`/`buildSlottingToolpath`), and
+    /// `.facing` throws unconditionally here (`SC.Error.unsupportedOperation`) since it
+    /// has no per-contour build path at all -- see the `.facing` case below and
+    /// `generateToolpaths(from: [SC.FacingOperation])`'s own doc comment for the actual
+    /// entry point. That accounts for every case in the switch below: as of 6.9 there's
+    /// no operation left that returns plain `nil` for "nothing machinable" the way this
+    /// paragraph used to describe -- the return type stays `SC.OutputToolpath?` (rather
+    /// than dropping the `?` now that every defined case is accounted for) purely so a
+    /// future new `MachiningOperation` case can still opt into the "nothing machinable,
+    /// skip this contour" behavior without another signature change, not because `nil`
+    /// is reachable today. Note the difference in what
     /// `nil` vs. a thrown error means to the caller: `nil` here means "this one contour
     /// had nothing machinable," and the batch overloads above skip it and keep going;
     /// a thrown error means "this input was actually wrong," and the batch overloads
@@ -149,17 +166,22 @@ public final class SCEngine {
                 )
 
             case .facing:
-                print("Use `generateToolpaths(from operations: [SC.FacingOperation])` instead.")
-                return nil
+                // Step 6.9: calling `.facing` through the per-contour dispatch below is
+                // a real programmer error, not "nothing machinable" -- `.facing` has no
+                // selected contour to iterate at all (see `generateToolpaths(from:
+                // [SC.FacingOperation])`'s own doc comment), so silently swallowing it
+                // as a `nil` result here just hides the caller's mistake. Now surfaced
+                // as `SC.Error.unsupportedOperation(operation)` instead.
+                throw SC.Error.unsupportedOperation(operation)
 
             case .slotting(let depthPerPass, let pattern, let entry):
-                return buildSlottingToolpath(for: contour,
-                                             tool: tool,
-                                             settings: settings,
-                                             pattern: pattern,
-                                             depthPerPass: depthPerPass,
-                                             entry: entry,
-                                             operation: operation)
+                return try buildSlottingToolpath(for: contour,
+                                                 tool: tool,
+                                                 settings: settings,
+                                                 pattern: pattern,
+                                                 depthPerPass: depthPerPass,
+                                                 entry: entry,
+                                                 operation: operation)
 
             case .threadMilling(pitch: let pitch,
                                 isInternal: let isInternal,
