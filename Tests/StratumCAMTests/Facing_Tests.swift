@@ -350,4 +350,90 @@ struct Facing_Tests {
 //        #expect(toolpaths[1].operation == .facing(stepover: 6.0, direction: .conventional, extensionLength: 2.0),
 //                "Test Failed: second toolpath should carry its own facing parameters")
 //    }
+
+    // MARK: - Validation (Step 6.9)
+    //
+    // Everything above this point predates `SC.FacingOperation`'s current shape (it
+    // still references a caller-supplied `stepover:` parameter that `.facing` no
+    // longer has -- stepover is derived from the tool now, see `facingStepover(for:)`
+    // -- and a non-throwing `generateToolpaths(from: [SC.FacingOperation])`) and is
+    // left commented out rather than rewritten here, since bringing the rest of this
+    // file back in line with the current API is a bigger, separate job from Step
+    // 6.9's own scope. The tests below are new, target only 6.9's actual change (the
+    // three throw sites `buildFacingToolpath`/`buildToolpath` gained), and use the
+    // real current API throughout.
+
+    // do/catch rather than #expect(throws:) -- matching Drilling_Tests.swift's/
+    // Pocket_Tests.swift's own note on why (the exact-value overload of
+    // #expect(throws:) isn't pinned across Swift Testing releases in this package).
+
+    @Test("A zero-width stock throws invalidStock")
+    func testFacingRequiresNonZeroStockWidth() {
+        let engine = SCEngine()
+        let tool = SC.ToolParams(diameter: 6.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0),
+                                          safeZ: 5.0, targetDepth: 0.5)
+        let stock = SC.Stock(width: 0, height: 10, thickness: 6, origin: .zero)
+        let operation = SC.FacingOperation(stock: stock, tool: tool, settings: settings)
+
+        do {
+            _ = try engine.generateToolpaths(from: [operation])
+            Issue.record("Test Failed: expected SC.Error.invalidStock to be thrown")
+        } catch SC.Error.invalidStock {
+            // expected
+        } catch {
+            Issue.record("Test Failed: expected SC.Error.invalidStock, got \(error)")
+        }
+    }
+
+    @Test("An extensionLength negative enough to collapse the footprint throws geometryCollapsed")
+    func testFacingCollapsedFootprintThrowsGeometryCollapsed() {
+        let engine = SCEngine()
+        let tool = SC.ToolParams(diameter: 6.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0),
+                                          safeZ: 5.0, targetDepth: 0.5)
+        // A valid, non-zero stock -- but an extensionLength negative enough that
+        // `facingArea`'s grown rectangle collapses to zero (or negative) span before
+        // `facingScanlines` ever gets to raster it.
+        let stock = SC.Stock(width: 10, height: 10, thickness: 6, origin: .zero)
+        let operation = SC.FacingOperation(stock: stock, tool: tool, settings: settings, extensionLength: -100)
+
+        do {
+            _ = try engine.generateToolpaths(from: [operation])
+            Issue.record("Test Failed: expected SC.Error.geometryCollapsed to be thrown")
+        } catch SC.Error.geometryCollapsed {
+            // expected
+        } catch {
+            Issue.record("Test Failed: expected SC.Error.geometryCollapsed, got \(error)")
+        }
+    }
+
+    // Step 6.9: calling `.facing` through the per-contour path (rather than
+    // `generateToolpaths(from: [SC.FacingOperation])`) used to `print()` a warning
+    // and silently return an empty toolpaths array. It now throws
+    // `SC.Error.unsupportedOperation` instead -- a real programmer error surfaced
+    // rather than swallowed.
+    @Test("Routing .facing through the per-contour dispatch throws unsupportedOperation")
+    func testFacingThroughPerContourDispatchThrowsUnsupportedOperation() {
+        let engine = SCEngine()
+        let tool = SC.ToolParams(diameter: 6.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0),
+                                          safeZ: 5.0, targetDepth: 0.5)
+        // Any contour -- `.facing` never reaches contour-specific geometry through
+        // this path, it throws before that.
+        let contour = SC.Contour(entities: [
+            .init(entity: .line(a: DXF.Point(0, 0), b: DXF.Point(10, 0), layer: "0", color: 7), reversed: false)
+        ], isClosed: false)
+        let operation: SC.MachiningOperation = .facing(direction: .climb, extensionLength: 0)
+
+        do {
+            _ = try engine.generateToolpaths(from: [contour], tool: tool, settings: settings, operation: operation)
+            Issue.record("Test Failed: expected SC.Error.unsupportedOperation to be thrown")
+        } catch SC.Error.unsupportedOperation(let thrownOperation) {
+            #expect(thrownOperation == operation,
+                    "Test Failed: expected the thrown error to carry the exact operation that was passed in")
+        } catch {
+            Issue.record("Test Failed: expected SC.Error.unsupportedOperation, got \(error)")
+        }
+    }
 }

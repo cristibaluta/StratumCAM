@@ -547,4 +547,42 @@ struct Slotting_Tests {
         #expect(toolpaths[0].passes.count == 2 && toolpaths[1].passes.count == 2,
                 "Test Failed: expected both toolpaths to honor the same 2-pass stepdown")
     }
+
+    // MARK: - Validation
+
+    // Step 6.8: this used to assert that a contour with no linearizable geometry
+    // silently produced an empty toolpaths array. It now throws
+    // `SC.Error.invalidContour` instead, same conversion 6.7a already made for
+    // `.pocket`'s own `contourNotClosed` case.
+    @Test("A contour with no linearizable geometry throws invalidContour")
+    func testSlottingRequiresNonEmptyContour() {
+        let engine = SCEngine()
+        let tool = SC.ToolParams(diameter: 6.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0),
+                                          safeZ: 5.0,
+                                          targetDepth: -1.0)
+
+        // A `.point`/`.text`/`.dimension` DXF entity linearizes to zero segments (see
+        // `convert(entity:reversed:)`'s own doc comment) -- the same "nothing to
+        // machine at all" shape `.pocket`'s own validation test reaches via an open
+        // contour, just via an empty entity list here instead.
+        let emptyContour = SC.Contour(entities: [], isClosed: false)
+
+        // do/catch rather than #expect(throws:) -- matching Drilling_Tests.swift's/
+        // Pocket_Tests.swift's own note on why (the exact-value overload of
+        // #expect(throws:) isn't pinned across Swift Testing releases in this package).
+        do {
+            _ = try engine.generateToolpaths(
+                from: [emptyContour],
+                tool: tool,
+                settings: settings,
+                operation: slottingStrategy(depthPerPass: 1.0)
+            )
+            Issue.record("Test Failed: expected SC.Error.invalidContour to be thrown")
+        } catch SC.Error.invalidContour {
+            // expected
+        } catch {
+            Issue.record("Test Failed: expected SC.Error.invalidContour, got \(error)")
+        }
+    }
 }

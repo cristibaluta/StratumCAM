@@ -108,7 +108,8 @@ class DemoCounterbore: Demo {
     /// same reasoning `.pocket`/`.contour` ramp entries already document.
     func demoCounterboreWithRampEntry() -> Demo.DemoResult {
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 4.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.5), safeZ: 5.0, targetDepth: -999.0)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.5)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -999.0)
 
         let center = (0.0, 0.0)
         let diameter = 20.0
