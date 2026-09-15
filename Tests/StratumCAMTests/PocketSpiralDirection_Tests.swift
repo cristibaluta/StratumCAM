@@ -51,7 +51,7 @@ struct PocketSpiralDirection_Tests {
     // MARK: - `.insideOut` on a circular boundary
 
     @Test("Inside-out spiral pocket enters at the innermost ring and closes on the outer wall radius")
-    func testInsideOutSpiralEntersAtInnermostRingAndClosesAtWallRadius() {
+    func testInsideOutSpiralEntersAtInnermostRingAndClosesAtWallRadius() throws {
         let engine = SCEngine()
         // Same rings as PocketSpiral_Tests' equivalent case: radius 10, 4mm tool (2mm
         // radius), 50% stepover (2mm) -> rings at 8, 6, 4, 2 outside-in. `.insideOut`
@@ -63,7 +63,7 @@ struct PocketSpiralDirection_Tests {
                                      stepoverPercentage: 0.5)
         let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -1.0)
 
-        let toolpaths = engine.generateToolpaths(
+        let toolpaths = try engine.generateToolpaths(
             from: [circleContour(radius: 10.0)],
             tool: tool,
             settings: settings,
@@ -111,14 +111,14 @@ struct PocketSpiralDirection_Tests {
     }
 
     @Test("Inside-out and outside-in spirals trace the same rings in opposite order, not different geometry")
-    func testInsideOutAndOutsideInShareTheSameRingRadii() {
+    func testInsideOutAndOutsideInShareTheSameRingRadii() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 4.0)
         let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.5)
         let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -1.0)
 
-        func ringTurnRadii(direction: SC.SpiralDirection) -> [Double] {
-            let waypoints = engine.generateToolpaths(
+        func ringTurnRadii(direction: SC.SpiralDirection) throws -> [Double] {
+            let waypoints = try engine.generateToolpaths(
                 from: [circleContour(radius: 10.0)],
                 tool: tool,
                 settings: settings,
@@ -133,8 +133,8 @@ struct PocketSpiralDirection_Tests {
             }
         }
 
-        let outsideInRadii = ringTurnRadii(direction: .outsideIn)
-        let insideOutRadii = ringTurnRadii(direction: .insideOut)
+        let outsideInRadii = try ringTurnRadii(direction: .outsideIn)
+        let insideOutRadii = try ringTurnRadii(direction: .insideOut)
 
         #expect(outsideInRadii == insideOutRadii.reversed(),
                 "Test Failed: insideOut should visit the exact same ring radii as outsideIn, just in reverse order, not a differently-computed ring stack")
@@ -143,7 +143,7 @@ struct PocketSpiralDirection_Tests {
     // MARK: - `.outsideIn` remains the default
 
     @Test("Bare .spiral still means .spiral(direction: .outsideIn), unaffected by adding the direction parameter")
-    func testBareSpiralDefaultsToOutsideIn() {
+    func testBareSpiralDefaultsToOutsideIn() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 4.0)
         let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.5)
@@ -151,14 +151,14 @@ struct PocketSpiralDirection_Tests {
                                           safeZ: 5.0,
                                           targetDepth: -1.0)
 
-        let bareWaypoints = engine.generateToolpaths(
+        let bareWaypoints = try engine.generateToolpaths(
             from: [circleContour(radius: 10.0)],
             tool: tool,
             settings: settings,
             operation: pocketStrategy(pattern: .spiral(direction: .outsideIn))
         )[0].passes[0].waypoints
 
-        let explicitWaypoints = engine.generateToolpaths(
+        let explicitWaypoints = try engine.generateToolpaths(
             from: [circleContour(radius: 10.0)],
             tool: tool,
             settings: settings,
@@ -172,28 +172,28 @@ struct PocketSpiralDirection_Tests {
     // MARK: - Fallback on a non-circular boundary is unaffected by direction
 
     @Test("Inside-out spiral falls back to the exact same offsetPattern output as outside-in on a non-circular boundary")
-    func testInsideOutFallsBackIdenticallyOnNonCircularBoundary() {
+    func testInsideOutFallsBackIdenticallyOnNonCircularBoundary() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 6.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0),
                                           safeZ: 5.0,
                                           targetDepth: -1.0)
 
-        let insideOutWaypoints = engine.generateToolpaths(
+        let insideOutWaypoints = try engine.generateToolpaths(
             from: [ccwRectangleContour()],
             tool: tool,
             settings: settings,
             operation: pocketStrategy(pattern: .spiral(direction: .insideOut))
         )[0].passes[0].waypoints
 
-        let outsideInWaypoints = engine.generateToolpaths(
+        let outsideInWaypoints = try engine.generateToolpaths(
             from: [ccwRectangleContour()],
             tool: tool,
             settings: settings,
             operation: pocketStrategy(pattern: .spiral(direction: .outsideIn))
         )[0].passes[0].waypoints
 
-        let offsetPatternWaypoints = engine.generateToolpaths(
+        let offsetPatternWaypoints = try engine.generateToolpaths(
             from: [ccwRectangleContour()],
             tool: tool,
             settings: settings,

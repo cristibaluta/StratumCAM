@@ -78,7 +78,7 @@ struct Raster_Tests {
     // MARK: - Scanline generation + stepover
 
     @Test("Raster covers a rectangle with parallel scanlines spaced by stepover")
-    func testRasterCoversRectangleWithHonoredStepover() {
+    func testRasterCoversRectangleWithHonoredStepover() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 4.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0,
@@ -88,7 +88,7 @@ struct Raster_Tests {
                                           safeZ: 5.0,
                                           targetDepth: -1.0)
 
-        let toolpaths = engine.generateToolpaths(
+        let toolpaths = try engine.generateToolpaths(
             from: [ccwRectangleContour()],
             tool: tool,
             settings: settings,
@@ -128,7 +128,7 @@ struct Raster_Tests {
     // MARK: - Direction
 
     @Test("Raster honors climb versus conventional starting direction")
-    func testRasterHonorsDirection() {
+    func testRasterHonorsDirection() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 4.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0,
@@ -138,14 +138,14 @@ struct Raster_Tests {
                                           safeZ: 5.0,
                                           targetDepth: -1.0)
 
-        let climb = engine.generateToolpaths(
+        let climb = try engine.generateToolpaths(
             from: [ccwRectangleContour()],
             tool: tool,
             settings: settings,
             operation: rasterStrategy(direction: .climb)
         )[0].passes[0].waypoints
 
-        let conventional = engine.generateToolpaths(
+        let conventional = try engine.generateToolpaths(
             from: [ccwRectangleContour()],
             tool: tool,
             settings: settings,
@@ -182,7 +182,7 @@ struct Raster_Tests {
     // MARK: - Arc-bounded clipping
 
     @Test("Raster clips scanlines to the true arc sweep, not just the bounding box")
-    func testRasterClipsAgainstRoundedContour() {
+    func testRasterClipsAgainstRoundedContour() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 3.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0,
@@ -192,7 +192,7 @@ struct Raster_Tests {
                                           safeZ: 5.0,
                                           targetDepth: -1.0)
 
-        let toolpaths = engine.generateToolpaths(
+        let toolpaths = try engine.generateToolpaths(
             from: [roundedRectangleContour()],
             tool: tool,
             settings: settings,
@@ -302,7 +302,7 @@ struct Raster_Tests {
     // MARK: - Validation
 
     @Test("An open contour does not produce a raster toolpath")
-    func testRasterRequiresClosedContour() {
+    func testRasterRequiresClosedContour() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 4.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0,
@@ -316,7 +316,7 @@ struct Raster_Tests {
             .init(entity: .line(a: DXF.Point(10, 0), b: DXF.Point(10, 10), layer: "0", color: 7), reversed: false)
         ], isClosed: false)
 
-        let toolpaths = engine.generateToolpaths(
+        let toolpaths = try engine.generateToolpaths(
             from: [openContour],
             tool: tool,
             settings: settings,

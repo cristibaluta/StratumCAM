@@ -19,7 +19,7 @@ import simd
 struct Boring_Tests {
 
     @Test("A basic boring cycle plunges at the hole's edge and orbits the center at the target radius")
-    func testBoringPlungesAndOrbitsAtTargetRadius() {
+    func testBoringPlungesAndOrbitsAtTargetRadius() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 6.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0),
@@ -30,7 +30,7 @@ struct Boring_Tests {
             .init(entity: .point(at: DXF.Point(12, 20), layer: "0", color: 7), reversed: false)
         ], isClosed: false)
 
-        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
+        let toolpaths = try engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
                                                   operation: .boring(targetDiameter: 10.0, dwellTime: nil, shiftRetract: false))
 
         #expect(toolpaths.count == 1, "Test Failed: expected 1 output toolpath")
@@ -94,7 +94,7 @@ struct Boring_Tests {
     }
 
     @Test("A boring cycle from a closed circle contour bores centered on the circle's center")
-    func testBoringUsesCircleCenterAsHoleLocation() {
+    func testBoringUsesCircleCenterAsHoleLocation() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 6.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 250.0, stepdown: 1.0),
@@ -105,7 +105,7 @@ struct Boring_Tests {
             .init(entity: .circle(center: DXF.Point(1, 2), radius: 3.0, layer: "0", color: 7), reversed: false)
         ], isClosed: true)
 
-        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
+        let toolpaths = try engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
                                                   operation: .boring(targetDiameter: 8.0, dwellTime: nil, shiftRetract: false))
 
         #expect(toolpaths.count == 1, "Test Failed: expected 1 output toolpath")
@@ -122,7 +122,7 @@ struct Boring_Tests {
     }
 
     @Test("A non-drill-point contour produces no boring toolpath")
-    func testBoringNonDrillPointContourReturnsNoToolpath() {
+    func testBoringNonDrillPointContourReturnsNoToolpath() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 6.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -8.0)
@@ -131,14 +131,14 @@ struct Boring_Tests {
             .init(entity: .line(a: DXF.Point(0, 0), b: DXF.Point(10, 0), layer: "0", color: 7), reversed: false)
         ], isClosed: false)
 
-        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
+        let toolpaths = try engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
                                                   operation: .boring(targetDiameter: 10.0, dwellTime: nil, shiftRetract: false))
 
         #expect(toolpaths.isEmpty, "Test Failed: a non-point contour should not produce a boring toolpath")
     }
 
     @Test("Boring a batch of holes assigns each toolpath to its own hole location")
-    func testBoringBatchOfHolesEachGetsOwnToolpath() {
+    func testBoringBatchOfHolesEachGetsOwnToolpath() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 6.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -8.0)
@@ -150,7 +150,7 @@ struct Boring_Tests {
             ], isClosed: false)
         }
 
-        let toolpaths = engine.generateToolpaths(from: contours, tool: tool, settings: settings,
+        let toolpaths = try engine.generateToolpaths(from: contours, tool: tool, settings: settings,
                                                   operation: .boring(targetDiameter: 6.0, dwellTime: nil, shiftRetract: false))
 
         #expect(toolpaths.count == 4, "Test Failed: expected one boring toolpath per point contour")
@@ -166,7 +166,7 @@ struct Boring_Tests {
     // MARK: - Shift retract (Step 2C.2)
 
     @Test("shiftRetract off keeps the retract straight above the bore's edge")
-    func testShiftRetractFalseRetractsStraightUp() {
+    func testShiftRetractFalseRetractsStraightUp() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 6.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -8.0)
@@ -175,7 +175,7 @@ struct Boring_Tests {
             .init(entity: .point(at: DXF.Point(0, 0), layer: "0", color: 7), reversed: false)
         ], isClosed: false)
 
-        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
+        let toolpaths = try engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
                                                   operation: .boring(targetDiameter: 10.0, dwellTime: nil, shiftRetract: false))
 
         let waypoints = toolpaths[0].passes[0].waypoints
@@ -191,7 +191,7 @@ struct Boring_Tests {
     }
 
     @Test("shiftRetract on inserts a linear move off the wall, toward center, before retracting")
-    func testShiftRetractTrueInsertsShiftBeforeRetract() {
+    func testShiftRetractTrueInsertsShiftBeforeRetract() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 6.0) // tool radius 3.0
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -8.0)
@@ -200,7 +200,7 @@ struct Boring_Tests {
             .init(entity: .point(at: DXF.Point(0, 0), layer: "0", color: 7), reversed: false)
         ], isClosed: false)
 
-        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
+        let toolpaths = try engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
                                                   operation: .boring(targetDiameter: 10.0, dwellTime: nil, shiftRetract: true)) // bore radius 5.0
 
         let waypoints = toolpaths[0].passes[0].waypoints
@@ -225,7 +225,7 @@ struct Boring_Tests {
     }
 
     @Test("shiftRetract clamps to the hole center when the tool radius exceeds the bore radius")
-    func testShiftRetractClampsToHoleCenter() {
+    func testShiftRetractClampsToHoleCenter() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 20.0) // tool radius 10.0, wider than the bore
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -8.0)
@@ -234,7 +234,7 @@ struct Boring_Tests {
             .init(entity: .point(at: DXF.Point(0, 0), layer: "0", color: 7), reversed: false)
         ], isClosed: false)
 
-        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
+        let toolpaths = try engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
                                                   operation: .boring(targetDiameter: 6.0, dwellTime: nil, shiftRetract: true)) // bore radius 3.0
 
         let shift = toolpaths[0].passes[0].waypoints[4]
@@ -243,7 +243,7 @@ struct Boring_Tests {
     }
 
     @Test("shiftRetract lands exactly on the hole center when the tool radius exactly matches the bore radius")
-    func testShiftRetractExactlyReachesHoleCenterAtBoundary() {
+    func testShiftRetractExactlyReachesHoleCenterAtBoundary() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 10.0) // tool radius 5.0, exactly the bore radius
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -8.0)
@@ -252,7 +252,7 @@ struct Boring_Tests {
             .init(entity: .point(at: DXF.Point(0, 0), layer: "0", color: 7), reversed: false)
         ], isClosed: false)
 
-        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
+        let toolpaths = try engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
                                                   operation: .boring(targetDiameter: 10.0, dwellTime: nil, shiftRetract: true)) // bore radius 5.0
 
         let shift = toolpaths[0].passes[0].waypoints[4]
@@ -263,7 +263,7 @@ struct Boring_Tests {
     // MARK: - Feed rates
 
     @Test("The circular interpolation cuts at the cutting feed rate, not the plunge rate")
-    func testCircularInterpolationUsesCuttingFeedRateNotPlungeRate() {
+    func testCircularInterpolationUsesCuttingFeedRateNotPlungeRate() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 6.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1200.0, plungeRate: 150.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -8.0)
@@ -272,7 +272,7 @@ struct Boring_Tests {
             .init(entity: .point(at: DXF.Point(0, 0), layer: "0", color: 7), reversed: false)
         ], isClosed: false)
 
-        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
+        let toolpaths = try engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
                                                   operation: .boring(targetDiameter: 10.0, dwellTime: nil, shiftRetract: false))
 
         let waypoints = toolpaths[0].passes[0].waypoints

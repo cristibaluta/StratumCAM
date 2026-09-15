@@ -37,7 +37,7 @@ struct Pocket2_Tests {
     }
 
     @Test("manual verification: pocket trochoidal bounce never exceeds the true wall, and covers the interior")
-    func verifyPocketTrochoidalConstrained() {
+    func verifyPocketTrochoidalConstrained() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 6.0)
         let toolRadius = tool.diameter / 2.0
@@ -56,7 +56,7 @@ struct Pocket2_Tests {
         let tro = SC.TrochoidalSettings(radialEngagement: 0.5, loopRadius: 0)
         let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .trochoidal(settings: tro), entry: .plunge)
 
-        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings, operation: operation)
+        let toolpaths = try engine.generateToolpaths(from: [contour], tool: tool, settings: settings, operation: operation)
         #expect(toolpaths.count == 1)
         let waypoints = toolpaths[0].passes[0].waypoints
         #expect(!waypoints.isEmpty)

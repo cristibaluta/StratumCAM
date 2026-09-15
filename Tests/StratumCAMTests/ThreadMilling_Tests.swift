@@ -44,7 +44,7 @@ struct ThreadMilling_Tests {
     }
 
     @Test("Thread milling enters/exits through center, cuts bottom-to-top, and finishes with a flat closing lap")
-    func testThreadMillingEntersAndExitsThroughCenterCuttingBottomToTop() {
+    func testThreadMillingEntersAndExitsThroughCenterCuttingBottomToTop() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 3.0) // tool radius 1.5
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0),
@@ -53,7 +53,7 @@ struct ThreadMilling_Tests {
 
         let contour = circleContour(center: (0, 0), diameter: 10.0) // hole radius 5.0
 
-        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
+        let toolpaths = try engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
                                                  operation: .threadMilling(pitch: 1.0, isInternal: true, direction: .rightHand, radialPasses: 1, targetDiameter: 10.0))
 
         #expect(toolpaths.count == 1, "Test Failed: expected 1 output toolpath")
@@ -137,14 +137,14 @@ struct ThreadMilling_Tests {
     }
 
     @Test("Internal threading compensates the mill radius inward from the hole's diameter")
-    func testInternalThreadingOffsetsInward() {
+    func testInternalThreadingOffsetsInward() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 4.0) // tool radius 2.0
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -2.0)
 
         let contour = circleContour(center: (10, 20), diameter: 12.0) // hole radius 6.0
 
-        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
+        let toolpaths = try engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
                                                  operation: .threadMilling(pitch: 2.0, isInternal: true, direction: .rightHand, radialPasses: 1, targetDiameter: 12.0))
 
         // waypoints[2] is the wall-engage move -- the first waypoint actually offset to
@@ -156,14 +156,14 @@ struct ThreadMilling_Tests {
     }
 
     @Test("External threading compensates the mill radius outward from the boss's diameter")
-    func testExternalThreadingOffsetsOutward() {
+    func testExternalThreadingOffsetsOutward() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 4.0) // tool radius 2.0
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -2.0)
 
         let contour = circleContour(center: (10, 20), diameter: 12.0) // boss radius 6.0
 
-        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
+        let toolpaths = try engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
                                                  operation: .threadMilling(pitch: 2.0, isInternal: false, direction: .rightHand, radialPasses: 1, targetDiameter: 12.0))
 
         let engage = toolpaths[0].passes[0].waypoints[2]
@@ -173,21 +173,21 @@ struct ThreadMilling_Tests {
     }
 
     @Test("Thread milling a hole not much bigger than the tool itself produces no toolpath")
-    func testToolTooLargeForInternalHoleReturnsNoToolpath() {
+    func testToolTooLargeForInternalHoleReturnsNoToolpath() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 10.0) // tool radius 5.0
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -2.0)
 
         let contour = circleContour(center: (0, 0), diameter: 8.0) // hole radius 4.0, smaller than the tool radius
 
-        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
+        let toolpaths = try engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
                                                  operation: .threadMilling(pitch: 1.0, isInternal: true, direction: .rightHand, radialPasses: 1, targetDiameter: 8.0))
 
         #expect(toolpaths.isEmpty, "Test Failed: a tool wider than the hole radius shouldn't produce a thread-milling toolpath")
     }
 
     @Test("A non-circle contour produces no threadMilling toolpath")
-    func testNonCircleContourReturnsNoToolpath() {
+    func testNonCircleContourReturnsNoToolpath() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 3.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -2.0)
@@ -196,21 +196,21 @@ struct ThreadMilling_Tests {
             .init(entity: .point(at: DXF.Point(0, 0), layer: "0", color: 7), reversed: false)
         ], isClosed: false)
 
-        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
+        let toolpaths = try engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
                                                  operation: .threadMilling(pitch: 1.0, isInternal: true, direction: .rightHand, radialPasses: 1, targetDiameter: 10.0))
 
         #expect(toolpaths.isEmpty, "Test Failed: threadMilling needs a diameter to compensate against, so a bare point shouldn't produce a toolpath")
     }
 
     @Test("A zero pitch produces no toolpath")
-    func testZeroPitchReturnsNoToolpath() {
+    func testZeroPitchReturnsNoToolpath() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 3.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -2.0)
 
         let contour = circleContour(center: (0, 0), diameter: 10.0)
 
-        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
+        let toolpaths = try engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
                                                  operation: .threadMilling(pitch: 0.0, isInternal: true, direction: .rightHand, radialPasses: 1, targetDiameter: 10.0))
 
         #expect(toolpaths.isEmpty, "Test Failed: a zero pitch has no well-defined helix and shouldn't produce a toolpath")
@@ -228,7 +228,7 @@ struct ThreadMilling_Tests {
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -1.0)
         let contour = circleContour(center: (0, 0), diameter: 10.0)
 
-        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
+        let toolpaths = try engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
                                                  operation: .threadMilling(pitch: 1.0, isInternal: isInternal, direction: direction, radialPasses: 1, targetDiameter: 10.0))
 
         guard case .arcCCW = toolpaths[0].passes[0].waypoints[3].motion else {
@@ -262,7 +262,7 @@ struct ThreadMilling_Tests {
     }
 
     @Test("threadMilling a batch of holes assigns each toolpath to its own hole location")
-    func testthreadMillingBatchOfHolesEachGetsOwnToolpath() {
+    func testthreadMillingBatchOfHolesEachGetsOwnToolpath() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 3.0) // tool radius 1.5
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -2.0)
@@ -270,7 +270,7 @@ struct ThreadMilling_Tests {
         let centers: [(Double, Double)] = [(0, 0), (20, 0), (20, 20), (0, 20)]
         let contours = centers.map { circleContour(center: $0, diameter: 10.0) } // hole radius 5.0
 
-        let toolpaths = engine.generateToolpaths(from: contours, tool: tool, settings: settings,
+        let toolpaths = try engine.generateToolpaths(from: contours, tool: tool, settings: settings,
                                                  operation: .threadMilling(pitch: 1.0, isInternal: true, direction: .rightHand, radialPasses: 1, targetDiameter: 10.0))
 
         #expect(toolpaths.count == 4, "Test Failed: expected one thread-milling toolpath per hole contour")
@@ -290,15 +290,15 @@ struct ThreadMilling_Tests {
     // MARK: - Additional coverage (Step 2D.3)
 
     @Test("A negative pitch is treated as its magnitude, same helix as the positive value")
-    func testNegativePitchTreatedAsMagnitude() {
+    func testNegativePitchTreatedAsMagnitude() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 3.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -3.0)
         let contour = circleContour(center: (0, 0), diameter: 10.0)
 
-        let positive = engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
+        let positive = try engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
                                                 operation: .threadMilling(pitch: 1.0, isInternal: true, direction: .rightHand, radialPasses: 1, targetDiameter: 10.0))
-        let negative = engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
+        let negative = try engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
                                                 operation: .threadMilling(pitch: -1.0, isInternal: true, direction: .rightHand, radialPasses: 1, targetDiameter: 10.0))
 
         #expect(negative.count == 1, "Test Failed: a negative pitch should still produce a toolpath")
@@ -310,13 +310,13 @@ struct ThreadMilling_Tests {
     }
 
     @Test("A target depth that isn't an exact multiple of pitch places its shortened turn at the bottom instead of overshooting")
-    func testPartialFinalTurnDepthDoesNotOvershoot() {
+    func testPartialFinalTurnDepthDoesNotOvershoot() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 3.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -3.5)
         let contour = circleContour(center: (0, 0), diameter: 10.0)
 
-        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
+        let toolpaths = try engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
                                                  operation: .threadMilling(pitch: 1.0, isInternal: true, direction: .rightHand, radialPasses: 1, targetDiameter: 10.0))
 
         let waypoints = toolpaths[0].passes[0].waypoints
@@ -336,13 +336,13 @@ struct ThreadMilling_Tests {
     }
 
     @Test("A target depth shallower than one full pitch still produces a single shortened turn plus closing lap")
-    func testSingleShortTurnWhenDepthLessThanPitch() {
+    func testSingleShortTurnWhenDepthLessThanPitch() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 3.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -0.5)
         let contour = circleContour(center: (0, 0), diameter: 10.0)
 
-        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
+        let toolpaths = try engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
                                                  operation: .threadMilling(pitch: 1.0, isInternal: true, direction: .rightHand, radialPasses: 1, targetDiameter: 10.0))
 
         let waypoints = toolpaths[0].passes[0].waypoints
@@ -358,13 +358,13 @@ struct ThreadMilling_Tests {
     }
 
     @Test("Every cutting waypoint carries the machine settings' own feed rate")
-    func testAllWaypointsUseCuttingFeedRate() {
+    func testAllWaypointsUseCuttingFeedRate() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 3.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 733.0, plungeRate: 150.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -3.0)
         let contour = circleContour(center: (0, 0), diameter: 10.0)
 
-        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
+        let toolpaths = try engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
                                                  operation: .threadMilling(pitch: 1.0, isInternal: true, direction: .rightHand, radialPasses: 1, targetDiameter: 10.0))
 
         for waypoint in toolpaths[0].passes[0].waypoints {
@@ -373,14 +373,14 @@ struct ThreadMilling_Tests {
     }
 
     @Test("Every arc waypoint of the helix sits at the compensated mill radius from the hole/boss center")
-    func testHelixMaintainsConstantRadiusThroughout() {
+    func testHelixMaintainsConstantRadiusThroughout() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 4.0) // tool radius 2.0
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -5.0)
         let center = (5.0, 7.0)
         let contour = circleContour(center: center, diameter: 20.0) // hole radius 10.0
 
-        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
+        let toolpaths = try engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
                                                  operation: .threadMilling(pitch: 1.0, isInternal: true, direction: .rightHand, radialPasses: 1, targetDiameter: 20.0))
 
         let expectedRadius = 10.0 - 2.0
@@ -398,13 +398,13 @@ struct ThreadMilling_Tests {
     }
 
     @Test("The winding sense stays consistent across every turn of a multi-turn helix, not just the first")
-    func testWindingSenseConsistentAcrossAllTurns() {
+    func testWindingSenseConsistentAcrossAllTurns() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 3.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -4.0)
         let contour = circleContour(center: (0, 0), diameter: 10.0)
 
-        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
+        let toolpaths = try engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
                                                  operation: .threadMilling(pitch: 1.0, isInternal: true, direction: .rightHand, radialPasses: 1, targetDiameter: 10.0))
 
         let waypoints = toolpaths[0].passes[0].waypoints
@@ -419,13 +419,13 @@ struct ThreadMilling_Tests {
     }
 
     @Test("The output toolpath carries the same tool and settings the operation was generated with")
-    func testOutputToolpathCarriesToolAndSettings() {
+    func testOutputToolpathCarriesToolAndSettings() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 3.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -3.0)
         let contour = circleContour(center: (0, 0), diameter: 10.0)
 
-        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
+        let toolpaths = try engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
                                                  operation: .threadMilling(pitch: 1.0, isInternal: true, direction: .rightHand, radialPasses: 1, targetDiameter: 10.0))
 
         #expect(toolpaths[0].tool == tool, "Test Failed: output toolpath should carry the exact tool used")
@@ -433,7 +433,7 @@ struct ThreadMilling_Tests {
     }
 
     @Test("A batch mixing circle and non-circle contours only produces toolpaths for the circles")
-    func testMixedBatchOnlyCirclesProduceToolpaths() {
+    func testMixedBatchOnlyCirclesProduceToolpaths() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 3.0) // tool radius 1.5
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -2.0)
@@ -443,7 +443,7 @@ struct ThreadMilling_Tests {
             .init(entity: .point(at: DXF.Point(20, 20), layer: "0", color: 7), reversed: false)
         ], isClosed: false)
 
-        let toolpaths = engine.generateToolpaths(from: [badContour, goodContour], tool: tool, settings: settings,
+        let toolpaths = try engine.generateToolpaths(from: [badContour, goodContour], tool: tool, settings: settings,
                                                  operation: .threadMilling(pitch: 1.0, isInternal: true, direction: .rightHand, radialPasses: 1, targetDiameter: 10.0))
 
         #expect(toolpaths.count == 1, "Test Failed: only the circle contour should yield a threadMilling toolpath")
@@ -461,13 +461,13 @@ struct ThreadMilling_Tests {
     // MARK: - Radial passes (roughing out to the finished diameter)
 
     @Test("radialPasses controls how many full helical passes are produced")
-    func testRadialPassesControlsPassCount() {
+    func testRadialPassesControlsPassCount() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 3.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -3.0)
         let contour = circleContour(center: (0, 0), diameter: 8.0) // existing (pre-drilled) hole diameter
 
-        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
+        let toolpaths = try engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
                                                  operation: .threadMilling(pitch: 1.0, isInternal: true, direction: .rightHand, radialPasses: 3, targetDiameter: 10.0))
 
         #expect(toolpaths.count == 1, "Test Failed: expected 1 output toolpath")
@@ -478,7 +478,7 @@ struct ThreadMilling_Tests {
     }
 
     @Test("Radial passes on an internal thread step outward from the existing hole, ending exactly on the target diameter")
-    func testInternalRadialPassesStepOutwardToFinalDiameter() {
+    func testInternalRadialPassesStepOutwardToFinalDiameter() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 3.0) // tool radius 1.5
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -3.0)
@@ -486,7 +486,7 @@ struct ThreadMilling_Tests {
         // in the CAM software -- stepping out to a 13.0mm target (finished) diameter.
         let contour = circleContour(center: (0, 0), diameter: 10.0)
 
-        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
+        let toolpaths = try engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
                                                  operation: .threadMilling(pitch: 1.0, isInternal: true, direction: .rightHand, radialPasses: 3, targetDiameter: 13.0))
 
         let finalMillRadius = 13.0 / 2.0 - 1.5 // target radius - tool radius
@@ -504,7 +504,7 @@ struct ThreadMilling_Tests {
     }
 
     @Test("Radial passes on an external thread step inward from the existing boss, ending exactly on the target diameter")
-    func testExternalRadialPassesStepInwardToFinalDiameter() {
+    func testExternalRadialPassesStepInwardToFinalDiameter() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 4.0) // tool radius 2.0
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -2.0)
@@ -512,7 +512,7 @@ struct ThreadMilling_Tests {
         // down to a 12.0mm target (finished) diameter.
         let contour = circleContour(center: (0, 0), diameter: 13.0)
 
-        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
+        let toolpaths = try engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
                                                  operation: .threadMilling(pitch: 2.0, isInternal: false, direction: .rightHand, radialPasses: 3, targetDiameter: 12.0))
 
         let finalMillRadius = 12.0 / 2.0 + 2.0 // target radius + tool radius
@@ -527,7 +527,7 @@ struct ThreadMilling_Tests {
     }
 
     @Test("A single radial pass lands directly on the target diameter, independent of the existing hole size")
-    func testSingleRadialPassMatchesOriginalBehavior() {
+    func testSingleRadialPassMatchesOriginalBehavior() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 3.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -3.0)
@@ -536,7 +536,7 @@ struct ThreadMilling_Tests {
         // radius should depend only on targetDiameter, not on this existing value.
         let contour = circleContour(center: (0, 0), diameter: 6.0)
 
-        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
+        let toolpaths = try engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
                                                  operation: .threadMilling(pitch: 1.0, isInternal: true, direction: .rightHand, radialPasses: 1, targetDiameter: 10.0))
 
         #expect(toolpaths[0].passes.count == 1, "Test Failed: radialPasses: 1")

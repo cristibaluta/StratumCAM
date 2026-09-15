@@ -77,7 +77,7 @@ struct Drilling_Tests {
     // MARK: - Basic drill cycle
 
     @Test("A plain drill cycle plunges straight down and retracts at the point location")
-    func testDrillingPlungesAndRetractsAtPointLocation() {
+    func testDrillingPlungesAndRetractsAtPointLocation() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .drill, diameter: 3.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -8.0)
@@ -86,7 +86,7 @@ struct Drilling_Tests {
             .init(entity: .point(at: DXF.Point(12, 20), layer: "0", color: 7), reversed: false)
         ], isClosed: false)
 
-        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings, operation: .drilling(peckDepth: nil))
+        let toolpaths = try engine.generateToolpaths(from: [contour], tool: tool, settings: settings, operation: .drilling(peckDepth: nil))
 
         #expect(toolpaths.count == 1, "Test Failed: expected 1 output toolpath")
         let toolpath = toolpaths[0]
@@ -122,7 +122,7 @@ struct Drilling_Tests {
     }
 
     @Test("A drill cycle from a closed circle contour drills at the circle's center")
-    func testDrillingUsesCircleCenterAsHoleLocation() {
+    func testDrillingUsesCircleCenterAsHoleLocation() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .drill, diameter: 4.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 250.0, stepdown: 1.0), safeZ: 6.0, targetDepth: -5.0)
@@ -131,7 +131,7 @@ struct Drilling_Tests {
             .init(entity: .circle(center: DXF.Point(1, 2), radius: 2.0, layer: "0", color: 7), reversed: false)
         ], isClosed: true)
 
-        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings, operation: .drilling(peckDepth: nil))
+        let toolpaths = try engine.generateToolpaths(from: [contour], tool: tool, settings: settings, operation: .drilling(peckDepth: nil))
 
         #expect(toolpaths.count == 1, "Test Failed: expected 1 output toolpath")
         let wp1 = toolpaths[0].passes[0].waypoints[1]
@@ -139,8 +139,12 @@ struct Drilling_Tests {
         #expect(wp1.position.z == -5.0, "Test Failed: plunge Z mismatch")
     }
 
-    @Test("A non-drill-point contour produces no drilling toolpath")
-    func testDrillingNonDrillPointContourReturnsNoToolpath() {
+    // Step 6.2: this used to assert that a non-drill-point contour silently produced
+    // an empty toolpaths array. It now throws `SC.Error.missingDrillPoint` instead --
+    // that's the whole point of Track 6, not a regression -- so the test asserts the
+    // throw rather than an empty result.
+    @Test("A non-drill-point contour throws missingDrillPoint")
+    func testDrillingNonDrillPointContourThrows() {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .drill, diameter: 3.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -8.0)
@@ -149,15 +153,25 @@ struct Drilling_Tests {
             .init(entity: .line(a: DXF.Point(0, 0), b: DXF.Point(10, 0), layer: "0", color: 7), reversed: false)
         ], isClosed: false)
 
-        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings, operation: .drilling(peckDepth: nil))
-
-        #expect(toolpaths.isEmpty, "Test Failed: a non-point contour should not produce a drilling toolpath")
+        // do/catch + Issue.record rather than #expect(throws:) -- the exact-value
+        // overload of #expect(throws:) has shifted across Swift Testing releases and
+        // this package doesn't pin one (it's part of the toolchain, not Package.resolved),
+        // so do/catch is the version-safe choice here, matching Issue.record's use
+        // elsewhere in this file.
+        do {
+            _ = try engine.generateToolpaths(from: [contour], tool: tool, settings: settings, operation: .drilling(peckDepth: nil))
+            Issue.record("Test Failed: expected SC.Error.missingDrillPoint to be thrown")
+        } catch SC.Error.missingDrillPoint {
+            // expected
+        } catch {
+            Issue.record("Test Failed: expected SC.Error.missingDrillPoint, got \(error)")
+        }
     }
 
     // MARK: - Peck drilling
 
     @Test("Peck drilling with an evenly divisible depth produces exactly the right number of pecks")
-    func testPeckDrillingEvenDivisionProducesExactPeckCount() {
+    func testPeckDrillingEvenDivisionProducesExactPeckCount() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .drill, diameter: 3.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, retractZ: 1.0, targetDepth: 8.0)
@@ -166,7 +180,7 @@ struct Drilling_Tests {
             .init(entity: .point(at: DXF.Point(10, 10), layer: "0", color: 7), reversed: false)
         ], isClosed: false)
 
-        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings, operation: .drilling(peckDepth: 4.0))
+        let toolpaths = try engine.generateToolpaths(from: [contour], tool: tool, settings: settings, operation: .drilling(peckDepth: 4.0))
 
         #expect(toolpaths.count == 1, "Test Failed: expected 1 output toolpath")
         let toolpath = toolpaths[0]
@@ -215,7 +229,7 @@ struct Drilling_Tests {
     }
 
     @Test("Peck drilling with an unevenly divisible depth ends exactly on target depth")
-    func testPeckDrillingUnevenDivisionEndsAtTargetDepth() {
+    func testPeckDrillingUnevenDivisionEndsAtTargetDepth() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .drill, diameter: 3.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, retractZ: 1.0, targetDepth: 10.0)
@@ -224,7 +238,7 @@ struct Drilling_Tests {
             .init(entity: .point(at: DXF.Point(0, 0), layer: "0", color: 7), reversed: false)
         ], isClosed: false)
 
-        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings, operation: .drilling(peckDepth: 4.0))
+        let toolpaths = try engine.generateToolpaths(from: [contour], tool: tool, settings: settings, operation: .drilling(peckDepth: 4.0))
 
         let waypoints = toolpaths[0].passes[0].waypoints
         // 10.0 / 4.0 -> 2.5 -> rounds up to 3 pecks (4, 8, 10).
@@ -241,7 +255,7 @@ struct Drilling_Tests {
     }
 
     @Test("Peck drilling from a closed circle contour pecks at the circle's center")
-    func testPeckDrillingUsesCircleCenterAsHoleLocation() {
+    func testPeckDrillingUsesCircleCenterAsHoleLocation() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .drill, diameter: 4.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 250.0, stepdown: 1.0), safeZ: 6.0, retractZ: 1.5, targetDepth: 6.0)
@@ -250,7 +264,7 @@ struct Drilling_Tests {
             .init(entity: .circle(center: DXF.Point(1, 2), radius: 2.0, layer: "0", color: 7), reversed: false)
         ], isClosed: true)
 
-        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings, operation: .drilling(peckDepth: 3.0))
+        let toolpaths = try engine.generateToolpaths(from: [contour], tool: tool, settings: settings, operation: .drilling(peckDepth: 3.0))
 
         #expect(toolpaths.count == 1, "Test Failed: expected 1 output toolpath")
         let waypoints = toolpaths[0].passes[0].waypoints
@@ -262,7 +276,7 @@ struct Drilling_Tests {
     }
 
     @Test("A zero or negative peck depth falls back to a plain drill cycle")
-    func testNonPositivePeckDepthFallsBackToPlainDrillCycle() {
+    func testNonPositivePeckDepthFallsBackToPlainDrillCycle() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .drill, diameter: 3.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: 8.0)
@@ -271,7 +285,7 @@ struct Drilling_Tests {
             .init(entity: .point(at: DXF.Point(0, 0), layer: "0", color: 7), reversed: false)
         ], isClosed: false)
 
-        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings, operation: .drilling(peckDepth: 0.0))
+        let toolpaths = try engine.generateToolpaths(from: [contour], tool: tool, settings: settings, operation: .drilling(peckDepth: 0.0))
 
         let waypoints = toolpaths[0].passes[0].waypoints
         #expect(waypoints.count == 3, "Test Failed: a non-positive peck depth should behave like a plain drill cycle")
@@ -281,7 +295,7 @@ struct Drilling_Tests {
     // MARK: - Multiple drill points / mixed operations (Step 1.4)
 
     @Test("Multiple drill point contours produce one toolpath per hole")
-    func testMultipleDrillPointsProduceOneToolpathPerContour() {
+    func testMultipleDrillPointsProduceOneToolpathPerContour() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .drill, diameter: 3.0)
         let settings = SC.MachineSettings(
@@ -317,7 +331,7 @@ struct Drilling_Tests {
             )
         }
 
-        let toolpaths = engine.generateToolpaths(
+        let toolpaths = try engine.generateToolpaths(
             from: contours,
             tool: tool,
             settings: settings,
@@ -356,7 +370,7 @@ struct Drilling_Tests {
     }
 
     @Test("A mixed batch supports peck and non-peck drilling with different tools")
-    func testMixedPeckAndNonPeckDrillingInOneCall() {
+    func testMixedPeckAndNonPeckDrillingInOneCall() throws {
         let engine = SCEngine()
 
         let plainTool = SC.ToolParams(
@@ -437,7 +451,7 @@ struct Drilling_Tests {
             )
         ]
 
-        let toolpaths = engine.generateToolpaths(from: operations)
+        let toolpaths = try engine.generateToolpaths(from: operations)
 
         #expect(
             toolpaths.count == 4,

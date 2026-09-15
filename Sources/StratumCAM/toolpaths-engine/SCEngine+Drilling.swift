@@ -17,14 +17,19 @@ extension SCEngine {
     /// with a retract to Safe Z. One `ToolpathPass` either way, since a drill cycle
     /// doesn't step down in the sense profile/pocket passes do -- pecking is internal
     /// motion within a single hole, not separate Z-passes over 2D geometry.
+    ///
+    /// Throws `SC.Error.missingDrillPoint` (Step 6.2) rather than returning `nil` when
+    /// `contour` isn't recognizable as a single drill point -- once that's the only way
+    /// out of this function short of success, the return type no longer needs to be
+    /// optional at all.
     func buildDrillingToolpath(for contour: SC.Contour,
                                tool: SC.ToolParams,
                                settings: SC.MachineSettings,
                                peckDepth: Double?,
-                               operation: SC.MachiningOperation) -> SC.OutputToolpath? {
+                               operation: SC.MachiningOperation) throws -> SC.OutputToolpath {
 
         guard let point = contour.drillPoint else {
-            return nil
+            throw SC.Error.missingDrillPoint
         }
 
         let z = -abs(settings.targetDepth)

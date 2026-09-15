@@ -18,15 +18,22 @@ public final class SCEngine {
     ///
     /// `strategy` defaults to `.engrave`, which traces the geometry exactly at cutter-center
     /// (no tool-radius compensation) -- the classic engraving / center-line cutting case.
+    ///
+    /// `throws` as of Step 6.2 -- so far only the `.drilling` case actually throws
+    /// (`SC.Error.missingDrillPoint`, via `buildDrillingToolpath`); every other
+    /// operation still returns `nil` for "nothing machinable" exactly as before until
+    /// its own step in the roadmap converts it. A thrown error aborts the whole batch
+    /// rather than skipping just the offending contour -- see the doc comment on
+    /// `buildToolpath` below for why that's the intended behavior change, not a bug.
     public func generateToolpaths(from contours: [SC.Contour],
                                   tool: SC.ToolParams,
                                   settings: SC.MachineSettings,
-                                  operation: SC.MachiningOperation) -> [SC.OutputToolpath] {
+                                  operation: SC.MachiningOperation) throws -> [SC.OutputToolpath] {
 
         var results: [SC.OutputToolpath] = []
 
         for contour in contours {
-            if let toolpath = buildToolpath(for: contour, tool: tool, settings: settings, operation: operation) {
+            if let toolpath = try buildToolpath(for: contour, tool: tool, settings: settings, operation: operation) {
                 results.append(toolpath)
             }
         }
@@ -38,9 +45,9 @@ public final class SCEngine {
     /// drill tool, machine settings, and peck strategy. This is intentionally a
     /// drilling-specific overload so the existing single-tool API remains stable
     /// for engraving, profiling, chamfering, and future strategies.
-    public func generateToolpaths(from operations: [SC.DrillingOperation]) -> [SC.OutputToolpath] {
-        operations.compactMap { operation in
-            buildToolpath(
+    public func generateToolpaths(from operations: [SC.DrillingOperation]) throws -> [SC.OutputToolpath] {
+        try operations.compactMap { operation in
+            try buildToolpath(
                 for: operation.contour,
                 tool: operation.tool,
                 settings: operation.settings,
@@ -75,10 +82,19 @@ public final class SCEngine {
     /// Routes a single contour to the builder for its strategy. Returns `nil` when the
     /// contour has nothing machinable (e.g. an empty/degenerate contour) or -- for now --
     /// when the strategy's real geometry isn't implemented yet (see TODOs below).
+    ///
+    /// `throws` as of Step 6.2, though only `.drilling` actually throws for now (see
+    /// `buildDrillingToolpath`) -- every other case below still returns `nil` unchanged,
+    /// converting one operation at a time per the roadmap. Note the difference in what
+    /// `nil` vs. a thrown error means to the caller: `nil` here means "this one contour
+    /// had nothing machinable," and the batch overloads above skip it and keep going;
+    /// a thrown error means "this input was actually wrong," and the batch overloads
+    /// let it propagate and abort the whole call rather than silently dropping the
+    /// offending contour from the results.
     private func buildToolpath(for contour: SC.Contour,
                                tool: SC.ToolParams,
                                settings: SC.MachineSettings,
-                               operation: SC.MachiningOperation) -> SC.OutputToolpath? {
+                               operation: SC.MachiningOperation) throws -> SC.OutputToolpath? {
         switch operation {
             case .engrave:
                 return buildContourTracingToolpath(for: contour,
@@ -107,11 +123,11 @@ public final class SCEngine {
                                             operation: operation)
 
             case .drilling(let peckDepth):
-                return buildDrillingToolpath(for: contour,
-                                             tool: tool,
-                                             settings: settings,
-                                             peckDepth: peckDepth,
-                                             operation: operation)
+                return try buildDrillingToolpath(for: contour,
+                                                 tool: tool,
+                                                 settings: settings,
+                                                 peckDepth: peckDepth,
+                                                 operation: operation)
 
             case .pocket(let direction, let pattern, let entry):
                 return buildPocketToolpath(for: contour,

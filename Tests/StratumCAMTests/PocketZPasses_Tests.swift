@@ -43,7 +43,7 @@ struct PocketZPasses_Tests {
     // MARK: - Pass count / depths
 
     @Test("Pocket honors calculateZPasses for an unevenly divisible depth")
-    func testPocketMultiPassZDepthsMatchCalculateZPasses() {
+    func testPocketMultiPassZDepthsMatchCalculateZPasses() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 6.0)
         // -2.5 / 1.0 -> rounds up to 3 passes: -1.0, -2.0, -2.5 (same fencepost rule
@@ -52,7 +52,7 @@ struct PocketZPasses_Tests {
                                           safeZ: 5.0,
                                           targetDepth: -2.5)
 
-        let toolpaths = engine.generateToolpaths(
+        let toolpaths = try engine.generateToolpaths(
             from: [ccwRectangleContour()],
             tool: tool,
             settings: settings,
@@ -76,7 +76,7 @@ struct PocketZPasses_Tests {
     }
 
     @Test("Raster pocket also gets multi-pass Z stepdown, not just offsetPattern")
-    func testRasterPocketAlsoGetsMultiPassZStepdown() {
+    func testRasterPocketAlsoGetsMultiPassZStepdown() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 6.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0,
@@ -86,7 +86,7 @@ struct PocketZPasses_Tests {
                                           safeZ: 5.0,
                                           targetDepth: -2.0)
 
-        let toolpaths = engine.generateToolpaths(
+        let toolpaths = try engine.generateToolpaths(
             from: [ccwRectangleContour()],
             tool: tool,
             settings: settings,
@@ -110,7 +110,7 @@ struct PocketZPasses_Tests {
     // MARK: - Geometry reused, not regenerated, across passes
 
     @Test("Pocket ring geometry is computed once and reused unchanged across every Z pass")
-    func testPocketRingGeometryIsReusedAcrossZPasses() {
+    func testPocketRingGeometryIsReusedAcrossZPasses() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 4.0)
         // 4mm tool, 50% stepover -> 2 rings, same fixture as
@@ -122,7 +122,7 @@ struct PocketZPasses_Tests {
                                           safeZ: 5.0,
                                           targetDepth: -2.0)
 
-        let toolpaths = engine.generateToolpaths(
+        let toolpaths = try engine.generateToolpaths(
             from: [ccwRectangleContour()],
             tool: tool,
             settings: settings,
@@ -158,7 +158,7 @@ struct PocketZPasses_Tests {
     // MARK: - Ramp/helix entry: previousZ threading
 
     @Test("Pocket ramp entry on a later pass starts from the previous pass's depth, not top-of-stock")
-    func testPocketRampEntryStartsFromPreviousPassDepth() {
+    func testPocketRampEntryStartsFromPreviousPassDepth() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 6.0)
         // stepdown 1.0 over a target of -2.0 -> two passes: -1.0, then -2.0.
@@ -166,7 +166,7 @@ struct PocketZPasses_Tests {
                                           safeZ: 5.0,
                                           targetDepth: -2.0)
 
-        let toolpaths = engine.generateToolpaths(
+        let toolpaths = try engine.generateToolpaths(
             from: [ccwRectangleContour()],
             tool: tool,
             settings: settings,
@@ -202,14 +202,14 @@ struct PocketZPasses_Tests {
     }
 
     @Test("Pocket helix entry on a later pass only spirals through its own fresh stepdown")
-    func testPocketHelixEntryStartsFromPreviousPassDepth() {
+    func testPocketHelixEntryStartsFromPreviousPassDepth() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 6.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0),
                                           safeZ: 5.0,
                                           targetDepth: -2.0)
 
-        let toolpaths = engine.generateToolpaths(
+        let toolpaths = try engine.generateToolpaths(
             from: [ccwRectangleContour()],
             tool: tool,
             settings: settings,
@@ -235,14 +235,14 @@ struct PocketZPasses_Tests {
     }
 
     @Test("Pocket plunge entry is unaffected by multi-pass Z stepdown -- still a straight rapid + plunge per pass")
-    func testPocketPlungeEntryStillStraightDownPerPass() {
+    func testPocketPlungeEntryStillStraightDownPerPass() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 6.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0),
                                           safeZ: 5.0,
                                           targetDepth: -2.0)
 
-        let toolpaths = engine.generateToolpaths(
+        let toolpaths = try engine.generateToolpaths(
             from: [ccwRectangleContour()],
             tool: tool,
             settings: settings,

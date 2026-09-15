@@ -12,7 +12,7 @@ import SwiftDXF
 struct GCode_Drilling_Tests {
 
     @Test("Drilling emits a dwell after the final peck and before the final retract")
-    func testDrillingDwellIsEmittedAfterFinalPeck() {
+    func testDrillingDwellIsEmittedAfterFinalPeck() throws {
         let tool = SC.ToolParams(
             type: .drill,
             diameter: 4.0
@@ -41,7 +41,7 @@ struct GCode_Drilling_Tests {
             )
         ], isClosed: false)
 
-        let toolpaths = SCEngine().generateToolpaths(
+        let toolpaths = try SCEngine().generateToolpaths(
             from: [contour],
             tool: tool,
             settings: settings,
@@ -99,7 +99,7 @@ struct GCode_Drilling_Tests {
     }
 
     @Test("Drilling without dwell does not emit a G04 command")
-    func testDrillingWithoutDwellDoesNotEmitDwell() {
+    func testDrillingWithoutDwellDoesNotEmitDwell() throws {
         let tool = SC.ToolParams(
             type: .drill,
             diameter: 3.0
@@ -127,7 +127,7 @@ struct GCode_Drilling_Tests {
             )
         ], isClosed: false)
 
-        let toolpaths = SCEngine().generateToolpaths(
+        let toolpaths = try SCEngine().generateToolpaths(
             from: [contour],
             tool: tool,
             settings: settings,
@@ -146,7 +146,7 @@ struct GCode_Drilling_Tests {
     }
 
     @Test("Drilling uses the operation-specific spindle speed when it differs from the machine default")
-    func testDrillingUsesToolSpecificSpindleSpeed() {
+    func testDrillingUsesToolSpecificSpindleSpeed() throws {
         let tool = SC.ToolParams(
             type: .drill,
             diameter: 5.0
@@ -184,7 +184,7 @@ struct GCode_Drilling_Tests {
             )
         ], isClosed: false)
 
-        let toolpaths = SCEngine().generateToolpaths(
+        let toolpaths = try SCEngine().generateToolpaths(
             from: [contour],
             tool: tool,
             settings: operationSettings,
@@ -203,7 +203,7 @@ struct GCode_Drilling_Tests {
     }
 
     @Test("Drilling falls back to machine spindle speed when the operation has no spindle override")
-    func testDrillingFallsBackToMachineSpindleSpeed() {
+    func testDrillingFallsBackToMachineSpindleSpeed() throws {
         let tool = SC.ToolParams(
             type: .drill,
             diameter: 3.0
@@ -233,7 +233,7 @@ struct GCode_Drilling_Tests {
 
         // The operation and the machine share the same settings, so `cutting.spindleSpeed`
         // matches on both sides and no override should be emitted.
-        let toolpaths = SCEngine().generateToolpaths(
+        let toolpaths = try SCEngine().generateToolpaths(
             from: [contour],
             tool: tool,
             settings: settings,

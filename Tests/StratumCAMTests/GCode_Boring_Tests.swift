@@ -16,7 +16,7 @@ import SwiftDXF
 struct GCode_Boring_Tests {
 
     @Test("Boring emits a dwell after the final arc and before the retract")
-    func testBoringDwellIsEmittedAfterFinalArc() {
+    func testBoringDwellIsEmittedAfterFinalArc() throws {
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 6.0)
         let settings = SC.MachineSettings(
             cutting: SC.CuttingData(spindleSpeed: 10000.0, feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0),
@@ -28,7 +28,7 @@ struct GCode_Boring_Tests {
             .init(entity: .point(at: DXF.Point(10, 20), layer: "0", color: 7), reversed: false)
         ], isClosed: false)
 
-        let toolpaths = SCEngine().generateToolpaths(
+        let toolpaths = try SCEngine().generateToolpaths(
             from: [contour],
             tool: tool,
             settings: settings,
@@ -54,7 +54,7 @@ struct GCode_Boring_Tests {
     }
 
     @Test("Boring without a dwellTime does not emit a G04 command")
-    func testBoringWithoutDwellTimeDoesNotEmitDwell() {
+    func testBoringWithoutDwellTimeDoesNotEmitDwell() throws {
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 6.0)
         let settings = SC.MachineSettings(
             cutting: SC.CuttingData(spindleSpeed: 9000.0, feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0),
@@ -66,7 +66,7 @@ struct GCode_Boring_Tests {
             .init(entity: .point(at: DXF.Point(5, 6), layer: "0", color: 7), reversed: false)
         ], isClosed: false)
 
-        let toolpaths = SCEngine().generateToolpaths(
+        let toolpaths = try SCEngine().generateToolpaths(
             from: [contour],
             tool: tool,
             settings: settings,
@@ -79,7 +79,7 @@ struct GCode_Boring_Tests {
     }
 
     @Test("Boring dwell still lands right after the final arc when shiftRetract also inserts a move")
-    func testBoringDwellLandsBeforeShiftMoveWhenBothAreOn() {
+    func testBoringDwellLandsBeforeShiftMoveWhenBothAreOn() throws {
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 6.0) // tool radius 3.0
         let settings = SC.MachineSettings(
             cutting: SC.CuttingData(spindleSpeed: 9000.0, feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0),
@@ -91,7 +91,7 @@ struct GCode_Boring_Tests {
             .init(entity: .point(at: DXF.Point(0, 0), layer: "0", color: 7), reversed: false)
         ], isClosed: false)
 
-        let toolpaths = SCEngine().generateToolpaths(
+        let toolpaths = try SCEngine().generateToolpaths(
             from: [contour],
             tool: tool,
             settings: settings,
@@ -121,7 +121,7 @@ struct GCode_Boring_Tests {
     }
 
     @Test("A dwellTime of exactly zero does not emit a G04 command")
-    func testBoringZeroDwellTimeDoesNotEmitDwell() {
+    func testBoringZeroDwellTimeDoesNotEmitDwell() throws {
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 6.0)
         let settings = SC.MachineSettings(
             cutting: SC.CuttingData(spindleSpeed: 9000.0, feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0),
@@ -135,7 +135,7 @@ struct GCode_Boring_Tests {
 
         // A zero dwellTime carries no useful instruction for the controller -- same
         // "dwell > 0" guard drilling's own G04 emission already applies.
-        let toolpaths = SCEngine().generateToolpaths(
+        let toolpaths = try SCEngine().generateToolpaths(
             from: [contour],
             tool: tool,
             settings: settings,
@@ -148,7 +148,7 @@ struct GCode_Boring_Tests {
     }
 
     @Test("Each hole in a batch of bores gets its own independent dwell")
-    func testBoringBatchOfHolesEachGetsOwnDwell() {
+    func testBoringBatchOfHolesEachGetsOwnDwell() throws {
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 6.0)
         let settings = SC.MachineSettings(
             cutting: SC.CuttingData(spindleSpeed: 9000.0, feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0),
@@ -162,7 +162,7 @@ struct GCode_Boring_Tests {
             ], isClosed: false)
         }
 
-        let toolpaths = SCEngine().generateToolpaths(
+        let toolpaths = try SCEngine().generateToolpaths(
             from: contours,
             tool: tool,
             settings: settings,

@@ -56,13 +56,13 @@ struct Contour_Tests {
     // MARK: - Offset direction
 
     @Test("Outside profile offsets the toolpath away from the contour")
-    func testProfileOutsideOffsetsAwayFromContour() {
+    func testProfileOutsideOffsetsAwayFromContour() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 6.0)
         let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 0.1)
         let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -1.0)
 
-        let toolpaths = engine.generateToolpaths(
+        let toolpaths = try engine.generateToolpaths(
             from: [ccwSquareContour()], tool: tool, settings: settings,
             operation: .profile(side: .outside, direction: .climb, entry: .plunge, leadIn: nil, leadOut: nil, tabs: [])
         )
@@ -78,13 +78,13 @@ struct Contour_Tests {
     }
 
     @Test("Inside profile offsets the toolpath toward the contour center")
-    func testProfileInsideOffsetsTowardContourCenter() {
+    func testProfileInsideOffsetsTowardContourCenter() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 6.0)
         let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 0.1)
         let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -1.0)
 
-        let toolpaths = engine.generateToolpaths(
+        let toolpaths = try engine.generateToolpaths(
             from: [ccwSquareContour()], tool: tool, settings: settings,
             operation: .profile(side: .inside, direction: .climb, entry: .plunge, leadIn: nil, leadOut: nil, tabs: [])
         )
@@ -145,13 +145,13 @@ struct Contour_Tests {
     // MARK: - Entry strategies
 
     @Test("Plunge entry starts directly on the offset contour's start point")
-    func testProfilePlungeEntryStartsAtOffsetContourStart() {
+    func testProfilePlungeEntryStartsAtOffsetContourStart() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 6.0)
         let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0)
         let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -1.0)
 
-        let toolpaths = engine.generateToolpaths(
+        let toolpaths = try engine.generateToolpaths(
             from: [ccwSquareContour()], tool: tool, settings: settings,
             operation: .profile(side: .outside, direction: .climb, entry: .plunge, leadIn: nil, leadOut: nil, tabs: [])
         )
@@ -174,13 +174,13 @@ struct Contour_Tests {
     }
 
     @Test("Ramp entry descends gradually and lands back on the contour start at depth")
-    func testProfileRampEntryDescendsGradually() {
+    func testProfileRampEntryDescendsGradually() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 6.0)
         let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0)
         let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -1.0)
 
-        let toolpaths = engine.generateToolpaths(
+        let toolpaths = try engine.generateToolpaths(
             from: [ccwSquareContour()], tool: tool, settings: settings,
             operation: .profile(side: .outside, direction: .climb, entry: .ramp(angleDegrees: 30), leadIn: nil, leadOut: nil, tabs: [])
         )
@@ -215,13 +215,13 @@ struct Contour_Tests {
     }
 
     @Test("Ramp entry on a later pass starts at the previous pass's depth, not safeZ")
-    func testProfileRampEntryStartsFromPreviousPassDepth() {
+    func testProfileRampEntryStartsFromPreviousPassDepth() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 6.0)
         // stepdown 1.0 over a target of -2.0 -> two passes: -1.0, then -2.0.
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -2.0)
 
-        let toolpaths = engine.generateToolpaths(
+        let toolpaths = try engine.generateToolpaths(
             from: [ccwSquareContour()], tool: tool, settings: settings,
             operation: .profile(side: .outside, direction: .climb, entry: .ramp(angleDegrees: 30), leadIn: nil, leadOut: nil, tabs: [])
         )
@@ -246,7 +246,7 @@ struct Contour_Tests {
     }
 
     @Test("Ramp entry travel distance matches the requested angle, not the whole anchor edge")
-    func testProfileRampEntryDistanceMatchesAngle() {
+    func testProfileRampEntryDistanceMatchesAngle() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 6.0)
         // A shallow 0.1mm stepdown at 30 degrees only needs ~0.173mm of horizontal travel
@@ -254,7 +254,7 @@ struct Contour_Tests {
         let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 0.1)
         let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -1.0)
 
-        let toolpaths = engine.generateToolpaths(
+        let toolpaths = try engine.generateToolpaths(
             from: [ccwSquareContour()], tool: tool, settings: settings,
             operation: .profile(side: .outside, direction: .climb, entry: .ramp(angleDegrees: 30), leadIn: nil, leadOut: nil, tabs: [])
         )
@@ -271,12 +271,12 @@ struct Contour_Tests {
     }
 
     @Test("Helix entry spirals down and returns to the contour start at depth")
-    func testProfileHelixEntryReturnsToContourStartAtDepth() {
+    func testProfileHelixEntryReturnsToContourStartAtDepth() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 6.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -1.0)
 
-        let toolpaths = engine.generateToolpaths(
+        let toolpaths = try engine.generateToolpaths(
             from: [ccwSquareContour()], tool: tool, settings: settings,
             operation: .profile(side: .outside,
                                 direction: .climb,
@@ -303,13 +303,13 @@ struct Contour_Tests {
     // MARK: - Holding tabs
 
     @Test("A holding tab clamps depth locally without affecting the rest of the pass")
-    func testProfileHoldingTabClampsDepthLocally() {
+    func testProfileHoldingTabClampsDepthLocally() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 6.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 3.0), safeZ: 5.0, targetDepth: -3.0)
         let tab = SC.HoldingTab(positionRatio: 0.5, width: 2.0, height: 1.5)
 
-        let toolpaths = engine.generateToolpaths(
+        let toolpaths = try engine.generateToolpaths(
             from: [fourSegmentLineContour()], tool: tool, settings: settings,
             operation: .profile(side: .onContour,
                                 direction: .climb,

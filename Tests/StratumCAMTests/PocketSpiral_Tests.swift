@@ -48,7 +48,7 @@ struct PocketSpiral_Tests {
     // MARK: - Continuous spiral on a circular boundary
 
     @Test("Spiral pocket interpolates continuously inward on a circular boundary, not in discrete ring jumps")
-    func testSpiralPocketTracesContinuousInwardSpiralOnCircularBoundary() {
+    func testSpiralPocketTracesContinuousInwardSpiralOnCircularBoundary() throws {
         let engine = SCEngine()
         // radius 10, 4mm tool (2mm radius), 50% stepover (2mm) -> rings at
         // radius 8, 6, 4, 2, same collapse rule `pocketRings` already uses elsewhere
@@ -61,7 +61,7 @@ struct PocketSpiral_Tests {
                                           safeZ: 5.0,
                                           targetDepth: -1.0)
 
-        let toolpaths = engine.generateToolpaths(
+        let toolpaths = try engine.generateToolpaths(
             from: [circleContour(radius: 10.0)],
             tool: tool,
             settings: settings,
@@ -135,7 +135,7 @@ struct PocketSpiral_Tests {
     }
 
     @Test("Spiral pocket's geometry is reused unchanged across Z passes, same as offsetPattern")
-    func testSpiralPocketGeometryReusedAcrossZPasses() {
+    func testSpiralPocketGeometryReusedAcrossZPasses() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 4.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0,
@@ -145,7 +145,7 @@ struct PocketSpiral_Tests {
                                           safeZ: 5.0,
                                           targetDepth: -2.0)
 
-        let toolpaths = engine.generateToolpaths(
+        let toolpaths = try engine.generateToolpaths(
             from: [circleContour(radius: 10.0)],
             tool: tool,
             settings: settings,
@@ -171,21 +171,21 @@ struct PocketSpiral_Tests {
     // MARK: - Fallback on a non-circular boundary
 
     @Test("Spiral pocket falls back to the exact offsetPattern ring-and-chain path on a non-circular boundary")
-    func testSpiralPocketFallsBackToRingAndChainOnNonCircularBoundary() {
+    func testSpiralPocketFallsBackToRingAndChainOnNonCircularBoundary() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 6.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0),
                                           safeZ: 5.0,
                                           targetDepth: -1.0)
 
-        let spiralWaypoints = engine.generateToolpaths(
+        let spiralWaypoints = try engine.generateToolpaths(
             from: [ccwRectangleContour()],
             tool: tool,
             settings: settings,
             operation: pocketStrategy(pattern: .spiral(direction: .outsideIn))
         )[0].passes[0].waypoints
 
-        let offsetPatternWaypoints = engine.generateToolpaths(
+        let offsetPatternWaypoints = try engine.generateToolpaths(
             from: [ccwRectangleContour()],
             tool: tool,
             settings: settings,
@@ -200,7 +200,7 @@ struct PocketSpiral_Tests {
     }
 
     @Test("Spiral pocket falls back on a rounded rectangle too -- only a plain circle is eligible")
-    func testSpiralPocketFallsBackOnRoundedRectangle() {
+    func testSpiralPocketFallsBackOnRoundedRectangle() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 3.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0),
@@ -220,14 +220,14 @@ struct PocketSpiral_Tests {
             .init(entity: .arc(center: DXF.Point(2, 2), radius: 2.0, startDeg: 180, endDeg: 270, layer: "0", color: 7), reversed: false)
         ], isClosed: true)
 
-        let spiralWaypoints = engine.generateToolpaths(
+        let spiralWaypoints = try engine.generateToolpaths(
             from: [roundedRectangleContour],
             tool: tool,
             settings: settings,
             operation: pocketStrategy(pattern: .spiral(direction: .outsideIn))
         )[0].passes[0].waypoints
 
-        let offsetPatternWaypoints = engine.generateToolpaths(
+        let offsetPatternWaypoints = try engine.generateToolpaths(
             from: [roundedRectangleContour],
             tool: tool,
             settings: settings,

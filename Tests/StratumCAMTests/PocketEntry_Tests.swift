@@ -46,14 +46,14 @@ struct PocketEntry_Tests {
     // MARK: - offsetPattern: ramp entry
 
     @Test("Pocket ramp entry descends from top-of-stock and lands on the ring start at depth")
-    func testPocketRampEntryLandsOnRingStartAtDepth() {
+    func testPocketRampEntryLandsOnRingStartAtDepth() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 6.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0),
                                           safeZ: 5.0,
                                           targetDepth: -1.0)
 
-        let toolpaths = engine.generateToolpaths(
+        let toolpaths = try engine.generateToolpaths(
             from: [ccwRectangleContour()],
             tool: tool,
             settings: settings,
@@ -95,7 +95,7 @@ struct PocketEntry_Tests {
     }
 
     @Test("Pocket ramp entry travel distance matches the requested angle, not a whole ring edge")
-    func testPocketRampEntryDistanceMatchesAngle() {
+    func testPocketRampEntryDistanceMatchesAngle() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 6.0)
         // A shallow 0.1mm target depth at 30 degrees only needs a fraction of a mm of
@@ -104,7 +104,7 @@ struct PocketEntry_Tests {
                                           safeZ: 5.0,
                                           targetDepth: -0.1)
 
-        let toolpaths = engine.generateToolpaths(
+        let toolpaths = try engine.generateToolpaths(
             from: [ccwRectangleContour()],
             tool: tool,
             settings: settings,
@@ -124,14 +124,14 @@ struct PocketEntry_Tests {
     // MARK: - offsetPattern: helix entry
 
     @Test("Pocket helix entry spirals down and returns to the ring start at depth")
-    func testPocketHelixEntryReturnsToRingStartAtDepth() {
+    func testPocketHelixEntryReturnsToRingStartAtDepth() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 6.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0),
                                           safeZ: 5.0,
                                           targetDepth: -1.0)
 
-        let toolpaths = engine.generateToolpaths(
+        let toolpaths = try engine.generateToolpaths(
             from: [ccwRectangleContour()],
             tool: tool,
             settings: settings,
@@ -157,14 +157,14 @@ struct PocketEntry_Tests {
     }
 
     @Test("Pocket helix entry never cuts below target depth while spiraling down")
-    func testPocketHelixEntryNeverOvershootsDepth() {
+    func testPocketHelixEntryNeverOvershootsDepth() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 6.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0),
                                           safeZ: 5.0,
                                           targetDepth: -1.0)
 
-        let toolpaths = engine.generateToolpaths(
+        let toolpaths = try engine.generateToolpaths(
             from: [ccwRectangleContour()],
             tool: tool,
             settings: settings,
@@ -179,7 +179,7 @@ struct PocketEntry_Tests {
     // MARK: - raster: entry integration
 
     @Test("Raster pocket also honors ramp entry, not just offsetPattern")
-    func testRasterPocketHonorsRampEntry() {
+    func testRasterPocketHonorsRampEntry() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 6.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0,
@@ -189,7 +189,7 @@ struct PocketEntry_Tests {
                                           safeZ: 5.0,
                                           targetDepth: -1.0)
 
-        let toolpaths = engine.generateToolpaths(
+        let toolpaths = try engine.generateToolpaths(
             from: [ccwRectangleContour()],
             tool: tool,
             settings: settings,
@@ -219,7 +219,7 @@ struct PocketEntry_Tests {
     }
 
     @Test("Raster pocket also honors helix entry, not just offsetPattern")
-    func testRasterPocketHonorsHelixEntry() {
+    func testRasterPocketHonorsHelixEntry() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 6.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0,
@@ -229,7 +229,7 @@ struct PocketEntry_Tests {
                                           safeZ: 5.0,
                                           targetDepth: -1.0)
 
-        let toolpaths = engine.generateToolpaths(
+        let toolpaths = try engine.generateToolpaths(
             from: [ccwRectangleContour()],
             tool: tool,
             settings: settings,
@@ -264,7 +264,7 @@ struct PocketEntry_Tests {
     }
 
     @Test("Raster helix entry never spirals past the pocket's own wall-offset boundary")
-    func testRasterHelixEntryStaysWithinStockBoundary() {
+    func testRasterHelixEntryStaysWithinStockBoundary() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 6.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0,
@@ -274,7 +274,7 @@ struct PocketEntry_Tests {
                                           safeZ: 5.0,
                                           targetDepth: -1.0)
 
-        let toolpaths = engine.generateToolpaths(
+        let toolpaths = try engine.generateToolpaths(
             from: [wideRasterContour()],
             tool: tool,
             settings: settings,
@@ -303,14 +303,14 @@ struct PocketEntry_Tests {
     // MARK: - Regression: plunge entry stays untouched
 
     @Test("Pocket plunge entry is unaffected by Step 1.2 -- still a straight rapid + plunge")
-    func testPocketPlungeEntryStillStraightDown() {
+    func testPocketPlungeEntryStillStraightDown() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 6.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0),
                                           safeZ: 5.0,
                                           targetDepth: -1.0)
 
-        let toolpaths = engine.generateToolpaths(
+        let toolpaths = try engine.generateToolpaths(
             from: [ccwRectangleContour()],
             tool: tool,
             settings: settings,

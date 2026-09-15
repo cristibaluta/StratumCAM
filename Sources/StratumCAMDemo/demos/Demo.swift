@@ -54,10 +54,26 @@ class Demo {
         }
 
         // 2. Convert Contours to toolpaths then to 3d simd points
-        let toolpaths: [SC.OutputToolpath] = engine.generateToolpaths(from: contours,
-                                                                      tool: tool,
-                                                                      settings: settings,
-                                                                      operation: operation)
+        //
+        // `generateToolpaths(from:tool:settings:operation:)` started throwing in
+        // Step 6.2 (currently only `.drilling` on a non-drill-point contour). `run`
+        // stays non-throwing on purpose -- every Demo*.swift button calls it as a
+        // plain `-> DemoResult`, and pushing `throws` through all of those is a much
+        // bigger, unrelated change than this pilot step. So: catch here, log to the
+        // console the same way the existing `.facing`-via-wrong-overload warning
+        // does in SCEngine.swift, and fall back to an empty toolpath -- the demo
+        // still renders the base contour, it just won't show a toolpath for input
+        // the engine rejected.
+        let toolpaths: [SC.OutputToolpath]
+        do {
+            toolpaths = try engine.generateToolpaths(from: contours,
+                                                      tool: tool,
+                                                      settings: settings,
+                                                      operation: operation)
+        } catch {
+            print("generateToolpaths failed: \(error)")
+            toolpaths = []
+        }
         var toolpathPoints: [SIMD3<Float>] = []
         for toolpath in toolpaths {
             for pass in toolpath.passes {

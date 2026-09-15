@@ -40,12 +40,12 @@ struct Counterbore_Tests {
     // MARK: - Diameter
 
     @Test("The recess's outer wall matches the requested diameter, offset inward by the tool radius")
-    func testDiameterDrivesOuterWallRadius() {
+    func testDiameterDrivesOuterWallRadius() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 4.0) // tool radius 2.0
         let center = CGPoint(x: 5, y: 5)
 
-        let toolpaths = engine.generateToolpaths(
+        let toolpaths = try engine.generateToolpaths(
             from: [pointContour(x: 5, y: 5)],
             tool: tool,
             settings: settings(),
@@ -63,11 +63,11 @@ struct Counterbore_Tests {
     // MARK: - Depth
 
     @Test("depth (not settings.targetDepth) determines how deep the recess goes")
-    func testDepthDrivesZPassesIndependentlyOfSettingsTargetDepth() {
+    func testDepthDrivesZPassesIndependentlyOfSettingsTargetDepth() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 4.0)
 
-        let toolpaths = engine.generateToolpaths(
+        let toolpaths = try engine.generateToolpaths(
             from: [pointContour(x: 0, y: 0)],
             tool: tool,
             settings: settings(stepdown: 1.0), // settings.targetDepth is -999.0, must be ignored
@@ -81,11 +81,11 @@ struct Counterbore_Tests {
     }
 
     @Test("depth greater than one stepdown produces multiple passes reusing identical XY geometry")
-    func testDepthGreaterThanOneStepdownReusesGeometryAcrossPasses() {
+    func testDepthGreaterThanOneStepdownReusesGeometryAcrossPasses() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 4.0)
 
-        let toolpaths = engine.generateToolpaths(
+        let toolpaths = try engine.generateToolpaths(
             from: [pointContour(x: 3, y: 4)],
             tool: tool,
             settings: settings(stepdown: 1.0),
@@ -113,11 +113,11 @@ struct Counterbore_Tests {
     // MARK: - Helical descent
 
     @Test("A .helix entry spirals gradually down to depth rather than plunging straight down")
-    func testHelicalDescentEntersGradually() {
+    func testHelicalDescentEntersGradually() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 4.0)
 
-        let toolpaths = engine.generateToolpaths(
+        let toolpaths = try engine.generateToolpaths(
             from: [pointContour(x: 0, y: 0)],
             tool: tool,
             settings: settings(stepdown: 1.0),
@@ -202,12 +202,12 @@ struct Counterbore_Tests {
     // MARK: - No overcut
 
     @Test("No waypoint ever travels past the requested wall radius")
-    func testNoOvercutBeyondRequestedWall() {
+    func testNoOvercutBeyondRequestedWall() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 3.0) // tool radius 1.5
         let center = CGPoint(x: 2, y: -3)
 
-        let toolpaths = engine.generateToolpaths(
+        let toolpaths = try engine.generateToolpaths(
             from: [pointContour(x: 2, y: -3)],
             tool: tool,
             settings: settings(stepdown: 0.5, stepoverPercentage: 0.35),
@@ -227,7 +227,7 @@ struct Counterbore_Tests {
     // MARK: - Different tool diameters
 
     @Test("Different tool diameters all reach the same requested diameter without overcutting it")
-    func testDifferentToolDiametersReachSameRequestedDiameter() {
+    func testDifferentToolDiametersReachSameRequestedDiameter() throws {
         let engine = SCEngine()
         let targetDiameter = 18.0
         let center = CGPoint(x: 0, y: 0)
@@ -235,7 +235,7 @@ struct Counterbore_Tests {
         for toolDiameter in [2.0, 3.175, 6.0, 8.0] {
             let tool = SC.ToolParams(type: .flatEndMill, diameter: toolDiameter)
 
-            let toolpaths = engine.generateToolpaths(
+            let toolpaths = try engine.generateToolpaths(
                 from: [pointContour(x: 0, y: 0)],
                 tool: tool,
                 settings: settings(),
@@ -254,11 +254,11 @@ struct Counterbore_Tests {
     // MARK: - Tool larger than requested diameter -> reject
 
     @Test("A tool wider than the requested diameter is rejected, not silently clamped")
-    func testToolLargerThanDiameterIsRejected() {
+    func testToolLargerThanDiameterIsRejected() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 20.0) // wider than the requested 10.0 bore
 
-        let toolpaths = engine.generateToolpaths(
+        let toolpaths = try engine.generateToolpaths(
             from: [pointContour(x: 0, y: 0)],
             tool: tool,
             settings: settings(),
@@ -269,11 +269,11 @@ struct Counterbore_Tests {
     }
 
     @Test("A tool exactly matching the requested diameter is also rejected -- it would leave no wall to actually offset")
-    func testToolExactlyMatchingDiameterIsRejected() {
+    func testToolExactlyMatchingDiameterIsRejected() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 10.0)
 
-        let toolpaths = engine.generateToolpaths(
+        let toolpaths = try engine.generateToolpaths(
             from: [pointContour(x: 0, y: 0)],
             tool: tool,
             settings: settings(),
@@ -286,7 +286,7 @@ struct Counterbore_Tests {
     // MARK: - Non drill-point contour
 
     @Test("A non-drill-point contour produces no counterbore toolpath")
-    func testNonDrillPointContourReturnsNoToolpath() {
+    func testNonDrillPointContourReturnsNoToolpath() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 4.0)
 
@@ -294,7 +294,7 @@ struct Counterbore_Tests {
             .init(entity: .line(a: DXF.Point(0, 0), b: DXF.Point(10, 0), layer: "0", color: 7), reversed: false)
         ], isClosed: false)
 
-        let toolpaths = engine.generateToolpaths(
+        let toolpaths = try engine.generateToolpaths(
             from: [contour],
             tool: tool,
             settings: settings(),

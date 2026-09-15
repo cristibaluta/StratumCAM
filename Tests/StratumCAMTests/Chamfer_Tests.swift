@@ -60,7 +60,7 @@ struct Chamfer_Tests {
     // MARK: - Tool validation
 
     @Test("A non-V-bit tool with no explicit depth resolves to nil and produces no toolpath")
-    func testChamferNonVBitToolReturnsNil() {
+    func testChamferNonVBitToolReturnsNil() throws {
         let params = SC.ChamferParams(width: 1.0, side: .outside, direction: .climb)
 
         // Direct resolution check.
@@ -70,7 +70,7 @@ struct Chamfer_Tests {
         // Full pipeline should bail out cleanly rather than cut at a made-up depth.
         let engine = SCEngine()
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -1.0)
-        let toolpaths = engine.generateToolpaths(
+        let toolpaths = try engine.generateToolpaths(
             from: [ccwSquareContour()], tool: flatTool, settings: settings,
             operation: .chamfer(params: params)
         )
@@ -80,13 +80,13 @@ struct Chamfer_Tests {
     // MARK: - Offset direction
 
     @Test("Outside chamfer offsets the bevel away from the contour")
-    func testChamferOutsideOffsetsAwayFromContour() {
+    func testChamferOutsideOffsetsAwayFromContour() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .vBit, diameter: 6.0, vAngle: 90.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -1.0)
         let params = SC.ChamferParams(width: 1.0, side: .outside, direction: .climb)
 
-        let toolpaths = engine.generateToolpaths(from: [ccwSquareContour()],
+        let toolpaths = try engine.generateToolpaths(from: [ccwSquareContour()],
                                                  tool: tool,
                                                  settings: settings,
                                                  operation: .chamfer(params: params))
@@ -101,13 +101,13 @@ struct Chamfer_Tests {
     }
 
     @Test("Inside chamfer offsets the bevel toward the contour center")
-    func testChamferInsideOffsetsTowardContourCenter() {
+    func testChamferInsideOffsetsTowardContourCenter() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .vBit, diameter: 6.0, vAngle: 90.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -1.0)
         let params = SC.ChamferParams(width: 1.0, side: .inside, direction: .climb)
 
-        let toolpaths = engine.generateToolpaths(from: [ccwSquareContour()], tool: tool, settings: settings, operation: .chamfer(params: params))
+        let toolpaths = try engine.generateToolpaths(from: [ccwSquareContour()], tool: tool, settings: settings, operation: .chamfer(params: params))
         #expect(toolpaths.count == 1)
         let box = bbox(toolpaths[0].passes[0].waypoints)
 
@@ -121,7 +121,7 @@ struct Chamfer_Tests {
     // MARK: - Direction (locks in the Step 0.1 fix)
 
     @Test("Chamfer honors climb vs conventional direction")
-    func testChamferHonorsDirection() {
+    func testChamferHonorsDirection() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .vBit, diameter: 6.0, vAngle: 90.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -1.0)
@@ -129,8 +129,8 @@ struct Chamfer_Tests {
         let climbParams = SC.ChamferParams(width: 1.0, side: .outside, direction: .climb)
         let conventionalParams = SC.ChamferParams(width: 1.0, side: .outside, direction: .conventional)
 
-        let climbWaypoints = engine.generateToolpaths(from: [ccwSquareContour()], tool: tool, settings: settings, operation: .chamfer(params: climbParams))[0].passes[0].waypoints
-        let conventionalWaypoints = engine.generateToolpaths(from: [ccwSquareContour()], tool: tool, settings: settings, operation: .chamfer(params: conventionalParams))[0].passes[0].waypoints
+        let climbWaypoints = try engine.generateToolpaths(from: [ccwSquareContour()], tool: tool, settings: settings, operation: .chamfer(params: climbParams))[0].passes[0].waypoints
+        let conventionalWaypoints = try engine.generateToolpaths(from: [ccwSquareContour()], tool: tool, settings: settings, operation: .chamfer(params: conventionalParams))[0].passes[0].waypoints
 
         // Climb (already-CCW square, no reorientation needed) starts its cut below the
         // bottom edge, at (0, -1).
@@ -146,7 +146,7 @@ struct Chamfer_Tests {
     }
 
     @Test("Chamfer honors climb vs conventional direction")
-    func testChamferHonorsDirection_old() {
+    func testChamferHonorsDirection_old() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .vBit, diameter: 6.0, vAngle: 90.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -1.0)
@@ -162,11 +162,11 @@ struct Chamfer_Tests {
         let climbParams = SC.ChamferParams(width: 1.0, side: .outside, direction: .climb)
         let conventionalParams = SC.ChamferParams(width: 1.0, side: .outside, direction: .conventional)
 
-        let climbPath = engine.generateToolpaths(from: [square],
+        let climbPath = try engine.generateToolpaths(from: [square],
                                                  tool: tool,
                                                  settings: settings,
                                                  operation: .chamfer(params: climbParams)).first
-        let conventionalPath = engine.generateToolpaths(from: [square],
+        let conventionalPath = try engine.generateToolpaths(from: [square],
                                                         tool: tool,
                                                         settings: settings,
                                                         operation: .chamfer(params: conventionalParams)).first

@@ -98,7 +98,7 @@ struct Pocket_Tests {
     }
 
     @Test("Pocket chains multiple rings into one continuous pass with a connecting transition")
-    func testPocketChainsMultipleRingsIntoOnePass() {
+    func testPocketChainsMultipleRingsIntoOnePass() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 4.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0,
@@ -108,7 +108,7 @@ struct Pocket_Tests {
                                           safeZ: 5.0,
                                           targetDepth: -1.0)
 
-        let toolpaths = engine.generateToolpaths(
+        let toolpaths = try engine.generateToolpaths(
             from: [ccwRectangleContour()],
             tool: tool,
             settings: settings,
@@ -147,7 +147,7 @@ struct Pocket_Tests {
     // MARK: - Basic offset ring
 
     @Test("Pocket offsetPattern generates one inward ring for a rectangle")
-    func testPocketRectangleGeneratesSingleInwardRing() {
+    func testPocketRectangleGeneratesSingleInwardRing() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 6.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0,
@@ -156,7 +156,7 @@ struct Pocket_Tests {
                                           safeZ: 5.0,
                                           targetDepth: -1.0)
 
-        let toolpaths = engine.generateToolpaths(
+        let toolpaths = try engine.generateToolpaths(
             from: [ccwRectangleContour()],
             tool: tool,
             settings: settings,
@@ -193,7 +193,7 @@ struct Pocket_Tests {
     }
 
     @Test("Pocket offsetPattern preserves rounded corners while offsetting inward")
-    func testPocketRoundedRectangleGeneratesSingleInwardRing() {
+    func testPocketRoundedRectangleGeneratesSingleInwardRing() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 3.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0,
@@ -202,7 +202,7 @@ struct Pocket_Tests {
                                           safeZ: 5.0,
                                           targetDepth: -1.0)
 
-        let toolpaths = engine.generateToolpaths(
+        let toolpaths = try engine.generateToolpaths(
             from: [roundedRectangleContour()],
             tool: tool,
             settings: settings,
@@ -250,7 +250,7 @@ struct Pocket_Tests {
     // MARK: - Direction
 
     @Test("Pocket honors climb versus conventional travel direction")
-    func testPocketHonorsDirection() {
+    func testPocketHonorsDirection() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 6.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0,
@@ -259,14 +259,14 @@ struct Pocket_Tests {
                                           safeZ: 5.0,
                                           targetDepth: -1.0)
 
-        let climb = engine.generateToolpaths(
+        let climb = try engine.generateToolpaths(
             from: [ccwRectangleContour()],
             tool: tool,
             settings: settings,
             operation: pocketStrategy(direction: .climb)
         )[0].passes[0].waypoints
 
-        let conventional = engine.generateToolpaths(
+        let conventional = try engine.generateToolpaths(
             from: [ccwRectangleContour()],
             tool: tool,
             settings: settings,
@@ -311,7 +311,7 @@ struct Pocket_Tests {
     // MARK: - Validation
 
     @Test("An open contour does not produce a pocket toolpath")
-    func testPocketRequiresClosedContour() {
+    func testPocketRequiresClosedContour() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 6.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0,
@@ -334,7 +334,7 @@ struct Pocket_Tests {
                   reversed: false)
         ], isClosed: false)
 
-        let toolpaths = engine.generateToolpaths(
+        let toolpaths = try engine.generateToolpaths(
             from: [openContour],
             tool: tool,
             settings: settings,

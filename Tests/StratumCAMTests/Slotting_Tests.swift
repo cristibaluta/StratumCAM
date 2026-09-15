@@ -52,14 +52,14 @@ struct Slotting_Tests {
     // MARK: - Centerline: no lateral offset
 
     @Test("Slotting traces the centerline directly, with no lateral (tool-radius) offset")
-    func testSlottingFollowsCenterlineWithNoOffset() {
+    func testSlottingFollowsCenterlineWithNoOffset() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 6.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0),
                                           safeZ: 5.0,
                                           targetDepth: -1.0)
 
-        let toolpaths = engine.generateToolpaths(
+        let toolpaths = try engine.generateToolpaths(
             from: [straightLineContour()],
             tool: tool,
             settings: settings,
@@ -87,20 +87,20 @@ struct Slotting_Tests {
     }
 
     @Test("A larger tool diameter does not change the traced XY path")
-    func testSlottingOffsetIsIndependentOfToolDiameter() {
+    func testSlottingOffsetIsIndependentOfToolDiameter() throws {
         let engine = SCEngine()
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0),
                                           safeZ: 5.0,
                                           targetDepth: -1.0)
 
-        let smallToolWaypoints = engine.generateToolpaths(
+        let smallToolWaypoints = try engine.generateToolpaths(
             from: [straightLineContour()],
             tool: SC.ToolParams(diameter: 3.0),
             settings: settings,
             operation: slottingStrategy(depthPerPass: 1.0)
         )[0].passes[0].waypoints
 
-        let bigToolWaypoints = engine.generateToolpaths(
+        let bigToolWaypoints = try engine.generateToolpaths(
             from: [straightLineContour()],
             tool: SC.ToolParams(diameter: 12.0),
             settings: settings,
@@ -116,14 +116,14 @@ struct Slotting_Tests {
     }
 
     @Test("Slotting traces a multi-segment centerline exactly, vertex for vertex")
-    func testSlottingTracesMultiSegmentCenterlineExactly() {
+    func testSlottingTracesMultiSegmentCenterlineExactly() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 6.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0),
                                           safeZ: 5.0,
                                           targetDepth: -1.0)
 
-        let toolpaths = engine.generateToolpaths(
+        let toolpaths = try engine.generateToolpaths(
             from: [lShapedContour()],
             tool: tool,
             settings: settings,
@@ -145,7 +145,7 @@ struct Slotting_Tests {
     // MARK: - Multi-pass Z stepdown
 
     @Test("Slotting honors calculateZPasses for an unevenly divisible depth")
-    func testSlottingMultiPassZDepthsMatchCalculateZPasses() {
+    func testSlottingMultiPassZDepthsMatchCalculateZPasses() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 6.0)
         // -2.5 / 1.0 -> rounds up to 3 passes: -1.0, -2.0, -2.5 (same fencepost rule
@@ -155,7 +155,7 @@ struct Slotting_Tests {
                                           safeZ: 5.0,
                                           targetDepth: -2.5)
 
-        let toolpaths = engine.generateToolpaths(
+        let toolpaths = try engine.generateToolpaths(
             from: [straightLineContour()],
             tool: tool,
             settings: settings,
@@ -169,14 +169,14 @@ struct Slotting_Tests {
     }
 
     @Test("Slotting's centerline geometry is reused unchanged across every Z pass")
-    func testSlottingGeometryReusedAcrossZPasses() {
+    func testSlottingGeometryReusedAcrossZPasses() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 6.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0),
                                           safeZ: 5.0,
                                           targetDepth: -3.0)
 
-        let toolpath = engine.generateToolpaths(
+        let toolpath = try engine.generateToolpaths(
             from: [straightLineContour()],
             tool: tool,
             settings: settings,
@@ -195,14 +195,14 @@ struct Slotting_Tests {
     }
 
     @Test("A single evenly-divisible depth produces exactly one pass at that depth")
-    func testSlottingSinglePassWhenDepthMatchesStepdown() {
+    func testSlottingSinglePassWhenDepthMatchesStepdown() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 6.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0),
                                           safeZ: 5.0,
                                           targetDepth: -1.0)
 
-        let toolpath = engine.generateToolpaths(
+        let toolpath = try engine.generateToolpaths(
             from: [straightLineContour()],
             tool: tool,
             settings: settings,
@@ -216,14 +216,14 @@ struct Slotting_Tests {
     // MARK: - Entry: plunge (default)
 
     @Test("Slotting's plunge entry retracts to safeZ and re-plunges straight down on every pass")
-    func testSlottingPlungeEntryRetractsAndRePlungesEachPass() {
+    func testSlottingPlungeEntryRetractsAndRePlungesEachPass() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 6.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0),
                                           safeZ: 5.0,
                                           targetDepth: -2.0)
 
-        let toolpath = engine.generateToolpaths(
+        let toolpath = try engine.generateToolpaths(
             from: [straightLineContour()],
             tool: tool,
             settings: settings,
@@ -247,14 +247,14 @@ struct Slotting_Tests {
     // MARK: - Entry: ramp
 
     @Test("Slotting ramp entry descends from previousZ down to the pass's own target depth, then traces the centerline")
-    func testSlottingRampEntryDescendsFromPreviousZ() {
+    func testSlottingRampEntryDescendsFromPreviousZ() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 6.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0),
                                           safeZ: 5.0,
                                           targetDepth: -2.0)
 
-        let toolpath = engine.generateToolpaths(
+        let toolpath = try engine.generateToolpaths(
             from: [straightLineContour()],
             tool: tool,
             settings: settings,
@@ -298,14 +298,14 @@ struct Slotting_Tests {
     // MARK: - Entry: helix
 
     @Test("Slotting helix entry circles centered exactly on the centerline (no wall offset)")
-    func testSlottingHelixEntryIsCenteredOnCenterline() {
+    func testSlottingHelixEntryIsCenteredOnCenterline() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 6.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0),
                                           safeZ: 5.0,
                                           targetDepth: -1.0)
 
-        let toolpath = engine.generateToolpaths(
+        let toolpath = try engine.generateToolpaths(
             from: [straightLineContour()],
             tool: tool,
             settings: settings,
@@ -393,7 +393,7 @@ struct Slotting_Tests {
     }
 
     @Test("A rectangle's derived centerline, traced by the same tool, reproduces the original boundary's overall extents")
-    func testRectangleSlotCenterlineReproducesBoundaryWhenTraced() {
+    func testRectangleSlotCenterlineReproducesBoundaryWhenTraced() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 6.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0), safeZ: 5.0, targetDepth: -1.0)
@@ -405,7 +405,7 @@ struct Slotting_Tests {
             return
         }
 
-        let toolpath = engine.generateToolpaths(
+        let toolpath = try engine.generateToolpaths(
             from: [centerline],
             tool: tool,
             settings: settings,
@@ -529,14 +529,14 @@ struct Slotting_Tests {
     // MARK: - Batch
 
     @Test("A batch of slotting contours produces one toolpath per contour, each honoring its own operation")
-    func testSlottingBatchProducesOneToolpathPerContour() {
+    func testSlottingBatchProducesOneToolpathPerContour() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 6.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0),
                                           safeZ: 5.0,
                                           targetDepth: -2.0)
 
-        let toolpaths = engine.generateToolpaths(
+        let toolpaths = try engine.generateToolpaths(
             from: [straightLineContour(), lShapedContour()],
             tool: tool,
             settings: settings,

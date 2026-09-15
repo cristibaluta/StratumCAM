@@ -15,7 +15,7 @@ import simd
 struct Engraving_Tests {
 
     @Test("Engrave a single line")
-    func testEngravingLine() {
+    func testEngravingLine() throws {
         let engine = SCEngine()
 
         // 1. Setup Test Parameters
@@ -39,7 +39,7 @@ struct Engraving_Tests {
         )
 
         // 3. Execute Engine
-        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings, operation: .engrave)
+        let toolpaths = try engine.generateToolpaths(from: [contour], tool: tool, settings: settings, operation: .engrave)
 
         // 4. #expections
 
@@ -91,7 +91,7 @@ struct Engraving_Tests {
     }
 
     @Test("Engrave a single arc")
-    func testEngravingArc() {
+    func testEngravingArc() throws {
         let engine = SCEngine()
 
         // 1. Setup Test Parameters
@@ -119,7 +119,7 @@ struct Engraving_Tests {
         )
 
         // 3. Execute Engine
-        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings, operation: .engrave)
+        let toolpaths = try engine.generateToolpaths(from: [contour], tool: tool, settings: settings, operation: .engrave)
 
         // 4. #expections
 
@@ -171,7 +171,7 @@ struct Engraving_Tests {
     }
 
     @Test("Test that we can generate multiple passes for a deep targetDepth")
-    func testMultiplePasses() {
+    func testMultiplePasses() throws {
         let engine = SCEngine()
 
         // 1. Setup Test Parameters
@@ -192,7 +192,7 @@ struct Engraving_Tests {
         )
 
         // #expect Output Structures
-        let toolpaths = engine.generateToolpaths(from: [contour], tool: tool, settings: settings, operation: .engrave)
+        let toolpaths = try engine.generateToolpaths(from: [contour], tool: tool, settings: settings, operation: .engrave)
         #expect(toolpaths.count == 1, "Test Failed: Expected 1 output toolpath")
 
         // Depth: -1.0 with stepdown 0.1 should produce 10 passes
