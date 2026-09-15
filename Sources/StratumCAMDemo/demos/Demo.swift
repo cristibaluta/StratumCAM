@@ -267,6 +267,27 @@ class Demo {
         return DemoResult(batches: batches, gcode: gcode, toolpathPoints: toolpathPoints, tool: operation.tool)
     }
 
+    // MARK: - Bare reference circle (for point-only operations)
+
+    /// Points around a circle of the given `diameter` centered at `(centerX, centerY)`,
+    /// Z=0 -- for demos whose input contour is a bare point (drilling/boring/counterbore's
+    /// hole markers), so there's no boundary for `run(contours:...)`'s normal blue dashed
+    /// batch to draw from `contour.linearizedSegments`. Feeding this into
+    /// `renderBatch(forPoints:...)` with `isDashed: true` overlays a dashed circle at the
+    /// operation's own *finished* diameter -- independent of whatever radius the toolpath
+    /// actually reaches -- so a wrong wall radius reads clearly in the preview instead of
+    /// only being checkable from the numbers.
+    static func circleReferencePoints(centerX: Double, centerY: Double, diameter: Double, segments: Int = 64) -> [SIMD3<Float>] {
+        let radius = diameter / 2
+        var points: [SIMD3<Float>] = []
+        points.reserveCapacity(segments + 1)
+        for i in 0...segments {
+            let t = Double(i) / Double(segments) * 2 * Double.pi
+            points.append(SIMD3<Float>(Float(centerX + radius * cos(t)), Float(centerY + radius * sin(t)), 0))
+        }
+        return points
+    }
+
     // MARK: - Step 5.2: prefix-slice + reusable batch builder
 
     /// Returns just the point prefix up to and including `index`, clamped to

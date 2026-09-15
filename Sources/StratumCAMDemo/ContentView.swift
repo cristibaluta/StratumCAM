@@ -88,6 +88,26 @@ struct ContentView: View {
                         show(DemoBoring().demoMultipleBores())
                     }
                 }
+                Section("Counterbore") {
+                    demoButton("Plain Counterbore") {
+                        show(DemoCounterbore().demoPlainCounterbore())
+                    }
+                    demoButton("Multi-pass Depth") {
+                        show(DemoCounterbore().demoCounterboreMultiPassDepth())
+                    }
+                    demoButton("Ramp Entry") {
+                        show(DemoCounterbore().demoCounterboreWithRampEntry())
+                    }
+                    demoButton("Helix Entry") {
+                        show(DemoCounterbore().demoCounterboreWithHelixEntry())
+                    }
+                    demoButton("Conventional Direction") {
+                        show(DemoCounterbore().demoCounterboreConventional())
+                    }
+                    demoButton("Multiple Counterbores") {
+                        show(DemoCounterbore().demoMultipleCounterbores())
+                    }
+                }
                 Section("Pocketing") {
                     demoButton("Rectangle (Climb)") {
                         show(DemoPocketing().demoPocketRectangle())

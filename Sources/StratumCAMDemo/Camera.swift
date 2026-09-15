@@ -18,7 +18,7 @@ class Camera {
     var target: SIMD3<Float> = [0, 0, 0]
     var up: SIMD3<Float> = [0, 1, 0]
 
-    var fov: Float = 0.0 * (.pi / 180.0)
+    var fov: Float = 45.0 * (.pi / 180.0)
     var aspectRatio: Float = 1.0
     var nearZ: Float = 0.1
     var farZ: Float = 2000.0
