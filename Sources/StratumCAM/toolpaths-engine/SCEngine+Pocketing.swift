@@ -31,6 +31,17 @@ extension SCEngine {
     /// that's Step 6.7b, split out because those helpers mix genuine failures with
     /// legitimate empty results (e.g. a raster row skipped for re-entering the boundary
     /// isn't an error) in ways that need case-by-case judgment this step doesn't attempt.
+    /// Step 6.7b's judgment, once made, turned out to keep every one of those helpers
+    /// non-throwing rather than converting any of them: each helper's own empty/nil site
+    /// is now documented as one of two things -- unreachable through the normal call
+    /// chain because this function's own guards (above) already validate what the helper
+    /// needs before calling it, kept only to protect a direct caller (a test, most
+    /// commonly) from crashing rather than getting a plain empty result; or genuinely
+    /// reachable but legitimately empty (a fully-grazed/concave raster row, a degenerate
+    /// trochoidal ring), where the *loop* around that helper already skips past it and
+    /// only this function's own top-level `!rows.isEmpty`/`!toolpathSegments.isEmpty`
+    /// guards -- not the helper itself -- turn a total collapse into a thrown error. See
+    /// each helper's own doc comment for which case applies where.
     func buildPocketToolpath(for contour: SC.Contour,
                              tool: SC.ToolParams,
                              settings: SC.MachineSettings,
@@ -165,6 +176,13 @@ extension SCEngine {
                                                          tool: tool,
                                                          bandWidth: stepover,
                                                          radialEngagement: trochoidalSettings.radialEngagement)
+                    // Step 6.7b: a per-ring skip, not a per-pocket failure -- see
+                    // `ringTrochoidalSegments`' own note on its `totalLength > 1e-9`
+                    // guard for why one degenerate ring shouldn't abort every other
+                    // ring's perfectly good geometry. The overall `.trochoidal` case
+                    // still can't come back with nothing: if every ring skips this
+                    // way, `chained` stays empty and falls through to this function's
+                    // final `toolpathSegments.isEmpty` throw below.
                     guard !bounced.isEmpty else {
                         continue
                     }
@@ -357,6 +375,20 @@ extension SCEngine {
     ///   rather than the tool itself, since the same physical tool can be run at different
     ///   stepovers depending on material and job.
     func pocketRings(from orientedBoundary: [SC.Segment], tool: SC.ToolParams, stepoverPercentage: Double) -> [[SC.Segment]] {
+        // Not converted to `throws` in Step 6.7b: by the time anything in this file calls
+        // `pocketRings`, `buildPocketToolpath` has already validated `contour.isClosed`
+        // and a non-empty `baseSegments`, and every one of its three callers (`.offset`,
+        // `.spiral`, `.trochoidal`) immediately throws `SC.Error.geometryCollapsed` (Step
+        // 6.7a) the moment this comes back empty -- so an empty `firstRing` here (the
+        // tool doesn't fit anywhere inside the boundary at all, the same "tool too big"
+        // condition `SC.Error.toolIncompatible` names elsewhere) is already translated
+        // into a thrown error at every real call site. Kept as a guarded `return []`
+        // rather than a force-unwrap or a `throws` signature of its own -- matching
+        // `counterboreRings`' own reasoning -- purely so a direct caller of this
+        // internal-but-non-private function (`Pocket_Tests.swift`'s own
+        // `testPocketRingsStepInwardAndStopAtCollapse` exercises it this way) gets an
+        // empty, unsurprising result instead of being forced to handle an error that,
+        // through the normal toolpath-building call chain, never actually reaches it.
         let firstRing = offsetContour(orientedBoundary,
                                       side: .inside,
                                       toolRadius: tool.diameter / 2.0,
@@ -420,6 +452,20 @@ extension SCEngine {
         var chained: [SC.Segment] = []
 
         for ring in rings {
+            // Not converted to `throws`/error-collecting in Step 6.7b: this is "empty is
+            // a valid result," not "empty means something broke," the same distinction
+            // `tracedWaypoints`' tab-dropping `compactMap` draws in Step 6.4. Neither of
+            // this function's two callers (`pocketRings`' own ring stack, `rasterScanlines`'
+            // own row list) ever actually produces an empty group in practice -- every ring
+            // `pocketRings` appends is the direct output of a non-empty `offsetContour` call
+            // (that's `pocketRings`' own guard, above), and every row `rasterScanlines`
+            // appends is a single always-non-empty `.line` segment -- but a stack of segment
+            // groups skipping past any empty ones it's handed, rather than assuming every
+            // caller upholds that invariant forever, is the same defensive posture
+            // `buildPocketWaypoints`' own `guard let firstSegment = segments.first` takes
+            // just below. Skipping cleanly here is strictly better than either crashing on
+            // `ring[0]` or threading a whole extra error case through a pure chaining
+            // helper for a group that contributes nothing to the chain either way.
             guard !ring.isEmpty else {
                 continue
             }
@@ -503,6 +549,17 @@ extension SCEngine {
     private func spiralSegments(from rings: [[SC.Segment]], direction: SC.SpiralDirection) -> [SC.Segment] {
         let orderedRings: [[SC.Segment]] = direction == .insideOut ? Array(rings.reversed()) : rings
 
+        // Not converted to `throws` in Step 6.7b: `buildPocketToolpath`'s `.spiral` case
+        // only ever calls this after `pocketRings` has already come back non-empty (its
+        // own empty result throws `SC.Error.geometryCollapsed`, Step 6.7a) *and*
+        // `isSpiralEligible(oriented)` has confirmed the boundary that `rings` was built
+        // from is entirely `.arc` segments sharing one center/radius -- and every ring
+        // `pocketRings` produces is itself a re-offset of that same boundary, so it stays
+        // all-arc too. This guard is therefore unreachable through the normal call chain,
+        // same reasoning as `pocketRings`' own `firstRing` guard above: kept so a direct
+        // caller handed an empty or non-arc ring stack (bypassing `buildPocketToolpath`'s
+        // own validation) gets an empty spiral back rather than crashing on
+        // `orderedRings.first!.first!`.
         guard case .arc(let center, let startRadius, let startAngle, _, let isCCW) = orderedRings.first?.first else {
             return []
         }
@@ -576,12 +633,34 @@ extension SCEngine {
     ///   row more than once would need per-span chaining this doesn't attempt
     ///   yet; such a row is skipped rather than cut wrong.
     func rasterScanlines(within boundary: [SC.Segment], stepover: Double, direction: SC.CutDirection) -> [[SC.Segment]] {
+        // Not converted to `throws` in Step 6.7b, same reasoning as `pocketRings`' own
+        // top guard: `buildPocketToolpath`'s `.raster` case only ever calls this with a
+        // `boundary` already confirmed non-empty (its own `wallOffset.isEmpty` guard
+        // throws `SC.Error.geometryCollapsed` first, Step 6.7a), and `stepover` is
+        // `stepoverPercentage * tool.diameter` where `stepoverPercentage` is documented
+        // (see `pocketRings`) to range 0.1-0.95 of a positive tool diameter -- so
+        // `stepover > 1e-6` always holds through the normal call chain too. Both halves
+        // of this guard are therefore unreachable in practice, kept only so a direct
+        // caller handed a degenerate boundary or stepover gets an empty row list back
+        // instead of dividing by (or bounding-boxing) nothing below.
         guard stepover > 1e-6, !boundary.isEmpty else {
             return []
         }
 
         let box = boundary.boundingBox
         let span = box.maxY - box.minY
+        // Unlike the guard above, this one *is* reachable through the normal call
+        // chain: `wallOffset` being non-empty doesn't guarantee it has any Y extent --
+        // an extremely thin slot can offset down to a sliver whose bounding box
+        // collapses to a single row's height. That's a genuine "the algorithm had
+        // nothing to build from" case, not a bad-input one (the input already passed
+        // `buildPocketToolpath`'s own validation), so it's the same
+        // `SC.Error.geometryCollapsed` situation `pocketRings`' own mid-stack collapse
+        // represents -- and just like that one, the translation happens at the call
+        // site: `buildPocketToolpath`'s `guard !rows.isEmpty else { throw
+        // SC.Error.geometryCollapsed }` (Step 6.7a) already catches this the moment it
+        // propagates up as an empty `rows` array, so this function itself stays
+        // non-throwing rather than duplicating that translation here.
         guard span > 1e-9 else {
             return []
         }
@@ -623,7 +702,15 @@ extension SCEngine {
             // grazes it. More than 2 means the row re-enters the boundary more than
             // once -- a concave row -- which needs per-span chaining this doesn't
             // attempt yet, so it's skipped rather than cut wrong (bridging a gap that
-            // isn't actually inside the pocket).
+            // isn't actually inside the pocket). Step 6.7b judgment call: this is
+            // firmly "empty is a valid result," not "empty means something broke" --
+            // a single skipped row among many is an accepted, documented limitation of
+            // this raster implementation (see the function's own doc comment), not a
+            // failure of the input or the algorithm as a whole, so it stays a silent
+            // `continue` rather than surfacing an error for a row that was never
+            // promised full coverage in the first place. `rasterScanlines` only throws
+            // (via its caller, `buildPocketToolpath`'s Step 6.7a guard) when *every*
+            // row is skipped this way and `rows` comes back completely empty.
             guard xs.count == 2, let x0 = xs.first, let x1 = xs.last else {
                 continue
             }
@@ -731,6 +818,13 @@ extension SCEngine {
                                 bandWidth: Double,
                                 radialEngagement: Double) -> [SC.Segment] {
 
+        // Not converted to `throws` in Step 6.7b: `buildPocketToolpath`'s `.trochoidal`
+        // case only ever calls this once per ring in `pocketRings`' own non-empty
+        // stack (empty guarded off already, both here and via Step 6.7a's
+        // `geometryCollapsed` throw at the call site), so an empty `ring` here is
+        // unreachable through the normal call chain -- kept only so a direct caller
+        // handed an empty ring gets an empty bounce path back rather than crashing on
+        // `ring`'s own path-length/geometry calculations below.
         guard !ring.isEmpty else {
             return []
         }
@@ -744,11 +838,31 @@ extension SCEngine {
         // `openEndedTrochoidalSegments` uses.
         let clampedEngagement = min(max(radialEngagement, 0), 1)
         let pitch = max(clampedEngagement, 1e-3) * (tool.diameter / 2.0)
+        // Unreachable in practice, same reasoning as the `ring.isEmpty` guard above:
+        // `clampedEngagement` is floored at `1e-3` and `tool.diameter` is always a
+        // positive, real tool size, so `pitch` can only fail this check for a
+        // pathologically small (sub-micron) tool -- kept as a guard rather than an
+        // assumption so a degenerate tool still returns an empty path instead of
+        // looping on a near-zero `pitch` below.
         guard pitch > 1e-6 else {
             return []
         }
 
         let totalLength = ring.pathLength
+        // Unlike the two guards above, this one is (in principle) reachable: `ring`
+        // being non-empty doesn't guarantee it has positive path length -- a
+        // degenerate ring whose segments all collapse to the same point would pass
+        // `!ring.isEmpty` but fail here. Same `SC.Error.geometryCollapsed` situation
+        // `rasterScanlines`' own `span > 1e-9` guard represents: the input already
+        // passed `buildPocketToolpath`'s own validation, so this is the algorithm
+        // finding nothing to build from, not bad input. `buildPocketToolpath`'s
+        // `.trochoidal` case doesn't throw per-ring on this, though -- it treats one
+        // degenerate ring among several the same way `rasterScanlines`' per-row skip
+        // treats one degenerate row (see that guard's own Step 6.7b note): a
+        // `continue` past this one band rather than aborting the whole pocket, since
+        // the other rings' bands are still perfectly good geometry. Only if *every*
+        // ring skips this way does the resulting empty `chained` trip
+        // `buildPocketToolpath`'s final `toolpathSegments.isEmpty` throw.
         guard totalLength > 1e-9 else {
             return []
         }
