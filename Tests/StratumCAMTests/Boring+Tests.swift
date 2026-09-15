@@ -121,8 +121,12 @@ struct Boring_Tests {
         #expect(waypoints[1].position.z == -5.0, "Test Failed: plunge Z mismatch")
     }
 
-    @Test("A non-drill-point contour produces no boring toolpath")
-    func testBoringNonDrillPointContourReturnsNoToolpath() throws {
+    // Step 6.3: this used to assert that a non-drill-point contour silently produced an
+    // empty toolpaths array. It now throws `SC.Error.missingDrillPoint` instead -- same
+    // "propagate rather than swallow" change Step 6.2 made for drilling -- so the test
+    // asserts the throw rather than an empty result.
+    @Test("A non-drill-point contour throws missingDrillPoint")
+    func testBoringNonDrillPointContourThrows() {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 6.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -8.0)
@@ -131,10 +135,18 @@ struct Boring_Tests {
             .init(entity: .line(a: DXF.Point(0, 0), b: DXF.Point(10, 0), layer: "0", color: 7), reversed: false)
         ], isClosed: false)
 
-        let toolpaths = try engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
-                                                  operation: .boring(targetDiameter: 10.0, dwellTime: nil, shiftRetract: false))
-
-        #expect(toolpaths.isEmpty, "Test Failed: a non-point contour should not produce a boring toolpath")
+        // do/catch rather than #expect(throws:) -- matching Drilling_Tests.swift's own
+        // note on why (the exact-value overload of #expect(throws:) isn't pinned across
+        // Swift Testing releases in this package).
+        do {
+            _ = try engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
+                                              operation: .boring(targetDiameter: 10.0, dwellTime: nil, shiftRetract: false))
+            Issue.record("Test Failed: expected SC.Error.missingDrillPoint to be thrown")
+        } catch SC.Error.missingDrillPoint {
+            // expected
+        } catch {
+            Issue.record("Test Failed: expected SC.Error.missingDrillPoint, got \(error)")
+        }
     }
 
     @Test("Boring a batch of holes assigns each toolpath to its own hole location")

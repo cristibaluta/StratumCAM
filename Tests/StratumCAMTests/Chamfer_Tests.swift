@@ -59,8 +59,12 @@ struct Chamfer_Tests {
 
     // MARK: - Tool validation
 
-    @Test("A non-V-bit tool with no explicit depth resolves to nil and produces no toolpath")
-    func testChamferNonVBitToolReturnsNil() throws {
+    // Step 6.3: this used to assert that a misconfigured chamfer tool silently produced
+    // an empty toolpaths array. It now throws `SC.Error.toolIncompatible` instead --
+    // same "propagate rather than swallow" change Step 6.2 made for drilling -- so the
+    // test asserts the throw rather than an empty result.
+    @Test("A non-V-bit tool with no explicit depth resolves to nil and throws toolIncompatible")
+    func testChamferNonVBitToolThrowsToolIncompatible() {
         let params = SC.ChamferParams(width: 1.0, side: .outside, direction: .climb)
 
         // Direct resolution check.
@@ -70,11 +74,39 @@ struct Chamfer_Tests {
         // Full pipeline should bail out cleanly rather than cut at a made-up depth.
         let engine = SCEngine()
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -1.0)
-        let toolpaths = try engine.generateToolpaths(
-            from: [ccwSquareContour()], tool: flatTool, settings: settings,
-            operation: .chamfer(params: params)
-        )
-        #expect(toolpaths.isEmpty, "Test Failed: expected no toolpath for a misconfigured chamfer tool")
+
+        // do/catch rather than #expect(throws:) -- matching Drilling_Tests.swift's own
+        // note on why (the exact-value overload of #expect(throws:) isn't pinned across
+        // Swift Testing releases in this package).
+        do {
+            _ = try engine.generateToolpaths(
+                from: [ccwSquareContour()], tool: flatTool, settings: settings,
+                operation: .chamfer(params: params)
+            )
+            Issue.record("Test Failed: expected SC.Error.toolIncompatible to be thrown")
+        } catch SC.Error.toolIncompatible {
+            // expected
+        } catch {
+            Issue.record("Test Failed: expected SC.Error.toolIncompatible, got \(error)")
+        }
+    }
+
+    @Test("An empty contour throws invalidContour rather than producing no toolpath")
+    func testChamferEmptyContourThrowsInvalidContour() {
+        let engine = SCEngine()
+        let tool = SC.ToolParams(type: .vBit, diameter: 6.0, vAngle: 90.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -1.0)
+        let params = SC.ChamferParams(width: 1.0, side: .outside, direction: .climb)
+        let emptyContour = SC.Contour(entities: [], isClosed: true)
+
+        do {
+            _ = try engine.generateToolpaths(from: [emptyContour], tool: tool, settings: settings, operation: .chamfer(params: params))
+            Issue.record("Test Failed: expected SC.Error.invalidContour to be thrown")
+        } catch SC.Error.invalidContour {
+            // expected
+        } catch {
+            Issue.record("Test Failed: expected SC.Error.invalidContour, got \(error)")
+        }
     }
 
     // MARK: - Offset direction

@@ -13,21 +13,27 @@ extension SCEngine {
     /// Chamfering always machines in a single pass at a depth derived from the desired
     /// bevel width and the tool's V-bit angle (unless an explicit depth is given) --
     /// stepping down in multiple passes would just keep widening the bevel and gouge the part.
+    ///
+    /// Throws (Step 6.3, same pattern `buildDrillingToolpath` established in 6.2) rather
+    /// than returning `nil` for either of its two failure sites: `SC.Error.toolIncompatible`
+    /// when the tool can't resolve a chamfer depth (not a V-bit, or missing `vAngle` with no
+    /// explicit depth given), and `SC.Error.invalidContour` when the contour has no usable
+    /// geometry to chamfer at all.
     func buildChamferToolpath(for contour: SC.Contour,
                               tool: SC.ToolParams,
                               settings: SC.MachineSettings,
                               params: SC.ChamferParams,
-                              operation: SC.MachiningOperation) -> SC.OutputToolpath? {
+                              operation: SC.MachiningOperation) throws -> SC.OutputToolpath {
 
         guard let z = params.resolvedDepth(for: tool) else {
             // Misconfigured tool (not a V-bit, or missing vAngle with no explicit depth) --
             // bail out rather than cut at a made-up depth.
-            return nil
+            throw SC.Error.toolIncompatible
         }
 
         let baseSegments = contour.linearizedSegments
         guard !baseSegments.isEmpty else {
-            return nil
+            throw SC.Error.invalidContour
         }
 
         // Orient the chain so travel direction matches the requested climb/conventional

@@ -40,15 +40,19 @@ extension SCEngine {
     ///
     /// `shiftRetract`, by contrast, does change the geometry -- it moves where the retract
     /// actually happens -- so it's handled here, not in the G-code layer.
+    ///
+    /// Throws `SC.Error.missingDrillPoint` (Step 6.3, same pattern `buildDrillingToolpath`
+    /// established in 6.2) rather than returning `nil` when `contour` isn't recognizable as
+    /// a single hole location.
     func buildBoringToolpath(for contour: SC.Contour,
                              tool: SC.ToolParams,
                              settings: SC.MachineSettings,
                              targetDiameter: Double,
                              shiftRetract: Bool,
-                             operation: SC.MachiningOperation) -> SC.OutputToolpath? {
+                             operation: SC.MachiningOperation) throws -> SC.OutputToolpath {
 
         guard let point = contour.drillPoint else {
-            return nil
+            throw SC.Error.missingDrillPoint
         }
 
         let radius = abs(targetDiameter) / 2.0
