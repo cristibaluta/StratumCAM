@@ -14,16 +14,22 @@ extension SCEngine {
     /// optionally apply tool-radius compensation, step down through Z, and trace the
     /// resulting segments once per pass. The `strategy` passed in is the one actually
     /// requested by the caller, so the output is tagged accurately instead of hardcoded.
+    ///
+    /// Throws `SC.Error.invalidContour` (Step 6.4, same pattern established in 6.2/6.3)
+    /// rather than returning `nil` when the contour linearizes to zero segments. This
+    /// function backs both `.engrave` and `.profile` in `buildToolpath`'s dispatch switch,
+    /// so both operations start throwing on empty geometry as of this step, not just
+    /// `.profile` -- they share this one pipeline rather than each having their own copy.
     func buildContourTracingToolpath(for contour: SC.Contour,
                                      tool: SC.ToolParams,
                                      settings: SC.MachineSettings,
                                      side: SC.CutSide,
-                                     operation: SC.MachiningOperation) -> SC.OutputToolpath? {
+                                     operation: SC.MachiningOperation) throws -> SC.OutputToolpath {
 
         // 1. Normalize DXF Entities into linear/arc segments (handling reversed flag)
         let baseSegments = contour.linearizedSegments
         guard !baseSegments.isEmpty else {
-            return nil
+            throw SC.Error.invalidContour
         }
 
         // 1b. Apply tool-radius compensation for inside/outside profile cuts
@@ -48,6 +54,14 @@ extension SCEngine {
     /// Builds a toolpath for `.contour`, honoring `direction`, `entry`, `leadIn`/`leadOut`,
     /// and `tabs` -- unlike `.engrave`, which just traces the geometry at cutter-center with
     /// a plain vertical plunge.
+    ///
+    /// Throws (Step 6.4, same pattern established in 6.2/6.3) at its two failure sites:
+    /// `SC.Error.invalidContour` when the contour linearizes to zero segments -- the input
+    /// itself has nothing to build from -- and `SC.Error.geometryCollapsed` when offsetting
+    /// an otherwise-valid contour leaves nothing behind (e.g. a tool radius wide enough to
+    /// consume the whole shape). Distinct cases because the second one only shows up after
+    /// `baseSegments` already passed validation; the algorithm, not the input, is what
+    /// produced nothing.
     func buildContourToolpath(for contour: SC.Contour,
                               tool: SC.ToolParams,
                               settings: SC.MachineSettings,
@@ -57,11 +71,11 @@ extension SCEngine {
                               leadIn: SC.LeadInOut?,
                               leadOut: SC.LeadInOut?,
                               tabs: [SC.HoldingTab],
-                              operation: SC.MachiningOperation) -> SC.OutputToolpath? {
+                              operation: SC.MachiningOperation) throws -> SC.OutputToolpath {
 
         let baseSegments = contour.linearizedSegments
         guard !baseSegments.isEmpty else {
-            return nil
+            throw SC.Error.invalidContour
         }
 
         // 1. Orient the chain so travel direction matches the requested climb/conventional cut.
@@ -70,7 +84,7 @@ extension SCEngine {
         // 2. Tool-radius compensation (existing offset engine).
         let toolpathSegments = offsetContour(oriented, side: side, toolRadius: tool.diameter / 2.0, isClosed: contour.isClosed)
         guard let firstSegment = toolpathSegments.first else {
-            return nil
+            throw SC.Error.geometryCollapsed
         }
 
         let zDepths = EngineTools.calculateZPasses(targetDepth: settings.targetDepth, stepdown: settings.cutting.stepdown)
@@ -262,6 +276,11 @@ extension SCEngine {
 
     /// Resolves where a `.plunge` entry should actually land, and the extra waypoint that
     /// carries the tool from there onto `contourStart`, for a given `LeadInOut` style.
+    ///
+    /// Not converted to `throws` in Step 6.4: `leadIn == nil` means "no lead-in configured,"
+    /// a legitimate, common choice, not a broken input -- entering straight at `contourStart`
+    /// is `buildProfileWaypoints`' own valid fallback, not an error state for the caller to
+    /// catch.
     private func resolveLeadIn(_ leadIn: SC.LeadInOut?,
                                side: SC.CutSide,
                                contourStart: CGPoint,
@@ -296,7 +315,8 @@ extension SCEngine {
         }
     }
 
-    /// Mirror of `resolveLeadIn` for the departure end of the cut.
+    /// Mirror of `resolveLeadIn` for the departure end of the cut. Same reasoning applies:
+    /// not converted to `throws` -- `leadOut == nil` is "no lead-out configured," not an error.
     private func resolveLeadOut(_ leadOut: SC.LeadInOut?,
                                 side: SC.CutSide,
                                 contourEnd: CGPoint,
@@ -338,6 +358,13 @@ extension SCEngine {
     /// `.engrave` trace) -- except where a holding tab crosses this pass at a depth deeper
     /// than the tab's remaining-stock floor, in which case that waypoint's Z is clamped to
     /// the floor instead of the requested pass depth.
+    ///
+    /// Not converted to `throws` in Step 6.4: the `compactMap` below silently drops a tab
+    /// whose span is degenerate (a zero-length path, or a ratio/width combination that
+    /// resolves to an empty range) rather than erroring. A malformed tab that contributes
+    /// nothing is the same as no tab at all from the toolpath's point of view -- there's no
+    /// broken *toolpath* here, just one tab spec that turned out not to apply, so this stays
+    /// "empty is a valid result" rather than "empty means something broke."
     private func tracedWaypoints(for segments: [SC.Segment],
                                  atZ z: Double,
                                  totalDepth: Double,
@@ -482,7 +509,7 @@ extension SC.Contour {
                 return []
         }
     }
-    
+
     /// Reverses polyline vertex order and flips bulge signs for backward walking.
     private func reversedPolylineVertices(_ vertices: [DXF.PolyVertex], closed: Bool) -> [DXF.PolyVertex] {
 

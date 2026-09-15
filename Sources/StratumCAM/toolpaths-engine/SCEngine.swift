@@ -19,14 +19,14 @@ public final class SCEngine {
     /// `strategy` defaults to `.engrave`, which traces the geometry exactly at cutter-center
     /// (no tool-radius compensation) -- the classic engraving / center-line cutting case.
     ///
-    /// `throws` as of Step 6.2, extended in Step 6.3 to cover `.chamfer`
-    /// (`SC.Error.toolIncompatible`/`.invalidContour`, via `buildChamferToolpath`) and
-    /// `.boring` (`SC.Error.missingDrillPoint`, via `buildBoringToolpath`) alongside
-    /// `.drilling` (`SC.Error.missingDrillPoint`, via `buildDrillingToolpath`); every
-    /// other operation still returns `nil` for "nothing machinable" exactly as before
-    /// until its own step in the roadmap converts it. A thrown error aborts the whole
-    /// batch rather than skipping just the offending contour -- see the doc comment on
-    /// `buildToolpath` below for why that's the intended behavior change, not a bug.
+    /// `throws` as of Step 6.2, extended in 6.3 (`.chamfer`, `.boring`) and 6.4
+    /// (`.engrave`, `.profile` -- both share `buildContourTracingToolpath`/
+    /// `buildContourToolpath`'s pipeline, so `.engrave` starts throwing here too even
+    /// though 6.4 is nominally `.profile`'s step). Every other operation still returns
+    /// `nil` for "nothing machinable" exactly as before until its own step in the
+    /// roadmap converts it. A thrown error aborts the whole batch rather than skipping
+    /// just the offending contour -- see the doc comment on `buildToolpath` below for
+    /// why that's the intended behavior change, not a bug.
     public func generateToolpaths(from contours: [SC.Contour],
                                   tool: SC.ToolParams,
                                   settings: SC.MachineSettings,
@@ -85,9 +85,10 @@ public final class SCEngine {
     /// contour has nothing machinable (e.g. an empty/degenerate contour) or -- for now --
     /// when the strategy's real geometry isn't implemented yet (see TODOs below).
     ///
-    /// `throws` as of Step 6.2, extended in Step 6.3 -- `.drilling`, `.chamfer`, and
-    /// `.boring` now throw (see `buildDrillingToolpath`/`buildChamferToolpath`/
-    /// `buildBoringToolpath`) -- every other case below still returns `nil` unchanged,
+    /// `throws` as of Step 6.2, extended in 6.3 and 6.4 -- `.drilling`, `.chamfer`,
+    /// `.boring`, `.engrave`, and `.profile` now throw (see `buildDrillingToolpath`/
+    /// `buildChamferToolpath`/`buildBoringToolpath`/`buildContourTracingToolpath`/
+    /// `buildContourToolpath`) -- every other case below still returns `nil` unchanged,
     /// converting one operation at a time per the roadmap. Note the difference in what
     /// `nil` vs. a thrown error means to the caller: `nil` here means "this one contour
     /// had nothing machinable," and the batch overloads above skip it and keep going;
@@ -100,23 +101,23 @@ public final class SCEngine {
                                operation: SC.MachiningOperation) throws -> SC.OutputToolpath? {
         switch operation {
             case .engrave:
-                return buildContourTracingToolpath(for: contour,
-                                                   tool: tool,
-                                                   settings: settings,
-                                                   side: .onContour,
-                                                   operation: operation)
+                return try buildContourTracingToolpath(for: contour,
+                                                       tool: tool,
+                                                       settings: settings,
+                                                       side: .onContour,
+                                                       operation: operation)
 
             case .profile(let side, let direction, let entry, let leadIn, let leadOut, let tabs):
-                return buildContourToolpath(for: contour,
-                                            tool: tool,
-                                            settings: settings,
-                                            side: side,
-                                            direction: direction,
-                                            entry: entry,
-                                            leadIn: leadIn,
-                                            leadOut: leadOut,
-                                            tabs: tabs,
-                                            operation: operation)
+                return try buildContourToolpath(for: contour,
+                                                tool: tool,
+                                                settings: settings,
+                                                side: side,
+                                                direction: direction,
+                                                entry: entry,
+                                                leadIn: leadIn,
+                                                leadOut: leadOut,
+                                                tabs: tabs,
+                                                operation: operation)
 
             case .chamfer(let params):
                 return try buildChamferToolpath(for: contour,
