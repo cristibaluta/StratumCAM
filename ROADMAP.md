@@ -547,23 +547,8 @@ Explore the idea of introducing a buried hole operation. it can be done with a s
 
 ---
 
-## Track 3 — Adaptive clearing (`.adaptiveClearing`) — Phase 4
 
-Do this last — it's the most algorithmically involved, and steps 3.x below assume
-Track 1's ring-offset and raster machinery already exist to build on.
 
-- **3.1 — Trochoidal/constant-engagement core algorithm (2D clearing only)**
-  Start with `.clearing2D` only, ignore `.adaptiveContour` for now. Reuse Track 1's
-  concentric offset rings as the "safe corridor," then generate a path that
-  maintains `optimalLoad` engagement rather than pocketing's simple concentric
-  fill. This is a genuinely hard geometry problem — expect several sub-steps once
-  you're in it.
-
-- **3.2 — Helical/ramped entry for adaptive** (thin reuse of existing entry code, same as 1.2)
-
-- **3.3 — `.adaptiveContour` variant**
-
-- **3.4 — Tests**
 
 ---
 
@@ -652,3 +637,28 @@ step's plumbing isn't wired to UI yet.
 
 - **5.7 — different colors for different commands**
   I want to see fast moving segments with a more reddish color.
+
+## 6 errors
+
+6.1 — Define the error type
+A new SC.Error (or SCEngine.Error) enum, no call-site changes yet. Start minimal — invalidContour, missingDrillPoint, unsupportedOperation — and add cases as later steps need them rather than guessing the full set up front.
+6.2 — Pilot: .drilling
+Smallest possible chain: buildDrillingToolpath → throws, propagate through buildToolpath, the [SC.Contour] and [SC.DrillingOperation] overloads of generateToolpaths, and the Demo.swift/test call sites. This is really the "prove the propagation pattern works end to end" step before touching anything bigger — try/throws has to thread through the dispatch switch in SCEngine.swift too.
+6.3 — .chamfer and .boring
+Two more small, single-nil-site files, same pattern, low risk — good reps to build confidence before the bigger ones.
+6.4 — .profile
+Bigger: buildContourTracingToolpath/buildContourToolpath plus nested private helpers (rampWaypoints-style helper at line 308, another at 345) that also return nil/[] internally. Decide per-helper whether it throws directly or the caller translates a nil into a thrown error at the boundary.
+6.5 — .counterbore
+Similar shape to profile, plus two return [] sites in a waypoint builder.
+6.6 — .threadMilling
+Several validation-style nil returns in the dispatch guard plus geometry helpers.
+6.7 — .pocket (split into two sessions — it's the biggest)
+6.7a: top-level guards in buildPocketToolpath (contour.isClosed, empty baseSegments, empty rings) — these are the clearest "this is actually bad input" cases in the whole codebase.
+6.7b: the private geometry helpers (pocketRings, spiralSegments, chainedRingSegments, raster row helpers) — here's where "empty is a valid result" vs "empty means something broke" gets genuinely ambiguous and needs case-by-case judgment.
+6.8 — .slotting (same 6.7a/6.7b split — it has the most sites of any file)
+6.9 — .facing
+The interesting one: buildToolpath's .facing case currently just print()s and returns nil when someone calls the wrong overload — that's a real programmer error being silently swallowed, and a good candidate for unsupportedOperation rather than the "empty geometry" cases elsewhere.
+6.10 — Utility/geometry layer
+SCEngine+Offset.swift, segmentsFromPolyline, circleSegments, the DXF convert(entity:) path. Deliberately last — some [] returns here really do mean "no geometry produced, and that's fine," not a bug, so this step is as much a policy decision as a code change.
+6.11 — Final sweep
+Grep for anything left, update the doc comments that currently describe the nil-returning behavior explicitly (e.g. SCEngine.swift's own comment on buildToolpath, the .facing routing comment) so they don't go stale.
