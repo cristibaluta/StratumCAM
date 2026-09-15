@@ -24,6 +24,12 @@ extension SCEngine {
     /// carries no size. Only a single closed `.circle` entity is recognized, the same
     /// "closed circle marks a feature" convention `drillPoint(for:)` already uses for
     /// hole centers, just carrying the radius through instead of discarding it.
+    ///
+    /// Stays optional-returning (not converted to `throws` in Step 6.6): this is a pure
+    /// recognizer, same role `drillPoint(for:)` already plays for drilling/boring/
+    /// counterbore -- the caller (`buildThreadMillingToolpath`) is what turns `nil` into
+    /// `SC.Error.invalidContour` at the boundary, so the recognizer itself doesn't need
+    /// to know it's being used in a throwing context.
     func tapCircle(for contour: SC.Contour) -> (center: CGPoint, diameter: Double)? {
         guard contour.entities.count == 1, contour.isClosed else {
             return nil
@@ -86,6 +92,13 @@ extension SCEngine {
     /// pass -- not the 2D-geometry Z stepdown `calculateZPasses` is for at the
     /// per-pass level (it's reused here purely to derive per-revolution depths, the
     /// same way `peckDrillingWaypoints` reuses it to derive per-peck depths).
+    ///
+    /// Throws (Step 6.6, same pattern established in 6.2-6.5) at the four validation
+    /// guards below: `SC.Error.invalidParameter` for a `radialPasses`/`pitch` that
+    /// can't produce a meaningful helix, `SC.Error.invalidContour` when `contour` isn't
+    /// the single closed circle this operation needs (see `SC.Error.invalidContour`'s
+    /// own doc comment, which names exactly this case), and `SC.Error.toolIncompatible`
+    /// when the tool doesn't fit inside the requested thread at all.
     func buildThreadMillingToolpath(for contour: SC.Contour,
                                     tool: SC.ToolParams,
                                     settings: SC.MachineSettings,
@@ -94,14 +107,14 @@ extension SCEngine {
                                     direction: SC.ThreadDirection,
                                     radialPasses: Int,
                                     targetDiameter: Double,
-                                    operation: SC.MachiningOperation) -> SC.OutputToolpath? {
+                                    operation: SC.MachiningOperation) throws -> SC.OutputToolpath {
 
         guard radialPasses >= 1 else {
-            return nil
+            throw SC.Error.invalidParameter("radialPasses")
         }
 
         guard let hole = tapCircle(for: contour) else {
-            return nil
+            throw SC.Error.invalidContour
         }
 
         let toolRadius = tool.diameter / 2.0
@@ -117,12 +130,12 @@ extension SCEngine {
             // Tool doesn't fit -- e.g. thread-milling down to a target diameter not
             // much bigger than the tool itself. Mirrors `Segment.offset(by:)`'s own
             // "tool doesn't fit" guard.
-            return nil
+            throw SC.Error.toolIncompatible
         }
 
         let pitchMagnitude = abs(pitch)
         guard pitchMagnitude > 1e-9 else {
-            return nil
+            throw SC.Error.invalidParameter("pitch")
         }
 
         // Reuse `calculateZPasses` exactly the way `peckDrillingWaypoints` already does

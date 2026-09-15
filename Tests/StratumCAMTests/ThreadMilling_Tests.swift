@@ -172,22 +172,36 @@ struct ThreadMilling_Tests {
                 "Test Failed: external threading should orbit outside the drawn diameter by the tool's radius")
     }
 
-    @Test("Thread milling a hole not much bigger than the tool itself produces no toolpath")
-    func testToolTooLargeForInternalHoleReturnsNoToolpath() throws {
+    // Step 6.6: this used to assert that a too-large tool silently produced an empty
+    // toolpaths array. It now throws `SC.Error.toolIncompatible` instead -- same
+    // "propagate rather than swallow" change 6.2-6.5 made for the other operations --
+    // so the test asserts the throw rather than an empty result.
+    @Test("Thread milling a hole not much bigger than the tool itself throws toolIncompatible")
+    func testToolTooLargeForInternalHoleThrowsToolIncompatible() {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 10.0) // tool radius 5.0
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -2.0)
 
         let contour = circleContour(center: (0, 0), diameter: 8.0) // hole radius 4.0, smaller than the tool radius
 
-        let toolpaths = try engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
-                                                 operation: .threadMilling(pitch: 1.0, isInternal: true, direction: .rightHand, radialPasses: 1, targetDiameter: 8.0))
-
-        #expect(toolpaths.isEmpty, "Test Failed: a tool wider than the hole radius shouldn't produce a thread-milling toolpath")
+        // do/catch rather than #expect(throws:) -- matching Drilling_Tests.swift's own
+        // note on why (the exact-value overload of #expect(throws:) isn't pinned across
+        // Swift Testing releases in this package).
+        do {
+            _ = try engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
+                                              operation: .threadMilling(pitch: 1.0, isInternal: true, direction: .rightHand, radialPasses: 1, targetDiameter: 8.0))
+            Issue.record("Test Failed: expected SC.Error.toolIncompatible to be thrown")
+        } catch SC.Error.toolIncompatible {
+            // expected
+        } catch {
+            Issue.record("Test Failed: expected SC.Error.toolIncompatible, got \(error)")
+        }
     }
 
-    @Test("A non-circle contour produces no threadMilling toolpath")
-    func testNonCircleContourReturnsNoToolpath() throws {
+    // Step 6.6: this used to assert that a non-circle contour silently produced an
+    // empty toolpaths array. It now throws `SC.Error.invalidContour` instead.
+    @Test("A non-circle contour throws invalidContour")
+    func testNonCircleContourThrowsInvalidContour() {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 3.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -2.0)
@@ -196,24 +210,59 @@ struct ThreadMilling_Tests {
             .init(entity: .point(at: DXF.Point(0, 0), layer: "0", color: 7), reversed: false)
         ], isClosed: false)
 
-        let toolpaths = try engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
-                                                 operation: .threadMilling(pitch: 1.0, isInternal: true, direction: .rightHand, radialPasses: 1, targetDiameter: 10.0))
-
-        #expect(toolpaths.isEmpty, "Test Failed: threadMilling needs a diameter to compensate against, so a bare point shouldn't produce a toolpath")
+        do {
+            _ = try engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
+                                              operation: .threadMilling(pitch: 1.0, isInternal: true, direction: .rightHand, radialPasses: 1, targetDiameter: 10.0))
+            Issue.record("Test Failed: expected SC.Error.invalidContour to be thrown")
+        } catch SC.Error.invalidContour {
+            // expected
+        } catch {
+            Issue.record("Test Failed: expected SC.Error.invalidContour, got \(error)")
+        }
     }
 
-    @Test("A zero pitch produces no toolpath")
-    func testZeroPitchReturnsNoToolpath() throws {
+    // Step 6.6: this used to assert that a zero pitch silently produced an empty
+    // toolpaths array. It now throws `SC.Error.invalidParameter("pitch")` instead.
+    @Test("A zero pitch throws invalidParameter")
+    func testZeroPitchThrowsInvalidParameter() {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 3.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -2.0)
 
         let contour = circleContour(center: (0, 0), diameter: 10.0)
 
-        let toolpaths = try engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
-                                                 operation: .threadMilling(pitch: 0.0, isInternal: true, direction: .rightHand, radialPasses: 1, targetDiameter: 10.0))
+        do {
+            _ = try engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
+                                              operation: .threadMilling(pitch: 0.0, isInternal: true, direction: .rightHand, radialPasses: 1, targetDiameter: 10.0))
+            Issue.record("Test Failed: expected SC.Error.invalidParameter to be thrown")
+        } catch SC.Error.invalidParameter("pitch") {
+            // expected
+        } catch {
+            Issue.record("Test Failed: expected SC.Error.invalidParameter(\"pitch\"), got \(error)")
+        }
+    }
 
-        #expect(toolpaths.isEmpty, "Test Failed: a zero pitch has no well-defined helix and shouldn't produce a toolpath")
+    // New in Step 6.6, no prior nil-returning equivalent existed for this guard: a
+    // `radialPasses` count that can't produce even one pass now throws
+    // `SC.Error.invalidParameter("radialPasses")` rather than silently producing
+    // nothing (the guard existed before this step, but nothing exercised it).
+    @Test("A radialPasses count below 1 throws invalidParameter")
+    func testRadialPassesBelowOneThrowsInvalidParameter() {
+        let engine = SCEngine()
+        let tool = SC.ToolParams(type: .flatEndMill, diameter: 3.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -2.0)
+
+        let contour = circleContour(center: (0, 0), diameter: 10.0)
+
+        do {
+            _ = try engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
+                                              operation: .threadMilling(pitch: 1.0, isInternal: true, direction: .rightHand, radialPasses: 0, targetDiameter: 10.0))
+            Issue.record("Test Failed: expected SC.Error.invalidParameter to be thrown")
+        } catch SC.Error.invalidParameter("radialPasses") {
+            // expected
+        } catch {
+            Issue.record("Test Failed: expected SC.Error.invalidParameter(\"radialPasses\"), got \(error)")
+        }
     }
 
     // MARK: - Winding direction (Step 2D.2)
@@ -432,8 +481,14 @@ struct ThreadMilling_Tests {
         #expect(toolpaths[0].settings == settings, "Test Failed: output toolpath should carry the exact settings used")
     }
 
-    @Test("A batch mixing circle and non-circle contours only produces toolpaths for the circles")
-    func testMixedBatchOnlyCirclesProduceToolpaths() throws {
+    // Step 6.6: this used to assert that a batch mixing a good and a bad contour
+    // skipped the bad one and still produced a toolpath for the good one. That's no
+    // longer how batches behave once `.threadMilling` throws -- per `SCEngine.swift`'s
+    // own doc comment on `generateToolpaths`, a thrown error now aborts the whole batch
+    // rather than skipping just the offending contour, the same behavior change 6.2
+    // introduced for `.drilling`. So this asserts the abort instead of a partial result.
+    @Test("A batch mixing circle and non-circle contours throws on the first bad contour, aborting the whole batch")
+    func testMixedBatchAbortsOnFirstBadContour() {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 3.0) // tool radius 1.5
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -2.0)
@@ -443,17 +498,50 @@ struct ThreadMilling_Tests {
             .init(entity: .point(at: DXF.Point(20, 20), layer: "0", color: 7), reversed: false)
         ], isClosed: false)
 
-        let toolpaths = try engine.generateToolpaths(from: [badContour, goodContour], tool: tool, settings: settings,
-                                                 operation: .threadMilling(pitch: 1.0, isInternal: true, direction: .rightHand, radialPasses: 1, targetDiameter: 10.0))
+        do {
+            _ = try engine.generateToolpaths(from: [badContour, goodContour], tool: tool, settings: settings,
+                                              operation: .threadMilling(pitch: 1.0, isInternal: true, direction: .rightHand, radialPasses: 1, targetDiameter: 10.0))
+            Issue.record("Test Failed: expected SC.Error.invalidContour to be thrown for the bad contour")
+        } catch SC.Error.invalidContour {
+            // expected -- the batch aborts before ever reaching the good contour
+        } catch {
+            Issue.record("Test Failed: expected SC.Error.invalidContour, got \(error)")
+        }
+    }
 
-        #expect(toolpaths.count == 1, "Test Failed: only the circle contour should yield a threadMilling toolpath")
+    // Calling per-contour instead of batching is how a caller gets the good contour's
+    // toolpath despite a bad one elsewhere -- each call is independent, so one throwing
+    // doesn't affect the other, unlike the single-call batch case above.
+    @Test("Calling generateToolpaths per-contour still yields the good contour's toolpath despite a bad one elsewhere")
+    func testPerContourCallsIsolateGoodContourFromBadOne() throws {
+        let engine = SCEngine()
+        let tool = SC.ToolParams(type: .flatEndMill, diameter: 3.0) // tool radius 1.5
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -2.0)
+
+        let goodContour = circleContour(center: (0, 0), diameter: 10.0) // hole radius 5.0
+        let badContour = SC.Contour(entities: [
+            .init(entity: .point(at: DXF.Point(20, 20), layer: "0", color: 7), reversed: false)
+        ], isClosed: false)
+
+        let operation: SC.MachiningOperation = .threadMilling(pitch: 1.0, isInternal: true, direction: .rightHand, radialPasses: 1, targetDiameter: 10.0)
+
+        var badContourThrew = false
+        do {
+            _ = try engine.generateToolpaths(from: [badContour], tool: tool, settings: settings, operation: operation)
+        } catch SC.Error.invalidContour {
+            badContourThrew = true
+        }
+        #expect(badContourThrew, "Test Failed: the bad contour should still throw invalidContour on its own")
+
+        let goodToolpaths = try engine.generateToolpaths(from: [goodContour], tool: tool, settings: settings, operation: operation)
+        #expect(goodToolpaths.count == 1, "Test Failed: the good contour should still produce a toolpath when called on its own")
 
         let millRadius = 5.0 - 1.5
-        let entry = toolpaths[0].passes[0].waypoints[0]
+        let entry = goodToolpaths[0].passes[0].waypoints[0]
         #expect(entry.position.x == 0.0 && entry.position.y == 0.0,
                 "Test Failed: the surviving toolpath should still enter through the good contour's own hole center")
 
-        let engage = toolpaths[0].passes[0].waypoints[2]
+        let engage = goodToolpaths[0].passes[0].waypoints[2]
         #expect(abs(engage.position.x - millRadius) < 1e-9 && abs(engage.position.y) < 1e-9,
                 "Test Failed: the surviving toolpath should still engage the good contour's hole at the compensated mill radius")
     }
