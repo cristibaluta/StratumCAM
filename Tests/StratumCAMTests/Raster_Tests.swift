@@ -301,8 +301,10 @@ struct Raster_Tests {
 
     // MARK: - Validation
 
-    @Test("An open contour does not produce a raster toolpath")
-    func testRasterRequiresClosedContour() throws {
+    // Step 6.7a: this used to assert that an open contour silently produced an empty
+    // toolpaths array. It now throws `SC.Error.contourNotClosed` instead.
+    @Test("An open contour throws contourNotClosed")
+    func testRasterRequiresClosedContour() {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 4.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0,
@@ -316,14 +318,18 @@ struct Raster_Tests {
             .init(entity: .line(a: DXF.Point(10, 0), b: DXF.Point(10, 10), layer: "0", color: 7), reversed: false)
         ], isClosed: false)
 
-        let toolpaths = try engine.generateToolpaths(
-            from: [openContour],
-            tool: tool,
-            settings: settings,
-            operation: rasterStrategy(direction: .climb)
-        )
-
-        #expect(toolpaths.isEmpty,
-                "Test Failed: open contours must not generate raster toolpaths")
+        do {
+            _ = try engine.generateToolpaths(
+                from: [openContour],
+                tool: tool,
+                settings: settings,
+                operation: rasterStrategy(direction: .climb)
+            )
+            Issue.record("Test Failed: expected SC.Error.contourNotClosed to be thrown")
+        } catch SC.Error.contourNotClosed {
+            // expected
+        } catch {
+            Issue.record("Test Failed: expected SC.Error.contourNotClosed, got \(error)")
+        }
     }
 }

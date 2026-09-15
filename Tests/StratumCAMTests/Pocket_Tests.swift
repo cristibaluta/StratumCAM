@@ -310,8 +310,10 @@ struct Pocket_Tests {
 
     // MARK: - Validation
 
-    @Test("An open contour does not produce a pocket toolpath")
-    func testPocketRequiresClosedContour() throws {
+    // Step 6.7a: this used to assert that an open contour silently produced an empty
+    // toolpaths array. It now throws `SC.Error.contourNotClosed` instead.
+    @Test("An open contour throws contourNotClosed")
+    func testPocketRequiresClosedContour() {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 6.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0,
@@ -334,14 +336,21 @@ struct Pocket_Tests {
                   reversed: false)
         ], isClosed: false)
 
-        let toolpaths = try engine.generateToolpaths(
-            from: [openContour],
-            tool: tool,
-            settings: settings,
-            operation: pocketStrategy(direction: .climb)
-        )
-
-        #expect(toolpaths.isEmpty,
-                "Test Failed: open contours must not generate pocket toolpaths")
+        // do/catch rather than #expect(throws:) -- matching Drilling_Tests.swift's own
+        // note on why (the exact-value overload of #expect(throws:) isn't pinned across
+        // Swift Testing releases in this package).
+        do {
+            _ = try engine.generateToolpaths(
+                from: [openContour],
+                tool: tool,
+                settings: settings,
+                operation: pocketStrategy(direction: .climb)
+            )
+            Issue.record("Test Failed: expected SC.Error.contourNotClosed to be thrown")
+        } catch SC.Error.contourNotClosed {
+            // expected
+        } catch {
+            Issue.record("Test Failed: expected SC.Error.contourNotClosed, got \(error)")
+        }
     }
 }

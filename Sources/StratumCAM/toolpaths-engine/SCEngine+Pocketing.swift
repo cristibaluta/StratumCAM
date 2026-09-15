@@ -19,21 +19,33 @@ extension SCEngine {
     /// raster rows) is computed exactly once outside the Z loop and reused for every pass
     /// -- re-deriving rings/scanlines per depth would be wasted work and risks two passes
     /// silently diverging in geometry.
+    ///
+    /// Throws (Step 6.7a, same pattern established in 6.2-6.6) at every top-level guard
+    /// in this function -- `SC.Error.contourNotClosed` when `contour` isn't closed,
+    /// `SC.Error.invalidContour` when it linearizes to zero segments, and
+    /// `SC.Error.geometryCollapsed` at every point downstream where this function's own
+    /// geometry step (ring generation, the raster's wall offset, scanline generation, or
+    /// the final `toolpathSegments` check) comes back empty for otherwise-valid input.
+    /// Deliberately *not* extended into the private geometry helpers themselves
+    /// (`pocketRings`, `chainedRingSegments`, `spiralSegments`, `rasterScanlines`) --
+    /// that's Step 6.7b, split out because those helpers mix genuine failures with
+    /// legitimate empty results (e.g. a raster row skipped for re-entering the boundary
+    /// isn't an error) in ways that need case-by-case judgment this step doesn't attempt.
     func buildPocketToolpath(for contour: SC.Contour,
                              tool: SC.ToolParams,
                              settings: SC.MachineSettings,
                              direction: SC.CutDirection,
                              pattern: SC.PocketClearingPattern,
                              entry: SC.EntryStrategy,
-                             operation: SC.MachiningOperation) -> SC.OutputToolpath? {
+                             operation: SC.MachiningOperation) throws -> SC.OutputToolpath {
 
         guard contour.isClosed else {
-            return nil
+            throw SC.Error.contourNotClosed
         }
 
         let baseSegments = contour.linearizedSegments
         guard !baseSegments.isEmpty else {
-            return nil
+            throw SC.Error.invalidContour
         }
 
         let toolpathSegments: [SC.Segment]
@@ -58,7 +70,7 @@ extension SCEngine {
                 // 2. Generate the concentric ring stack, geometry only (Step 2.2a, done).
                 let rings = pocketRings(from: oriented, tool: tool, stepoverPercentage: settings.cutting.stepoverPercentage)
                 guard !rings.isEmpty else {
-                    return nil
+                    throw SC.Error.geometryCollapsed
                 }
 
                 // 3. Chain the rings into one continuous cut path with connecting
@@ -73,14 +85,14 @@ extension SCEngine {
                 // row travels, not the wall's own winding.
                 let wallOffset = offsetContour(baseSegments, side: .inside, toolRadius: tool.diameter / 2.0, isClosed: true)
                 guard !wallOffset.isEmpty else {
-                    return nil
+                    throw SC.Error.geometryCollapsed
                 }
                 boundarySegments = wallOffset
 
                 let stepover = settings.cutting.stepoverPercentage * tool.diameter
                 let rows = rasterScanlines(within: wallOffset, stepover: stepover, direction: direction)
                 guard !rows.isEmpty else {
-                    return nil
+                    throw SC.Error.geometryCollapsed
                 }
 
                 // Same chaining helper the ring stack uses -- a raster row list is just
@@ -102,7 +114,7 @@ extension SCEngine {
                 // finishes at, not how the stack itself is built.
                 let rings = pocketRings(from: oriented, tool: tool, stepoverPercentage: settings.cutting.stepoverPercentage)
                 guard !rings.isEmpty else {
-                    return nil
+                    throw SC.Error.geometryCollapsed
                 }
 
                 if isSpiralEligible(oriented) {
@@ -143,7 +155,7 @@ extension SCEngine {
 
                 let rings = pocketRings(from: oriented, tool: tool, stepoverPercentage: settings.cutting.stepoverPercentage)
                 guard !rings.isEmpty else {
-                    return nil
+                    throw SC.Error.geometryCollapsed
                 }
 
                 let stepover = settings.cutting.stepoverPercentage * tool.diameter
@@ -174,7 +186,7 @@ extension SCEngine {
         }
 
         guard !toolpathSegments.isEmpty else {
-            return nil
+            throw SC.Error.geometryCollapsed
         }
 
         let zDepths = EngineTools.calculateZPasses(targetDepth: settings.targetDepth, stepdown: settings.cutting.stepdown)

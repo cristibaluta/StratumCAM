@@ -22,12 +22,14 @@ public final class SCEngine {
     /// `throws` as of Step 6.2, extended in 6.3 (`.chamfer`, `.boring`), 6.4
     /// (`.engrave`, `.profile` -- both share `buildContourTracingToolpath`/
     /// `buildContourToolpath`'s pipeline, so `.engrave` starts throwing here too even
-    /// though 6.4 is nominally `.profile`'s step), 6.5 (`.counterbore`), and 6.6
-    /// (`.threadMilling`). Every other operation still returns `nil` for "nothing
-    /// machinable" exactly as before until its own step in the roadmap converts it. A
-    /// thrown error aborts the whole batch rather than skipping just the offending
-    /// contour -- see the doc comment on `buildToolpath` below for why that's the
-    /// intended behavior change, not a bug.
+    /// though 6.4 is nominally `.profile`'s step), 6.5 (`.counterbore`), 6.6
+    /// (`.threadMilling`), and 6.7a (`.pocket`, at its own top-level guards only --
+    /// see `buildPocketToolpath`'s doc comment on why 6.7b, the private geometry
+    /// helpers underneath it, is a separate step). Every other operation still
+    /// returns `nil` for "nothing machinable" exactly as before until its own step in
+    /// the roadmap converts it. A thrown error aborts the whole batch rather than
+    /// skipping just the offending contour -- see the doc comment on `buildToolpath`
+    /// below for why that's the intended behavior change, not a bug.
     public func generateToolpaths(from contours: [SC.Contour],
                                   tool: SC.ToolParams,
                                   settings: SC.MachineSettings,
@@ -86,13 +88,13 @@ public final class SCEngine {
     /// contour has nothing machinable (e.g. an empty/degenerate contour) or -- for now --
     /// when the strategy's real geometry isn't implemented yet (see TODOs below).
     ///
-    /// `throws` as of Step 6.2, extended in 6.3, 6.4, 6.5, and 6.6 -- `.drilling`,
-    /// `.chamfer`, `.boring`, `.engrave`, `.profile`, `.counterbore`, and
-    /// `.threadMilling` now throw (see `buildDrillingToolpath`/`buildChamferToolpath`/
+    /// `throws` as of Step 6.2, extended in 6.3, 6.4, 6.5, 6.6, and 6.7a -- `.drilling`,
+    /// `.chamfer`, `.boring`, `.engrave`, `.profile`, `.counterbore`, `.threadMilling`,
+    /// and `.pocket` now throw (see `buildDrillingToolpath`/`buildChamferToolpath`/
     /// `buildBoringToolpath`/`buildContourTracingToolpath`/`buildContourToolpath`/
-    /// `buildCounterboreToolpath`/`buildThreadMillingToolpath`) -- every other case
-    /// below still returns `nil` unchanged, converting one operation at a time per the
-    /// roadmap. Note the difference in what
+    /// `buildCounterboreToolpath`/`buildThreadMillingToolpath`/`buildPocketToolpath`) --
+    /// every other case below still returns `nil` unchanged, converting one operation at
+    /// a time per the roadmap. Note the difference in what
     /// `nil` vs. a thrown error means to the caller: `nil` here means "this one contour
     /// had nothing machinable," and the batch overloads above skip it and keep going;
     /// a thrown error means "this input was actually wrong," and the batch overloads
@@ -137,13 +139,13 @@ public final class SCEngine {
                                                  operation: operation)
 
             case .pocket(let direction, let pattern, let entry):
-                return buildPocketToolpath(for: contour,
-                                           tool: tool,
-                                           settings: settings,
-                                           direction: direction,
-                                           pattern: pattern,
-                                           entry: entry,
-                                           operation: operation
+                return try buildPocketToolpath(for: contour,
+                                               tool: tool,
+                                               settings: settings,
+                                               direction: direction,
+                                               pattern: pattern,
+                                               entry: entry,
+                                               operation: operation
                 )
 
             case .facing:
