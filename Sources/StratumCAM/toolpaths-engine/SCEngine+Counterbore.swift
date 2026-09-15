@@ -35,6 +35,12 @@ extension SCEngine {
     /// different screw-head depths, so the depth has to travel with the operation, not
     /// the shared machine settings. As with `.pocket`, the ring geometry itself is
     /// computed once and reused unchanged across every Z pass.
+    ///
+    /// Throws (Step 6.5, same pattern established in 6.2-6.4) at three sites:
+    /// `SC.Error.missingDrillPoint` when the contour isn't a recognizable hole location,
+    /// `SC.Error.toolIncompatible` when the tool doesn't fit inside the requested recess
+    /// at all, and `SC.Error.geometryCollapsed` if ring generation or chaining somehow
+    /// still produces nothing for an otherwise-valid center/diameter/tool combination.
     func buildCounterboreToolpath(for contour: SC.Contour,
                                   tool: SC.ToolParams,
                                   settings: SC.MachineSettings,
@@ -42,10 +48,10 @@ extension SCEngine {
                                   depth: Double,
                                   direction: SC.CutDirection,
                                   entry: SC.EntryStrategy,
-                                  operation: SC.MachiningOperation) -> SC.OutputToolpath? {
+                                  operation: SC.MachiningOperation) throws -> SC.OutputToolpath {
 
         guard let center = contour.drillPoint else {
-            return nil
+            throw SC.Error.missingDrillPoint
         }
 
         let toolRadius = tool.diameter / 2.0
@@ -56,9 +62,10 @@ extension SCEngine {
         let wallRadius = abs(diameter) / 2.0 - toolRadius
         guard wallRadius > 1e-6 else {
             // Tool doesn't fit inside the requested recess at all (diameter <= tool
-            // diameter) -- same "won't guess, return nil" convention `pocketRings`' own
-            // collapse checks already follow elsewhere in this engine.
-            return nil
+            // diameter) -- same "won't guess, throw rather than silently clamp"
+            // convention `pocketRings`' own collapse checks follow elsewhere in this
+            // engine, now made explicit via `SC.Error.toolIncompatible`.
+            throw SC.Error.toolIncompatible
         }
 
         // Same climb/conventional winding convention `orientedForDirection` applies to an
@@ -69,12 +76,17 @@ extension SCEngine {
         let stepover = settings.cutting.stepoverPercentage * tool.diameter
         let rings = counterboreRings(center: center, toolRadius: toolRadius, wallRadius: wallRadius, stepover: stepover, isCCW: isCCW)
         guard !rings.isEmpty, let boundary = rings.last else {
-            return nil
+            // Not reachable today -- `wallRadius > 1e-6` is already confirmed above, and
+            // `counterboreRings` always appends a wall ring once that holds -- but kept as
+            // a `geometryCollapsed` throw rather than an unguarded force-unwrap, matching
+            // this codebase's convention elsewhere of not trusting an invariant across a
+            // function boundary just because it currently happens to hold.
+            throw SC.Error.geometryCollapsed
         }
 
         let toolpathSegments = chainedRingSegments(rings)
         guard !toolpathSegments.isEmpty else {
-            return nil
+            throw SC.Error.geometryCollapsed
         }
 
         let zDepths = EngineTools.calculateZPasses(targetDepth: depth, stepdown: settings.cutting.stepdown)
@@ -130,6 +142,14 @@ extension SCEngine {
     /// `pocketRings`' own outside-in ordering gives, just walked in the opposite radial
     /// direction here.
     func counterboreRings(center: CGPoint, toolRadius: Double, wallRadius: Double, stepover: Double, isCCW: Bool) -> [[SC.Segment]] {
+        // Not converted to `throws` in Step 6.5: by the time anything in this file calls
+        // `counterboreRings`, `buildCounterboreToolpath` has already thrown
+        // `SC.Error.toolIncompatible` for exactly this condition, so this guard is
+        // unreachable through that path -- it exists purely so a direct caller of this
+        // internal-but-non-private function (e.g. a test exercising ring geometry alone,
+        // as `Counterbore_Tests.swift` already does) gets an empty, unsurprising result
+        // instead of a crash, rather than being forced to handle an error that can't
+        // happen through the normal toolpath-building call chain.
         guard wallRadius > 1e-6 else {
             return []
         }
@@ -193,6 +213,14 @@ extension SCEngine {
                                            entry: SC.EntryStrategy,
                                            center: CGPoint) -> [SC.Waypoint] {
 
+        // Not converted to `throws` in Step 6.5: `buildCounterboreToolpath` already
+        // throws `SC.Error.geometryCollapsed` before ever calling this function if
+        // `toolpathSegments` came back empty, so `segments` is guaranteed non-empty on
+        // every real call path. Kept as a guarded `return []` rather than a force-unwrap
+        // for the same reason as `counterboreRings`' own unreachable guard above --
+        // defends a private helper's own contract without assuming a caller's check will
+        // never change out from under it, without pretending this is a *new* error a
+        // caller here needs to catch.
         guard let firstSegment = segments.first else {
             return []
         }

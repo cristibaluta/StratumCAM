@@ -253,40 +253,60 @@ struct Counterbore_Tests {
 
     // MARK: - Tool larger than requested diameter -> reject
 
-    @Test("A tool wider than the requested diameter is rejected, not silently clamped")
-    func testToolLargerThanDiameterIsRejected() throws {
+    // Step 6.5: this used to assert that a too-large tool silently produced an empty
+    // toolpaths array. It now throws `SC.Error.toolIncompatible` instead -- same
+    // "propagate rather than swallow" change 6.2-6.4 made for the other operations --
+    // so the test asserts the throw rather than an empty result.
+    @Test("A tool wider than the requested diameter throws toolIncompatible, not silently produces nothing")
+    func testToolLargerThanDiameterThrowsToolIncompatible() {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 20.0) // wider than the requested 10.0 bore
 
-        let toolpaths = try engine.generateToolpaths(
-            from: [pointContour(x: 0, y: 0)],
-            tool: tool,
-            settings: settings(),
-            operation: .counterbore(diameter: 10.0, depth: 1.0, direction: .climb, entry: .plunge)
-        )
-
-        #expect(toolpaths.isEmpty, "Test Failed: a tool wider than the requested diameter should produce no toolpath")
+        // do/catch rather than #expect(throws:) -- matching Drilling_Tests.swift's own
+        // note on why (the exact-value overload of #expect(throws:) isn't pinned across
+        // Swift Testing releases in this package).
+        do {
+            _ = try engine.generateToolpaths(
+                from: [pointContour(x: 0, y: 0)],
+                tool: tool,
+                settings: settings(),
+                operation: .counterbore(diameter: 10.0, depth: 1.0, direction: .climb, entry: .plunge)
+            )
+            Issue.record("Test Failed: expected SC.Error.toolIncompatible to be thrown")
+        } catch SC.Error.toolIncompatible {
+            // expected
+        } catch {
+            Issue.record("Test Failed: expected SC.Error.toolIncompatible, got \(error)")
+        }
     }
 
-    @Test("A tool exactly matching the requested diameter is also rejected -- it would leave no wall to actually offset")
-    func testToolExactlyMatchingDiameterIsRejected() throws {
+    @Test("A tool exactly matching the requested diameter also throws toolIncompatible -- it would leave no wall to actually offset")
+    func testToolExactlyMatchingDiameterThrowsToolIncompatible() {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 10.0)
 
-        let toolpaths = try engine.generateToolpaths(
-            from: [pointContour(x: 0, y: 0)],
-            tool: tool,
-            settings: settings(),
-            operation: .counterbore(diameter: 10.0, depth: 1.0, direction: .climb, entry: .plunge)
-        )
-
-        #expect(toolpaths.isEmpty, "Test Failed: an exactly-matching tool/bore diameter leaves zero wall radius and should be rejected")
+        do {
+            _ = try engine.generateToolpaths(
+                from: [pointContour(x: 0, y: 0)],
+                tool: tool,
+                settings: settings(),
+                operation: .counterbore(diameter: 10.0, depth: 1.0, direction: .climb, entry: .plunge)
+            )
+            Issue.record("Test Failed: expected SC.Error.toolIncompatible to be thrown")
+        } catch SC.Error.toolIncompatible {
+            // expected
+        } catch {
+            Issue.record("Test Failed: expected SC.Error.toolIncompatible, got \(error)")
+        }
     }
 
     // MARK: - Non drill-point contour
 
-    @Test("A non-drill-point contour produces no counterbore toolpath")
-    func testNonDrillPointContourReturnsNoToolpath() throws {
+    // Step 6.5: this used to assert that a non-drill-point contour silently produced an
+    // empty toolpaths array. It now throws `SC.Error.missingDrillPoint` instead, same
+    // as `.drilling`/`.boring` already do.
+    @Test("A non-drill-point contour throws missingDrillPoint")
+    func testNonDrillPointContourThrows() {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 4.0)
 
@@ -294,13 +314,18 @@ struct Counterbore_Tests {
             .init(entity: .line(a: DXF.Point(0, 0), b: DXF.Point(10, 0), layer: "0", color: 7), reversed: false)
         ], isClosed: false)
 
-        let toolpaths = try engine.generateToolpaths(
-            from: [contour],
-            tool: tool,
-            settings: settings(),
-            operation: .counterbore(diameter: 20.0, depth: 1.0, direction: .climb, entry: .plunge)
-        )
-
-        #expect(toolpaths.isEmpty, "Test Failed: a non-point contour should not produce a counterbore toolpath")
+        do {
+            _ = try engine.generateToolpaths(
+                from: [contour],
+                tool: tool,
+                settings: settings(),
+                operation: .counterbore(diameter: 20.0, depth: 1.0, direction: .climb, entry: .plunge)
+            )
+            Issue.record("Test Failed: expected SC.Error.missingDrillPoint to be thrown")
+        } catch SC.Error.missingDrillPoint {
+            // expected
+        } catch {
+            Issue.record("Test Failed: expected SC.Error.missingDrillPoint, got \(error)")
+        }
     }
 }
