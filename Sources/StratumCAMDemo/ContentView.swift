@@ -70,6 +70,12 @@ struct ContentView: View {
                     demoButton("Multiple Holes") {
                         show(DemoDrilling().demoMultipleHoles())
                     }
+                    demoButton("Circle as Drill Point") {
+                        show(DemoDrilling().demoCircleDrill())
+                    }
+                    demoButton("Square - Not a Drill Point") {
+                        show(DemoDrilling().demoSquareIsNotDrilled())
+                    }
                 }
                 Section("Boring") {
                     demoButton("Plain Bore") {

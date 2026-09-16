@@ -44,28 +44,15 @@ public final class SCEngine {
         return results
     }
 
-    /// Generates a batch of drilling toolpaths where each hole may use its own
-    /// drill tool, machine settings, and peck strategy. This is intentionally a
-    /// drilling-specific overload so the existing single-tool API remains stable
-    /// for engraving, profiling, chamfering, and future strategies.
-    public func generateToolpaths(from operations: [SC.DrillingOperation]) throws -> [SC.OutputToolpath] {
-        try operations.compactMap { operation in
-            try buildToolpath(
-                for: operation.contour,
-                tool: operation.tool,
-                settings: operation.settings,
-                operation: .drilling(peckDepth: operation.peckDepth)
-            )
-        }
-    }
-
     /// Generates facing toolpaths, one per `FacingOperation`. `.facing` has no
     /// selected contour to iterate -- it clears a `Stock`'s whole top-face footprint
     /// once -- so it can't go through the per-contour `buildToolpath` switch below
     /// the way every other strategy does (see `FacingOperation`'s doc comment and
-    /// Step 2A.1's flag on this exact gap). This is a dedicated overload for that,
-    /// mirroring the `DrillingOperation` overload above's solution to the same kind
-    /// of signature mismatch.
+    /// Step 2A.1's flag on this exact gap). This is a dedicated overload for that
+    /// signature mismatch. Drilling doesn't need an equivalent: a hole is just a
+    /// contour like any other strategy's, so a batch of holes -- even ones that mix
+    /// tools, settings, or peck depths -- is just repeated calls to `buildToolpath`
+    /// below (now `public` for exactly this reason) rather than its own wrapper type.
     public func generateToolpaths(from operations: [SC.FacingOperation]) throws -> [SC.OutputToolpath] {
         try operations.compactMap { operation in
             try buildFacingToolpath(
@@ -98,10 +85,15 @@ public final class SCEngine {
     /// a thrown error means "this input was actually wrong," and the batch overloads
     /// let it propagate and abort the whole call rather than silently dropping the
     /// offending contour from the results.
-    private func buildToolpath(for contour: SC.Contour,
-                               tool: SC.ToolParams,
-                               settings: SC.MachineSettings,
-                               operation: SC.MachiningOperation) throws -> SC.OutputToolpath? {
+    ///
+    /// `public` (rather than the batch-oriented `generateToolpaths` above) so a caller
+    /// that needs per-call tool/settings/operation -- e.g. a batch of holes where each
+    /// one has its own drill tool, machine settings, or peck depth -- can just call this
+    /// once per contour directly instead of going through a dedicated wrapper type.
+    public func buildToolpath(for contour: SC.Contour,
+                              tool: SC.ToolParams,
+                              settings: SC.MachineSettings,
+                              operation: SC.MachiningOperation) throws -> SC.OutputToolpath? {
         switch operation {
             case .engrave:
                 return try buildContourTracingToolpath(for: contour,
@@ -206,7 +198,7 @@ public final class SCEngine {
         let startPoint = first.startPoint
 
         // TODO: should the plunge be moved to buildEntryWaypoints?
-        
+
         // 1. Rapid move above start point at Safe Z
         waypoints.append(SC.Waypoint(position: SIMD3(startPoint.x, startPoint.y, settings.safeZ),
                                      motion: .rapid,

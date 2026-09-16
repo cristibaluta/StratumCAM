@@ -19,7 +19,6 @@ struct Drilling_Tests {
 
     @Test("A single .point entity is recognized as a drill point")
     func testPointEntityIsRecognizedAsDrillPoint() {
-        let engine = SCEngine()
         let contour = SC.Contour(entities: [
             .init(entity: .point(at: DXF.Point(5, 7), layer: "0", color: 7), reversed: false)
         ], isClosed: false)
@@ -32,7 +31,6 @@ struct Drilling_Tests {
 
     @Test("A single closed circle is recognized as a drill point at its center")
     func testClosedCircleIsRecognizedAsDrillPoint() {
-        let engine = SCEngine()
         let contour = SC.Contour(entities: [
             .init(entity: .circle(center: DXF.Point(3, 4), radius: 2.5, layer: "0", color: 7), reversed: false)
         ], isClosed: true)
@@ -45,7 +43,6 @@ struct Drilling_Tests {
 
     @Test("A circle marked as not closed is not treated as a drill point")
     func testOpenCircleIsNotRecognizedAsDrillPoint() {
-        let engine = SCEngine()
         let contour = SC.Contour(entities: [
             .init(entity: .circle(center: DXF.Point(3, 4), radius: 2.5, layer: "0", color: 7), reversed: false)
         ], isClosed: false)
@@ -55,7 +52,6 @@ struct Drilling_Tests {
 
     @Test("A line is not recognized as a drill point")
     func testLineIsNotRecognizedAsDrillPoint() {
-        let engine = SCEngine()
         let contour = SC.Contour(entities: [
             .init(entity: .line(a: DXF.Point(0, 0), b: DXF.Point(10, 0), layer: "0", color: 7), reversed: false)
         ], isClosed: false)
@@ -65,7 +61,6 @@ struct Drilling_Tests {
 
     @Test("A multi-entity contour is not recognized as a drill point")
     func testMultiEntityContourIsNotRecognizedAsDrillPoint() {
-        let engine = SCEngine()
         let contour = SC.Contour(entities: [
             .init(entity: .line(a: DXF.Point(0, 0), b: DXF.Point(10, 0), layer: "0", color: 7), reversed: false),
             .init(entity: .point(at: DXF.Point(5, 5), layer: "0", color: 7), reversed: false)
@@ -421,37 +416,25 @@ struct Drilling_Tests {
             )
         }
 
-        let operations = [
-            SC.DrillingOperation(
-                contour: pointContour(10, 10),
-                tool: plainTool,
-                settings: plainSettings,
-                peckDepth: nil
-            ),
-
-            SC.DrillingOperation(
-                contour: pointContour(20, 10),
-                tool: peckTool,
-                settings: peckSettings,
-                peckDepth: 4.0
-            ),
-
-            SC.DrillingOperation(
-                contour: pointContour(20, 20),
-                tool: plainTool,
-                settings: plainSettings,
-                peckDepth: nil
-            ),
-
-            SC.DrillingOperation(
-                contour: pointContour(10, 20),
-                tool: peckTool,
-                settings: peckSettings,
-                peckDepth: 4.0
-            )
+        // Each hole is just a (contour, tool, settings, peckDepth) combination --
+        // no dedicated wrapper type needed, even though tools/settings/peck depth
+        // differ hole to hole. A mixed batch is just repeated calls to the same
+        // per-contour `buildToolpath` every other strategy already uses.
+        let holes: [(contour: SC.Contour, tool: SC.ToolParams, settings: SC.MachineSettings, peckDepth: Double?)] = [
+            (pointContour(10, 10), plainTool, plainSettings, nil),
+            (pointContour(20, 10), peckTool, peckSettings, 4.0),
+            (pointContour(20, 20), plainTool, plainSettings, nil),
+            (pointContour(10, 20), peckTool, peckSettings, 4.0)
         ]
 
-        let toolpaths = try engine.generateToolpaths(from: operations)
+        let toolpaths = try holes.compactMap { hole in
+            try engine.buildToolpath(
+                for: hole.contour,
+                tool: hole.tool,
+                settings: hole.settings,
+                operation: .drilling(peckDepth: hole.peckDepth)
+            )
+        }
 
         #expect(
             toolpaths.count == 4,
