@@ -35,29 +35,6 @@ class DemoEngraving: Demo {
         return self.run(contour: contour, tool: tool, settings: settings, operation: .engrave)
     }
 
-    func demoLineMultiplePasses() -> Demo.DemoResult {
-        let tool = SC.ToolParams(diameter: 3.175)
-
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0,
-                                                                  plungeRate: 300.0,
-                                                                  stepdown: 0.1),
-                                          safeZ: 5.0,
-                                          targetDepth: 1)
-
-        let lineEntity = DXF.Entity.line(a: DXF.Point(0, 0),
-                                         b: DXF.Point(20, 0),
-                                         layer: "0",
-                                         color: 7)
-        let contour = SC.Contour(
-            entities: [
-                SC.Contour.Chained(entity: lineEntity, reversed: false)
-            ],
-            isClosed: false
-        )
-
-        return self.run(contour: contour, tool: tool, settings: settings, operation: .engrave)
-    }
-
     /// Engraves the character "S" as a single continuous pass, built from two
     /// chained arcs of equal radius curving in opposite directions (the same
     /// construction a stroke font uses for the letter's two humps).

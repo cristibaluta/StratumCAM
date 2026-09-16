@@ -30,9 +30,6 @@ struct ContentView: View {
                     demoButton("Engrave Line") {
                         show(DemoEngraving().demoLine())
                     }
-                    demoButton("Square Profile") {
-                        show(DemoEngraving().demoLineMultiplePasses())
-                    }
                     demoButton("Engrave Letter S") {
                         show(DemoEngraving().demoLetterS())
                     }
