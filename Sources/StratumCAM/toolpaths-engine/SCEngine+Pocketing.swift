@@ -10,38 +10,6 @@ import CoreGraphics
 
 extension SCEngine {
 
-    /// Builds the pocket toolpath for either `PocketType`. Both patterns share the same
-    /// closed-contour validation and Z-stepdown/waypoint wrapper -- they only differ in
-    /// how they produce `toolpathSegments`. `entry` (plunge/ramp/helix) is wired into the
-    /// first plunge point for both pattern types as of Step 1.2, reusing the same
-    /// `rampWaypoints`/`helixEntryWaypoints` machinery `.contour` uses -- see
-    /// `buildPocketWaypoints` below. As of Step 1.3, `toolpathSegments` (the ring stack or
-    /// raster rows) is computed exactly once outside the Z loop and reused for every pass
-    /// -- re-deriving rings/scanlines per depth would be wasted work and risks two passes
-    /// silently diverging in geometry.
-    ///
-    /// Throws (Step 6.7a, same pattern established in 6.2-6.6) at every top-level guard
-    /// in this function -- `SC.Error.contourNotClosed` when `contour` isn't closed,
-    /// `SC.Error.invalidContour` when it linearizes to zero segments, and
-    /// `SC.Error.geometryCollapsed` at every point downstream where this function's own
-    /// geometry step (ring generation, the raster's wall offset, scanline generation, or
-    /// the final `toolpathSegments` check) comes back empty for otherwise-valid input.
-    /// Deliberately *not* extended into the private geometry helpers themselves
-    /// (`pocketRings`, `chainedRingSegments`, `spiralSegments`, `rasterScanlines`) --
-    /// that's Step 6.7b, split out because those helpers mix genuine failures with
-    /// legitimate empty results (e.g. a raster row skipped for re-entering the boundary
-    /// isn't an error) in ways that need case-by-case judgment this step doesn't attempt.
-    /// Step 6.7b's judgment, once made, turned out to keep every one of those helpers
-    /// non-throwing rather than converting any of them: each helper's own empty/nil site
-    /// is now documented as one of two things -- unreachable through the normal call
-    /// chain because this function's own guards (above) already validate what the helper
-    /// needs before calling it, kept only to protect a direct caller (a test, most
-    /// commonly) from crashing rather than getting a plain empty result; or genuinely
-    /// reachable but legitimately empty (a fully-grazed/concave raster row, a degenerate
-    /// trochoidal ring), where the *loop* around that helper already skips past it and
-    /// only this function's own top-level `!rows.isEmpty`/`!toolpathSegments.isEmpty`
-    /// guards -- not the helper itself -- turn a total collapse into a thrown error. See
-    /// each helper's own doc comment for which case applies where.
     func buildPocketToolpath(for contour: SC.Contour,
                              tool: SC.ToolParams,
                              settings: SC.MachineSettings,
@@ -61,13 +29,7 @@ extension SCEngine {
 
         let toolpathSegments: [SC.Segment]
 
-        // The real, closed pocket-wall boundary -- distinct from `toolpathSegments`
-        // below. `.helix` entry needs a genuinely closed loop to compute which side
-        // of the tool's path is "inside" (see `isCCWWinding`'s shoelace calculation,
-        // which is only meaningful for a closed boundary); `toolpathSegments` itself
-        // is a closed loop for `.offsetPattern` (each ring is the wall, re-offset) but
-        // is an open, direction-alternating zig-zag for `.raster` (the chained scan
-        // rows), so it must not be reused for that purpose -- see `buildPocketWaypoints`.
+        // The real, closed pocket-wall boundary
         let boundarySegments: [SC.Segment]
 
         switch pattern {
@@ -84,16 +46,10 @@ extension SCEngine {
                     throw SC.Error.geometryCollapsed
                 }
 
-                // 3. Chain the rings into one continuous cut path with connecting
-                // transitions between them (Step 2.2b, done).
                 toolpathSegments = chainedRingSegments(rings)
 
             case .raster:
-                // Raster clips its scanlines against the same tool-radius wall offset
-                // the ring stack starts from (Step 2.1's boundary) -- reuse it rather
-                // than offsetting the contour twice. Direction here doesn't need
-                // `orientedForDirection`: it only decides which way the first scanline
-                // row travels, not the wall's own winding.
+
                 let wallOffset = offsetContour(baseSegments, side: .inside, toolRadius: tool.diameter / 2.0, isClosed: true)
                 guard !wallOffset.isEmpty else {
                     throw SC.Error.geometryCollapsed
@@ -106,23 +62,13 @@ extension SCEngine {
                     throw SC.Error.geometryCollapsed
                 }
 
-                // Same chaining helper the ring stack uses -- a raster row list is just
-                // another ordered stack of segment groups needing connecting transitions
-                // between them.
                 toolpathSegments = chainedRingSegments(rows)
 
             case .spiral(let spiralDirection):
-                // Same climb/conventional wall orientation as `.offsetPattern` -- a
-                // spiral pocket is still, at heart, the same concentric-ring shape.
+
                 let oriented = orientedForDirection(baseSegments, side: .inside, direction: direction)
                 boundarySegments = oriented
 
-                // The discrete ring stack is reused either way: as the interpolation
-                // control points for a true spiral (below), or, on the fallback path,
-                // exactly as `.offsetPattern` already chains them. Always generated
-                // outside-in regardless of `spiralDirection` -- Step 1B.1b's direction
-                // only decides which end of this same stack `spiralSegments` starts and
-                // finishes at, not how the stack itself is built.
                 let rings = pocketRings(from: oriented, tool: tool, stepoverPercentage: settings.cutting.stepoverPercentage)
                 guard !rings.isEmpty else {
                     throw SC.Error.geometryCollapsed
@@ -131,36 +77,11 @@ extension SCEngine {
                 if isSpiralEligible(oriented) {
                     toolpathSegments = spiralSegments(from: rings, direction: spiralDirection)
                 } else {
-                    // Per the `.spiral` case's own doc comment, this only has a
-                    // well-defined single center on a circular boundary -- anything
-                    // else (a rectangle, an arbitrary polygon, even an ellipse or
-                    // near-symmetrical shape this doesn't specifically detect) falls
-                    // back to the exact ring-and-chain path `.offsetPattern` uses,
-                    // rather than spiraling around a center that doesn't actually fit
-                    // the boundary. See `isSpiralEligible`. `spiralDirection` has no
-                    // say here either way -- per Step 1B.1b, direction only matters
-                    // once a boundary is already spiral-eligible.
                     toolpathSegments = chainedRingSegments(rings)
                 }
 
             case .trochoidal(let trochoidalSettings):
-                // Full interior clearing, wall-constrained exactly the way
-                // `.slotting`'s own wall-to-wall entry is: enter touching a
-                // ring's own wall, bounce inward to a virtual wall `stepover`
-                // deeper into the material, then straight back to that same
-                // wall and advance along it -- repeated ring by ring,
-                // stepping `stepover` further inward each time (the very
-                // same concentric stack `.offsetPattern` itself uses via
-                // `pocketRings`), so every band of the interior gets its own
-                // wall-anchored bounce pass rather than a single
-                // perimeter-following bounce (the old behavior, which never
-                // filled the interior at all) or an unconstrained chain of
-                // full circles straddling a raster row equally on both sides
-                // (not anchored to any real wall, so nothing stopped a
-                // bounce from reaching past the true wall on the outward
-                // side). See `ringTrochoidalSegments`'s own doc comment for
-                // why the bounce is one-sided (inward only) rather than
-                // symmetric.
+
                 let oriented = orientedForDirection(baseSegments, side: .inside, direction: direction)
                 boundarySegments = oriented
 
@@ -176,13 +97,6 @@ extension SCEngine {
                                                          tool: tool,
                                                          bandWidth: stepover,
                                                          radialEngagement: trochoidalSettings.radialEngagement)
-                    // Step 6.7b: a per-ring skip, not a per-pocket failure -- see
-                    // `ringTrochoidalSegments`' own note on its `totalLength > 1e-9`
-                    // guard for why one degenerate ring shouldn't abort every other
-                    // ring's perfectly good geometry. The overall `.trochoidal` case
-                    // still can't come back with nothing: if every ring skips this
-                    // way, `chained` stays empty and falls through to this function's
-                    // final `toolpathSegments.isEmpty` throw below.
                     guard !bounced.isEmpty else {
                         continue
                     }
@@ -199,8 +113,6 @@ extension SCEngine {
 
             case .adaptive:
                 fatalError("Not implemented yet")
-            case .morph:
-                fatalError("Not implemented yet")
         }
 
         guard !toolpathSegments.isEmpty else {
@@ -212,12 +124,12 @@ extension SCEngine {
         var passes: [SC.ToolpathPass] = []
         var previousZ = 0.0 // top of stock -- pass 0 ramps/helixes down from here, same convention `.contour` uses.
         for (i, z) in zDepths.enumerated() {
-            let waypoints = buildPocketWaypoints(for: toolpathSegments,
-                                                 boundary: boundarySegments,
-                                                 atZ: z,
-                                                 previousZ: previousZ,
-                                                 settings: settings,
-                                                 entry: entry)
+            let waypoints = buildEntryWaypoints(for: toolpathSegments,
+                                                boundary: boundarySegments,
+                                                atZ: z,
+                                                previousZ: previousZ,
+                                                settings: settings,
+                                                entry: entry)
             passes.append(SC.ToolpathPass(passIndex: i, depthZ: z, waypoints: waypoints))
             previousZ = z
         }
@@ -230,45 +142,19 @@ extension SCEngine {
 
     // MARK: - Pocket entry
 
-    /// Wraps `segments` (an already-chained ring stack or raster row list) with an entry
-    /// move honoring `entry`, then traces the geometry and retracts -- same three-phase
-    /// shape as `.contour`'s `buildProfileWaypoints`, just without the lead-in/lead-out/tab
-    /// machinery pocketing doesn't have.
-    ///
-    /// `.plunge` is exactly the existing straight-down wrapper (`buildWaypoints`) --
-    /// nothing to change there; like `.contour`'s plunge entry, it always retracts to
-    /// safeZ and re-plunges fresh on every pass rather than reading `previousZ`. `.ramp`
-    /// and `.helix` are a thin reuse of `SCEngine+Contour.swift`'s
-    /// `rampWaypoints`/`helixEntryWaypoints`: as of Step 1.3, each pass ramps/helixes only
-    /// from `previousZ` (the depth the previous pass already reached) down to `z`, not
-    /// from top-of-stock every time -- the same "only cover this pass's fresh stepdown"
-    /// convention `.contour`'s ramp/helix entry already uses. The first pass's
-    /// `previousZ` is `0` (top of stock), matching `.contour`'s own first-pass behavior.
-    ///
-    /// `side` is hardcoded to `.inside` for the helix's signed-offset calculation --
-    /// pocketing has no separate inside/outside concept the way `.contour` does (the
-    /// wall offset is already baked into `toolpathSegments`), and `.inside` matches the
-    /// convention `orientedForDirection`/`pocketRings` already use elsewhere in this file.
-    ///
-    /// `boundary` is the real, closed pocket-wall loop and is deliberately separate from
-    /// `segments` (the cutting geometry): the helix's signed-offset calculation needs a
-    /// genuinely closed loop to determine which side of the tool's path is "inside" the
-    /// wall (see `isCCWWinding`). For `.offsetPattern`, `segments` (the chained ring
-    /// stack) happens to also be closed, but for `.raster`, `segments` is an open,
-    /// direction-alternating zig-zag of scan rows -- treating that as a closed loop
-    /// produces an arbitrary offset sign and can send the helix spiraling outside the
-    /// pocket's own bounding box. `boundary` is always the one true closed wall,
-    /// regardless of pattern, so the helix stays consistently on the safe side of it.
-    private func buildPocketWaypoints(for segments: [SC.Segment],
-                                      boundary: [SC.Segment],
-                                      atZ z: Double,
-                                      previousZ: Double,
-                                      settings: SC.MachineSettings,
-                                      entry: SC.EntryStrategy) -> [SC.Waypoint] {
+    private func buildEntryWaypoints(for segments: [SC.Segment],
+                                     boundary: [SC.Segment],
+                                     atZ z: Double,
+                                     previousZ: Double,
+                                     settings: SC.MachineSettings,
+                                     entry: SC.EntryStrategy) -> [SC.Waypoint] {
 
         guard let firstSegment = segments.first else {
             return []
         }
+
+        // TODO: this is a mess, the entrypoint should be extracted to separate method and buildWaypoints should be reused
+        // Perhaps add also an exitwaypoints?
 
         guard entry != .plunge else {
             return buildWaypoints(for: segments, atZ: z, settings: settings)
@@ -362,20 +248,8 @@ extension SCEngine {
     // MARK: - Step 2.2a: ring geometry
 
     /// Generates the concentric ring stack for `.offsetPattern` pocketing, geometry
-    /// only -- no waypoints yet (that's `chainedRingSegments` + `buildWaypoints`).
-    ///
-    /// The first ring is the same tool-radius wall offset as Step 2.1. Every ring
-    /// after that steps a further `stepoverPercentage * tool.diameter` inward --
-    /// the standard center-to-center spacing between adjacent passes for a given
-    /// stepover percentage -- by re-offsetting the previous ring rather than the
-    /// original boundary.
     ///
     /// Rings are returned **outside-in** (boundary ring first, smallest ring last).
-    /// That ordering is a deliberate choice, not incidental: `chainedRingSegments`
-    /// cuts them in this same order, so the tool always steps from a ring it just
-    /// finished into the fresh stepover band immediately inside it, rather than
-    /// jumping between non-adjacent rings. The innermost ring -- the one nearest
-    /// anything an eventual island might occupy -- is always cut last.
     ///
     /// Stepping stops as soon as a ring would collapse. Two collapse signals are
     /// checked, because the existing `offsetContour` only catches one of them:
@@ -394,20 +268,7 @@ extension SCEngine {
     ///   rather than the tool itself, since the same physical tool can be run at different
     ///   stepovers depending on material and job.
     func pocketRings(from orientedBoundary: [SC.Segment], tool: SC.ToolParams, stepoverPercentage: Double) -> [[SC.Segment]] {
-        // Not converted to `throws` in Step 6.7b: by the time anything in this file calls
-        // `pocketRings`, `buildPocketToolpath` has already validated `contour.isClosed`
-        // and a non-empty `baseSegments`, and every one of its three callers (`.offset`,
-        // `.spiral`, `.trochoidal`) immediately throws `SC.Error.geometryCollapsed` (Step
-        // 6.7a) the moment this comes back empty -- so an empty `firstRing` here (the
-        // tool doesn't fit anywhere inside the boundary at all, the same "tool too big"
-        // condition `SC.Error.toolIncompatible` names elsewhere) is already translated
-        // into a thrown error at every real call site. Kept as a guarded `return []`
-        // rather than a force-unwrap or a `throws` signature of its own -- matching
-        // `counterboreRings`' own reasoning -- purely so a direct caller of this
-        // internal-but-non-private function (`Pocket_Tests.swift`'s own
-        // `testPocketRingsStepInwardAndStopAtCollapse` exercises it this way) gets an
-        // empty, unsurprising result instead of being forced to handle an error that,
-        // through the normal toolpath-building call chain, never actually reaches it.
+
         let firstRing = offsetContour(orientedBoundary,
                                       side: .inside,
                                       toolRadius: tool.diameter / 2.0,
@@ -471,20 +332,6 @@ extension SCEngine {
         var chained: [SC.Segment] = []
 
         for ring in rings {
-            // Not converted to `throws`/error-collecting in Step 6.7b: this is "empty is
-            // a valid result," not "empty means something broke," the same distinction
-            // `tracedWaypoints`' tab-dropping `compactMap` draws in Step 6.4. Neither of
-            // this function's two callers (`pocketRings`' own ring stack, `rasterScanlines`'
-            // own row list) ever actually produces an empty group in practice -- every ring
-            // `pocketRings` appends is the direct output of a non-empty `offsetContour` call
-            // (that's `pocketRings`' own guard, above), and every row `rasterScanlines`
-            // appends is a single always-non-empty `.line` segment -- but a stack of segment
-            // groups skipping past any empty ones it's handed, rather than assuming every
-            // caller upholds that invariant forever, is the same defensive posture
-            // `buildPocketWaypoints`' own `guard let firstSegment = segments.first` takes
-            // just below. Skipping cleanly here is strictly better than either crashing on
-            // `ring[0]` or threading a whole extra error case through a pure chaining
-            // helper for a group that contributes nothing to the chain either way.
             guard !ring.isEmpty else {
                 continue
             }
@@ -506,17 +353,7 @@ extension SCEngine {
 
     /// Whether `boundary` has the single well-defined center a continuous spiral needs
     /// to interpolate around -- true only when every segment is an arc sharing the same
-    /// center and radius, i.e. a full circle. That's the shape a DXF `.circle` entity
-    /// linearizes into (two 180° arcs of matching center/radius -- see `SCEngine.swift`'s
-    /// `.circle` case), so a plain circular pocket boundary is always detected here.
-    ///
-    /// The `.spiral` case's own doc comment also allows "elliptical, or near-symmetrical"
-    /// boundaries, but this doesn't attempt to detect those: an ellipse has no single
-    /// radius to check against, and "near-symmetrical" has no crisp definition at all.
-    /// Rather than guess and risk spiraling around a center that doesn't actually fit the
-    /// boundary, anything that isn't a plain circle -- including ellipses, rounded
-    /// rectangles, and arbitrary polygons -- takes the `.offsetPattern` ring-and-chain
-    /// fallback in `buildPocketToolpath` above instead.
+    /// center and radius, i.e. a full circle.
     private func isSpiralEligible(_ boundary: [SC.Segment]) -> Bool {
         guard case .arc(let center, let radius, _, _, _) = boundary.first else {
             return false

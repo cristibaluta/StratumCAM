@@ -13,7 +13,6 @@ extension SC {
         case offset
         case raster
         case spiral(direction: SpiralDirection)
-        case morph
         case trochoidal(settings: TrochoidalSettings)
         case adaptive(settings: AdaptiveSettings)
 
@@ -27,9 +26,6 @@ extension SC {
 
                 case .spiral(let direction):
                     return .spiral(direction: direction)
-
-                case .morph:
-                    return .morph
 
                 case .adaptive(let settings):
                     return .adaptive(settings: settings)
@@ -200,14 +196,6 @@ extension SC {
         /// Dynamic roughing strategy that adapts the cutter trajectory to the
         /// remaining material in order to maintain controlled cutter engagement.
         ///
-        /// ```text
-        /// ┌────────────────────────────┐
-        /// │   ╭──╮    ╭──╮             │
-        /// │ ╭─╯  ╰────╯  ╰─╮           │
-        /// │ ╰╮             ╭╯  ───►     │
-        /// │   ╰─────────────╯           │
-        /// └────────────────────────────┘
-        /// ```
         ///
         /// Unlike a fixed offset or raster pattern, the trajectory can change
         /// locally as the available material changes. Around corners, islands,
@@ -217,12 +205,6 @@ extension SC {
         /// - Real-World Impact: Keeps cutter engagement relatively controlled,
         ///   reducing cutting-force spikes and allowing efficient high-feed
         ///   roughing with relatively low radial engagement.
-        ///
-        /// - Pros: Handles complex pocket geometry well and adapts the trajectory
-        ///   to changing material conditions.
-        ///
-        /// - Cons: More computationally complex than fixed offset or raster
-        ///   clearing and may generate more complex toolpaths.
         ///
         /// - Standard Use: High-efficiency roughing of pockets, cavities,
         ///   irregular boundaries, and regions with changing material engagement.
@@ -258,14 +240,6 @@ extension SC {
         ///   - direction: Determines whether the spiral progresses from the
         ///     outside toward the inside or from the inside toward the outside.
         case spiral(direction: SpiralDirection)
-
-        /// Smoothly interpolates paths between two differing inner and outer
-        /// boundaries.
-        ///
-        /// - Standard Use: Irregular pockets, mold cavities, pockets around
-        ///   islands, and regions where inner and outer boundaries differ
-        ///   significantly.
-        case morph
 
         /// Forward-progressing looping or oscillating motion designed to keep
         /// radial cutter engagement relatively small.
