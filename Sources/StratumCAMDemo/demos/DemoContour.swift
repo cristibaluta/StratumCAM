@@ -28,6 +28,18 @@ class DemoContour: Demo {
         )
     }
 
+    private func ccwRectangleContour(width: Double, height: Double) -> SC.Contour {
+        SC.Contour(
+            entities: [
+                SC.Contour.Chained(entity: .line(a: DXF.Point(0, 0), b: DXF.Point(width, 0), layer: "0", color: 7), reversed: false),
+                SC.Contour.Chained(entity: .line(a: DXF.Point(width, 0), b: DXF.Point(width, height), layer: "0", color: 7), reversed: false),
+                SC.Contour.Chained(entity: .line(a: DXF.Point(width, height), b: DXF.Point(0, height), layer: "0", color: 7), reversed: false),
+                SC.Contour.Chained(entity: .line(a: DXF.Point(0, height), b: DXF.Point(0, 0), layer: "0", color: 7), reversed: false)
+            ],
+            isClosed: true
+        )
+    }
+
     /// A 20mm-long line split into 4 equal segments, so a tab centered mid-path
     /// lands exactly on a vertex instead of the middle of a single segment.
     private func fourSegmentLineContour() -> SC.Contour {
@@ -55,7 +67,7 @@ class DemoContour: Demo {
         let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 0.1)
         let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -1.0)
 
-        let operation: SC.MachiningOperation = .profile(side: .outside,
+        let operation: SC.MachiningOperation = .contour(side: .outside,
                                                         direction: .climb,
                                                         entry: .plunge,
                                                         leadIn: nil,
@@ -73,7 +85,7 @@ class DemoContour: Demo {
         let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 0.1)
         let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -1.0)
 
-        let operation: SC.MachiningOperation = .profile(side: .inside,
+        let operation: SC.MachiningOperation = .contour(side: .inside,
                                                         direction: .climb,
                                                         entry: .plunge,
                                                         leadIn: nil,
@@ -94,7 +106,7 @@ class DemoContour: Demo {
         let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 0.1)
         let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -1.0)
 
-        let operation: SC.MachiningOperation = .profile(side: .outside,
+        let operation: SC.MachiningOperation = .contour(side: .outside,
                                                         direction: .climb,
                                                         entry: .ramp(angleDegrees: 3),
                                                         leadIn: nil,
@@ -113,7 +125,7 @@ class DemoContour: Demo {
         let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 0.1)
         let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -1.0)
 
-        let operation: SC.MachiningOperation = .profile(side: .outside,
+        let operation: SC.MachiningOperation = .contour(side: .outside,
                                                         direction: .climb,
                                                         entry: .helix(radius: 2, rampAngleDegrees: 3),
                                                         leadIn: nil,
@@ -136,7 +148,7 @@ class DemoContour: Demo {
         let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -3.0)
         let tab = SC.HoldingTab(positionRatio: 0.5, width: 2.0, height: 1.5)
 
-        let operation: SC.MachiningOperation = .profile(side: .onContour,
+        let operation: SC.MachiningOperation = .contour(side: .onContour,
                                                         direction: .climb,
                                                         entry: .plunge,
                                                         leadIn: nil,
@@ -144,5 +156,33 @@ class DemoContour: Demo {
                                                         tabs: [tab])
 
         return self.run(contour: fourSegmentLineContour(), tool: tool, settings: settings, operation: operation)
+    }
+
+    func demoHoldingTabRectangle() -> Demo.DemoResult {
+        let width = 40.0
+        let height = 20.0
+        let perimeter = 2 * (width + height)
+
+        let bottomMidDistance = width / 2
+        let rightMidDistance = width + height / 2
+        let topMidDistance = width + height + width / 2
+        let leftMidDistance = width + height + width + height / 2
+
+        let tabs = [bottomMidDistance, rightMidDistance, topMidDistance, leftMidDistance].map {
+            SC.HoldingTab(positionRatio: $0 / perimeter, width: 3.0, height: 1.5)
+        }
+
+        let tool = SC.ToolParams(diameter: 3.175)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 0.1)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -3.0)
+
+        let operation: SC.MachiningOperation = .contour(side: .onContour,
+                                                        direction: .climb,
+                                                        entry: .plunge,
+                                                        leadIn: nil,
+                                                        leadOut: nil,
+                                                        tabs: tabs)
+
+        return self.run(contour: ccwRectangleContour(width: width, height: height), tool: tool, settings: settings, operation: operation)
     }
 }

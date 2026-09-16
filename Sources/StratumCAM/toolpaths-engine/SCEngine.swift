@@ -110,7 +110,7 @@ public final class SCEngine {
                                                        side: .onContour,
                                                        operation: operation)
 
-            case .profile(let side, let direction, let entry, let leadIn, let leadOut, let tabs):
+            case .contour(let side, let direction, let entry, let leadIn, let leadOut, let tabs):
                 return try buildContourToolpath(for: contour,
                                                 tool: tool,
                                                 settings: settings,

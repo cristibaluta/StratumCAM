@@ -1,112 +1,119 @@
 # StratumCAM — Implementation Roadmap
 
-Last updated after: spiral pocket clearing (`.spiral`, Step 1B.1)
-concave-row bug fix (`SCEngine+Pocketing.swift`, `Raster_Tests.swift`) + raster
-helix-entry bounding fixes (`SCEngine+Contour.swift`, `SCEngine+Pocketing.swift`,
-`PocketEntry_Tests.swift`) + Track 1C added (raster multi-span rows +
-selectable axis, not yet started) + trochoidal pocket clearing (`.trochoidal`,
-Step 1B.2, `SC+ClearingPattern.swift`/`SCEngine+Pocketing.swift`/
-`Trochoidal_Tests.swift`/`DemoPocketing.swift`) + `SC+ClearingPattern.swift`
-and `SC+MachiningOperation.swift` picked up a `PocketClearingPattern` /
-`SlottingPattern` / `ClearingPattern` split (see Track 1B intro and Track 2B
-below) + facing footprint/scanline geometry (`facingArea`/`facingScanlines`,
-Step 2A.1, `SCEngine+Facing.swift`/`Facing_Tests.swift`, not yet wired into
-`buildToolpath`)
+- 1.0 Add posibility to ramp before the z0, to allow for the movement to settle in and spindle achieve correct speed. in fusion360 the default value is 2.5mm
 
-## How to use this doc with Claude
+## Track 1B.3 — Adaptive (constant-engagement) clearing
 
-Each step below is sized to be **one self-contained Claude session**: one new file
-(or one focused edit to an existing one) + its test, compiling and green before
-moving on. Don't ask for a whole "Track" in one message — ask for one step, review,
-commit, then move to the next. That's what keeps sessions from blowing up mid-feature.
+This is the direct sequel to Track 1B (`.spiral`, `.trochoidal`): the last
+unimplemented case in `SC.PocketClearingPattern`/`SC.ClearingPattern` and
+`SC.SlotClearingPattern`. Today `buildPocketToolpath`'s `.adaptive` branch is
+a stub (`SCEngine+Pocketing.swift:114-115`, `fatalError("Not implemented
+yet")`), and `SC.AdaptiveSettings` only carries `optimalLoad` — `AdaptiveType`
+(`.clearing2D` / `.adaptiveContour`) exists as a documented enum but isn't
+wired to anything yet.
 
-Suggested prompt shape per step:
-> "Implement Step X.Y from the roadmap. Follow the existing code style in SCEngine+Contour.swift. Add a test file in the style of Engraving_Tests.swift and add also a demo following the DemoContour style."
+**Read this before starting Step 1:** FreeCAD's `Adaptive.cpp` leans on
+ClipperLib for almost everything — polygon offsetting, boolean ops, and
+nesting/topology (island detection) all come from it. StratumCAM has no
+equivalent: `OffsetTools`/`SCEngine+Offset.swift` only offset-and-trim a
+*single* closed segment chain (used by `pocketRings`), there's no general
+polygon union/intersection, and `SC.Contour` has no concept of islands. That
+gap is real and shouldn't be quietly designed around — Step 1B.3.6 below
+calls it out as a hard dependency for anything beyond a single-boundary
+pocket, rather than something to fake inside the adaptive code itself.
 
----
+The scope for 1B.3.1–1B.3.5 is deliberately the same as `.offset`/`.spiral`/
+`.trochoidal` already support today: one closed outer boundary, no islands.
+That's not a simplification unique to adaptive — it's the existing ceiling
+of the whole pocketing pipeline, so adaptive reaching it first is consistent
+with what's already shipped.
 
-## Track 4 — Cross-cutting, do opportunistically alongside the tracks above
+- **1B.3.1 — Engagement-angle primitive**
+  Add `EngineTools.engagementAngle(toolCenter:toolRadius:cutBoundary:)`. This
+  is the one geometric fact the whole algorithm is built on — the direct
+  analog of what `Line2CircleIntersect`/`Circle2CircleIntersect` feed into in
+  `Adaptive.cpp`: given a candidate tool-center position and the boundary of
+  material already cut, how much of the tool's circumference (in radians) is
+  currently touching uncut stock. Build it on top of `GeoTools.circleLineIntersections`
+  and `GeoTools.circleCircleIntersections`, which already exist and already
+  do the same intersection math libarea's versions do. Test in isolation
+  first, no engine wiring yet: tool fully in air → 0, tool fully buried → 2π,
+  tool half over a straight wall → π. Cheap to get wrong and everything else
+  in this track depends on it being right.
 
-Not urgent, don't block feature work on these, but pick them up when convenient:
+- **1B.3.2 — Pocket centroid helper**
+  Add a `centroid` computed property to `[SC.Segment]` (same file as the
+  existing `boundingBox`/`pathLength` extensions in `SC+Segment.swift`),
+  mirroring `Compute2DPolygonCentroid` from `Adaptive.cpp` — sample arcs the
+  same way `OffsetTools.isCCWWinding` already does for its own area
+  calculation, then run the standard signed-area centroid formula. This is
+  the adaptive pass's start point, same role it plays in libarea.
 
-- **4.1 — G-code: per-tool spindle speed / tool change (`M6 T#`, `M3 S#` per tool)**
-  Becomes necessary once a job mixes drilling + profile + chamfer + the new
-  operations from Track 2. `SCGCodeEngine` currently only overrides spindle speed
-  for the drilling case (Step 1.5's scope) — needs to generalize that to read
-  `toolpath.tool` / `toolpath.settings` per toolpath for every operation type.
+- **1B.3.3 — Adaptive step generator, single boundary, no islands**
+  New file `SCEngine+Adaptive.swift`. Implement
+  `adaptiveClearingSegments(boundary:tool:optimalLoad:)`: start at 1B.3.2's
+  centroid, and grow an outward-spiraling/looping path where each forward
+  step is sized using 1B.3.1's `engagementAngle` so engagement never exceeds
+  `optimalLoad` — the loop tightens near corners and widens across open
+  space, instead of `ringTrochoidalSegments`' fixed-amplitude bounce. Reuse
+  that function's `local(u, v)` origin/tangent/normal coordinate trick for
+  building loop geometry, since the shape-in-local-frame approach is already
+  proven there. Keep this un-thrown (return `[]` on collapse) matching the
+  convention `ringTrochoidalSegments` documents for itself — the `throws`
+  boundary stays at `buildPocketToolpath`.
 
-- **4.2 — Stock model integration**
-  `SC.Stock` exists and Track 2A (facing) will be its first real consumer, but
-  nothing else checks against it yet. At minimum: warn/clip when a toolpath goes
-  outside stock bounds. Real stock-aware simulation (remaining material tracking)
-  is a much bigger effort than clipping and can stay a stretch goal.
+- **1B.3.4 — Wire `.adaptive` into `buildPocketToolpath`**
+  Replace the `fatalError` at `SCEngine+Pocketing.swift:114-115` with a call
+  into 1B.3.3, passing `settings.optimalLoad`. Add `Adaptive_Tests.swift`
+  (structure it like `Trochoidal_Tests.swift`): non-empty output for a plain
+  rectangle; sampled engagement along the path stays at or below
+  `optimalLoad` plus tolerance; no waypoint lands outside the tool-radius
+  offset boundary. Add an adaptive case to `DemoPocketing.swift` alongside
+  the existing spiral/trochoidal demos.
 
----
+- **1B.3.5 — Concave corner handling**
+  Extend 1B.3.3 so the loop pattern tightens correctly where two
+  already-cut walls meet at a concave corner — the part of `Adaptive.cpp`
+  that leans hardest on repeated engagement checks against the real cut
+  boundary. Validate against the existing notched "staple" fixture already
+  shared by `Raster_Tests.swift` and `DemoPocketing.swift`, so this doesn't
+  need a new test shape.
 
-## Track 5 — StratumCAMDemo: toolpath progress scrubber
+- **1B.3.6 — Flag island support as blocked, not skipped**
+  Don't implement islands here. Write up (as a comment block in
+  `SCEngine+Adaptive.swift` plus a new top-level Track in `ROADMAP.md`,
+  something like "Track 7 — polygon offset/boolean engine") what real
+  island-aware adaptive clearing needs: multi-contour boundaries, polygon
+  boolean subtraction (material minus islands minus already-cut area), and
+  nesting-level classification the way `getPathNestingLevel`/
+  `appendDirectChildPaths` do in `Adaptive.cpp`. This is a prerequisite for
+  more than adaptive — `.offset`/`.raster` would also benefit — so it
+  shouldn't be built as an adaptive-only side path.
 
-Demo-app-only track — nothing here touches `StratumCAM`'s toolpath generation.
-Goal: a slider in the demo UI that scrubs through the currently-shown toolpath's
-`SIMD3<Float>` points, draws a small marker circle at the current position, and
-draws the toolpath only from its start up to that position (not the whole path)
-so it reads as "how far the cut has gotten," not just a static preview. Each
-step below should compile and look right in the running app before moving to
-the next; verify by temporarily hardcoding a scrub value/index if the previous
-step's plumbing isn't wired to UI yet.
+- **1B.3.7 — `AdaptiveType.adaptiveContour` (profile-peel mode)**
+  `AdaptiveType` already documents `.clearing2D` vs `.adaptiveContour`, but
+  `AdaptiveSettings` doesn't carry which one is active. Add a `type:
+  AdaptiveType` field, default `.clearing2D`, and implement the
+  `.adaptiveContour` path in `SCEngine+Profiling.swift`: instead of
+  spiraling from a centroid, walk 1B.3.1's engagement check along a single
+  offset wall (peeling inward), the way `Adaptive.cpp`'s outside-profile
+  mode does. Reuses the same engagement primitive and loop-shape code as
+  1B.3.3 — this step is mostly about the walking/boundary logic, not new
+  geometry math.
 
-- DONE **5.1 — Expose the raw toolpath points from `Demo.DemoResult`**
-  `Demo.run(contours:...)` already builds `toolpathPoints: [SIMD3<Float>]`
-  internally (`Demo.swift`, ~line 49) before turning it into a prebuilt
-  `RenderBatch` and discarding the array. Add a `toolpathPoints: [SIMD3<Float>]`
-  field to `DemoResult` and return it alongside `batches`/`gcode`. For now,
-  flatten every Z pass's points into one continuous array in generation order
-  (same order the existing full-toolpath batch already draws) — per-pass
-  awareness is deferred to 5.6. Pure data plumbing, no UI or rendering change
-  yet.
+- **1B.3.8 — Wall finishing pass**
+  `Adaptive.cpp` always finishes with a clean wall pass (`finishingProfile`).
+  Match that: after adaptive clearing, run one more `offsetContour` pass at
+  the wall (same call `pocketRings`' first ring already makes) so `.adaptive`
+  leaves as clean a boundary as `.offset`/`.spiral` do today. Simplest
+  version: always run it, no new setting — add one only if a real case shows
+  up wanting it skipped.
 
-- DONE **5.2 — Prefix-slice helper: partial toolpath batch from an index**
-  Add a small, testable helper (free function or a method that doesn't need
-  `self`/Metal state beyond a device) that takes `toolpathPoints` and an
-  integer index and returns just the point prefix up to that index. Reuse
-  `buildVertices(points:color:zOffset:)`'s existing logic (make it accessible
-  from this new helper, or duplicate the few lines if that's cleaner) to turn
-  the prefix into a `RenderBatch` the same way the full toolpath is built
-  today. Verify by hardcoding an index partway through a demo's points and
-  confirming the yellow toolpath visibly stops short instead of drawing the
-  whole thing.
-
-- DONE **5.3 — Marker circle geometry at a point**
-  Add a pure-geometry helper that generates a small flat circle's worth of
-  `RenderVertex`s (e.g. 24-32 point loop, `.lineStrip`, closed) centered on a
-  given `SIMD3<Float>`, in its own distinct color (something that reads clearly
-  against the existing blue contour / yellow toolpath — e.g. bright red or
-  white) so it's obviously "you are here" rather than part of the path. Wire it
-  as one more `RenderBatch` appended alongside the sliced toolpath batch from
-  5.2. Verify the same way as 5.2: hardcode a test index/point first.
-
-- DONE **5.4 — Slider UI in `ContentView`, wired to 5.1-5.3**
-  Add `@State private var toolpathPoints: [SIMD3<Float>] = []` and
-  `@State private var scrubIndex: Double = 0` to `ContentView`. Add a
-  `Slider` bound to `scrubIndex`, ranged `0...Double(max(0, toolpathPoints.count - 1))`,
-  placed somewhere sensible (a bottom overlay on the 3D canvas next to the
-  existing "Controls: Drag to Orbit..." hint is the natural spot). On change,
-  rebuild `renderBatches` as `[contour batch, sliced toolpath batch (5.2),
-  marker batch (5.3)]` and reassign. In `show(_:)`, store the new demo's
-  `toolpathPoints` and reset `scrubIndex` to the last index, so switching demos
-  always starts fully drawn rather than at a stale scrub position from whatever
-  was previously selected.
-
-- DONE **5.5 — Smooth marker interpolation between points**
-  The marker currently jumps point-to-point, which is fine at the tessellation
-  density most curved demos already produce, but looks chunky on coarse paths
-  (e.g. a rectangle's 4 corners, or `demoPocketRectangle`'s straight ring
-  edges). Let `scrubIndex` stay a `Double`, and linearly interpolate the
-  marker's position (not the drawn toolpath prefix — that stays index-based)
-  between `floor(scrubIndex)` and `ceil(scrubIndex)` for smoother scrubbing
-  without changing the underlying point density.
-
-- **5.6 — Split z layers**
-  Make a panel with a list of all layers and their z value. by default an option to see all layers will be selected. then i can select individual layers and preview them. the slider will scrub only the selected layer, i want to have finer control of the movement for long operations this way. the panel will open from the scrub bar in a tooltip
-
-- **5.7 — different colors for different commands**
-  I want to see fast moving segments with a more reddish color.
+- **1B.3.9 — Feed-rate scaling from engagement (opportunistic, Track 4 style)**
+  `SC.Waypoint` already carries a per-waypoint `feedRate` — no model change
+  needed. Once 1B.3.1's engagement value is available per step, thread it
+  through so waypoints with lower measured engagement get a higher feed and
+  vice versa, the way `Adaptive.cpp`'s motion-type tags (`mtCutting` vs the
+  `mtLink*` variants) exist specifically so a downstream layer can vary feed.
+  Don't block 1B.3.4 on this — land it as a follow-up once the base path
+  works, same spirit as Track 4's "pick this up opportunistically."

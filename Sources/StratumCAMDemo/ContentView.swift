@@ -40,7 +40,7 @@ struct ContentView: View {
                         show(DemoEngraving().demoWordSTRATUM())
                     }
                 }
-                Section("Profiling") {
+                Section("Contour") {
                     demoButton("Outside Square") {
                         show(DemoContour().demoOutsideSquare())
                     }
@@ -55,6 +55,9 @@ struct ContentView: View {
                     }
                     demoButton("Holding Tab") {
                         show(DemoContour().demoHoldingTab())
+                    }
+                    demoButton("Holding Tabs - Rectangle") {
+                        show(DemoContour().demoHoldingTabRectangle())
                     }
                 }
                 Section("Drilling") {

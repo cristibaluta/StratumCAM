@@ -10,16 +10,7 @@ import SwiftDXF
 
 extension SCEngine {
 
-    /// Shared pipeline behind `.engrave` and (for now) `.contour`: linearize the contour,
-    /// optionally apply tool-radius compensation, step down through Z, and trace the
-    /// resulting segments once per pass. The `strategy` passed in is the one actually
-    /// requested by the caller, so the output is tagged accurately instead of hardcoded.
-    ///
-    /// Throws `SC.Error.invalidContour` (Step 6.4, same pattern established in 6.2/6.3)
-    /// rather than returning `nil` when the contour linearizes to zero segments. This
-    /// function backs both `.engrave` and `.profile` in `buildToolpath`'s dispatch switch,
-    /// so both operations start throwing on empty geometry as of this step, not just
-    /// `.profile` -- they share this one pipeline rather than each having their own copy.
+    /// Throws `SC.Error.invalidContour
     func buildContourTracingToolpath(for contour: SC.Contour,
                                      tool: SC.ToolParams,
                                      settings: SC.MachineSettings,
@@ -51,17 +42,7 @@ extension SCEngine {
         return SC.OutputToolpath(operation: operation, tool: tool, settings: settings, passes: passes)
     }
 
-    /// Builds a toolpath for `.contour`, honoring `direction`, `entry`, `leadIn`/`leadOut`,
-    /// and `tabs` -- unlike `.engrave`, which just traces the geometry at cutter-center with
-    /// a plain vertical plunge.
-    ///
-    /// Throws (Step 6.4, same pattern established in 6.2/6.3) at its two failure sites:
-    /// `SC.Error.invalidContour` when the contour linearizes to zero segments -- the input
-    /// itself has nothing to build from -- and `SC.Error.geometryCollapsed` when offsetting
-    /// an otherwise-valid contour leaves nothing behind (e.g. a tool radius wide enough to
-    /// consume the whole shape). Distinct cases because the second one only shows up after
-    /// `baseSegments` already passed validation; the algorithm, not the input, is what
-    /// produced nothing.
+    /// Builds a toolpath for `.contour`, honoring `direction`, `entry`, `leadIn`/`leadOut` and `tabs`
     func buildContourToolpath(for contour: SC.Contour,
                               tool: SC.ToolParams,
                               settings: SC.MachineSettings,
@@ -93,7 +74,7 @@ extension SCEngine {
         var passes: [SC.ToolpathPass] = []
         var previousZ = 0.0 // top of stock -- pass 0 ramps/helixes down from here, not from safeZ.
         for (i, z) in zDepths.enumerated() {
-            let waypoints = buildProfileWaypoints(
+            let waypoints = buildContourWaypoints(
                 for: toolpathSegments,
                 firstSegment: firstSegment,
                 atZ: z,
@@ -138,7 +119,7 @@ extension SCEngine {
 
     // MARK: - Waypoint assembly
 
-    private func buildProfileWaypoints(for segments: [SC.Segment],
+    private func buildContourWaypoints(for segments: [SC.Segment],
                                        firstSegment: SC.Segment,
                                        atZ z: Double,
                                        previousZ: Double,

@@ -9,7 +9,7 @@ import Foundation
 
 extension SC {
 
-    // TODO: what is this?
+    /// How the tool eases onto and off of a profile cut, instead of engaging or disengaging the wall directly.
     public struct LeadInOut: Sendable, Equatable {
         
         public enum Style: Sendable, Equatable {

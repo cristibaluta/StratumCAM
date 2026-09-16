@@ -94,7 +94,7 @@ extension SC {
         ///     before retracting.
         ///   - tabs: Holding tabs left in the profile to prevent the finished
         ///     part from moving or separating from the stock during machining.
-        case profile(side: CutSide,
+        case contour(side: CutSide,
                      direction: CutDirection,
                      entry: EntryStrategy,
                      leadIn: LeadInOut?,
