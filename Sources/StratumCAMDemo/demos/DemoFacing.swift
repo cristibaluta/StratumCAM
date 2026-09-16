@@ -7,26 +7,36 @@
 
 import Foundation
 import StratumCAM
+import SwiftDXF
 
 class DemoFacing: Demo {
 
-    private func rectangleStock(width: Double, height: Double, thickness: Double = 6.0) -> SC.Stock {
-        SC.Stock(width: width, height: height, thickness: thickness, origin: .zero)
+    /// A closed rectangle contour standing in for the finished part's own shape.
+    /// `.facing` sweeps this shape's bounding box (grown by `extensionLength`),
+    /// not a separately tracked stock block -- so these demos pass the same kind
+    /// of contour any other operation would, and only the area the part actually
+    /// occupies gets faced, not whatever extra stock surrounds it.
+    private func rectangleContour(width: Double, height: Double, originX: Double = 0, originY: Double = 0) -> SC.Contour {
+        SC.Contour(entities: [
+            .init(entity: .line(a: DXF.Point(originX, originY), b: DXF.Point(originX + width, originY), layer: "0", color: 7), reversed: false),
+            .init(entity: .line(a: DXF.Point(originX + width, originY), b: DXF.Point(originX + width, originY + height), layer: "0", color: 7), reversed: false),
+            .init(entity: .line(a: DXF.Point(originX + width, originY + height), b: DXF.Point(originX, originY + height), layer: "0", color: 7), reversed: false),
+            .init(entity: .line(a: DXF.Point(originX, originY + height), b: DXF.Point(originX, originY), layer: "0", color: 7), reversed: false)
+        ], isClosed: true)
     }
 
     // MARK: - Basic facing pass
 
-    /// Faces a 20x10 stock with a 6mm tool, climb direction, no extension. Mirrors
+    /// Faces a 20x10 part shape with a 6mm tool, climb direction, no extension. Mirrors
     /// "Facing produces a single pass at target depth, rows chained into one
     /// continuous trace": rows spaced by the engine's own tool-derived stepover,
     /// chained into one rapid-plunge-trace-retract pass at -abs(targetDepth).
     func demoFacingRectangleClimb() -> Demo.DemoResult {
         let tool = SC.ToolParams(diameter: 3.175)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0), safeZ: 5.0, targetDepth: 0.5)
-        let stock = rectangleStock(width: 20, height: 10)
-        let operation = SC.FacingOperation(stock: stock, tool: tool, settings: settings, direction: .climb, extensionLength: 0)
+        let contour = rectangleContour(width: 20, height: 10)
 
-        return self.run(facing: operation)
+        return self.run(contour: contour, tool: tool, settings: settings, operation: .facing(direction: .climb, extensionLength: 0))
     }
 
     /// Same 20x10 footprint and tool as `demoFacingRectangleClimb`, but
@@ -36,70 +46,61 @@ class DemoFacing: Demo {
     func demoFacingRectangleConventional() -> Demo.DemoResult {
         let tool = SC.ToolParams(diameter: 6.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0), safeZ: 5.0, targetDepth: 0.5)
-        let stock = rectangleStock(width: 20, height: 10)
+        let contour = rectangleContour(width: 20, height: 10)
 
-        let operation = SC.FacingOperation(stock: stock, tool: tool, settings: settings, direction: .conventional, extensionLength: 0)
-
-        return self.run(facing: operation)
+        return self.run(contour: contour, tool: tool, settings: settings, operation: .facing(direction: .conventional, extensionLength: 0))
     }
 
     // MARK: - Extension length
 
-    /// Faces the same 20x10 stock but grows the swept footprint 4mm past every
+    /// Faces the same 20x10 part shape but grows the swept footprint 4mm past every
     /// edge. Mirrors "Facing footprint includes extensionLength, wired end to
     /// end through the toolpath": the toolpath reaches [-4,24]x[-4,14] rather
-    /// than stopping at the stock's own [0,20]x[0,10] rectangle -- visibly
+    /// than stopping at the shape's own [0,20]x[0,10] bounding box -- visibly
     /// wider than `demoFacingRectangleClimb`'s toolpath relative to the same
-    /// blue stock outline.
+    /// blue contour outline.
     func demoFacingRectangleWithExtension() -> Demo.DemoResult {
         let tool = SC.ToolParams(diameter: 6.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0), safeZ: 5.0, targetDepth: 1.0)
-        let stock = rectangleStock(width: 20, height: 10)
+        let contour = rectangleContour(width: 20, height: 10)
 
-        let operation = SC.FacingOperation(stock: stock, tool: tool, settings: settings, direction: .climb, extensionLength: 4.0)
-
-        return self.run(facing: operation)
+        return self.run(contour: contour, tool: tool, settings: settings, operation: .facing(direction: .climb, extensionLength: 4.0))
     }
 
     // MARK: - Smaller tool, tighter rows
 
-    /// Faces a larger 60x40 stock with a smaller 4mm tool -- since row spacing now
+    /// Faces a larger 60x40 part shape with a smaller 4mm tool -- since row spacing now
     /// comes from the tool's own diameter rather than a hand-picked stepover, a
     /// smaller tool alone produces several more, tighter rows chained together
-    /// than the small-footprint demos above, closer to a real datum-facing pass
-    /// on a sheet of stock.
+    /// than the small-footprint demos above, closer to a real datum-facing pass.
     func demoFacingLargeStockSmallTool() -> Demo.DemoResult {
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 4.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1500.0, plungeRate: 400.0), safeZ: 6.0, targetDepth: 0.3)
-        let stock = rectangleStock(width: 60, height: 40)
+        let contour = rectangleContour(width: 60, height: 40)
 
-        let operation = SC.FacingOperation(stock: stock, tool: tool, settings: settings, direction: .climb, extensionLength: 1.0)
-
-        return self.run(facing: operation)
+        return self.run(contour: contour, tool: tool, settings: settings, operation: .facing(direction: .climb, extensionLength: 1.0))
     }
 
     // MARK: - Batch
 
-    /// Faces two independent stocks back to back with different tools/settings
-    /// via one `generateToolpaths(from: [SC.FacingOperation])` call. Mirrors "A
-    /// batch of FacingOperations produces one toolpath per operation, independent
-    /// settings" -- shown together as one combined preview since `run(facing:)`
-    /// only takes one operation at a time; this demo runs the engine's batch
-    /// entry point directly and stitches both results' batches/points together.
+    /// Faces two independent part shapes back to back with different tools/settings.
+    /// `.facing` now goes through the same per-contour pipeline every other
+    /// operation uses, so "batch" is just two ordinary `run(contour:...)` calls --
+    /// shown together as one combined preview since `run` only returns one
+    /// `DemoResult` at a time, so this stitches both results' batches/points together.
     func demoFacingBatch() -> Demo.DemoResult {
         let smallTool = SC.ToolParams(diameter: 6.0)
         let bigTool = SC.ToolParams(diameter: 10.0)
         let settingsA = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0), safeZ: 5.0, targetDepth: 0.5)
         let settingsB = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1200.0, plungeRate: 350.0), safeZ: 8.0, targetDepth: 1.5)
 
-        let first = SC.FacingOperation(stock: rectangleStock(width: 20, height: 10),
-                                       tool: smallTool, settings: settingsA, direction: .climb, extensionLength: 0)
-        let second = SC.FacingOperation(stock: rectangleStock(width: 30, height: 15, thickness: 6.0)
-                                          .translated(x: 30, y: 0),
-                                        tool: bigTool, settings: settingsB, direction: .conventional, extensionLength: 2.0)
+        let firstContour = rectangleContour(width: 20, height: 10)
+        let secondContour = rectangleContour(width: 30, height: 15, originX: 30)
 
-        let firstResult = self.run(facing: first)
-        let secondResult = self.run(facing: second)
+        let firstResult = self.run(contour: firstContour, tool: smallTool, settings: settingsA,
+                                   operation: .facing(direction: .climb, extensionLength: 0))
+        let secondResult = self.run(contour: secondContour, tool: bigTool, settings: settingsB,
+                                    operation: .facing(direction: .conventional, extensionLength: 2.0))
 
         // The combined toolpathPoints run first's points then second's, so the scrub
         // marker (which defaults to the very end) sits on `second`'s cut -- use its
@@ -107,18 +108,6 @@ class DemoFacing: Demo {
         return Demo.DemoResult(batches: firstResult.batches + secondResult.batches,
                                gcode: firstResult.gcode + "\n\n" + secondResult.gcode,
                                toolpathPoints: firstResult.toolpathPoints + secondResult.toolpathPoints,
-                               tool: second.tool)
-    }
-}
-
-private extension SC.Stock {
-    /// Shifts this stock's origin by the given XY offset -- used by
-    /// `demoFacingBatch` to lay its two stocks out side by side instead of
-    /// overlapping at the same origin, purely for a legible combined preview.
-    func translated(x: Double, y: Double) -> SC.Stock {
-        var copy = self
-        copy.origin.x += x
-        copy.origin.y += y
-        return copy
+                               tool: bigTool)
     }
 }

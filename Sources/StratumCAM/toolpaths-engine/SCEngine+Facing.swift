@@ -10,30 +10,37 @@ import CoreGraphics
 
 extension SCEngine {
 
-    /// The XY footprint `.facing` clears: the stock's own top-face rectangle, grown by
-    /// `extensionLength` on every side so the cutter fully clears the true stock edges
-    /// (and corners, once the tool's own radius sweeps past a raster row's endpoint)
-    /// rather than stopping exactly at the nominal stock boundary. Geometry only --
-    /// no tool-radius compensation is folded in here, since `extensionLength` is the
-    /// operation's own explicit "how far past the boundary" parameter (per its doc
-    /// comment on `MachiningOperation.facing`), not something this function should be
-    /// second-guessing with its own additional margin.
+    /// The XY footprint `.facing` clears: the selected contour's own axis-aligned
+    /// bounding box, grown by `extensionLength` on every side so the cutter fully
+    /// clears the true part edges (and corners, once the tool's own radius sweeps
+    /// past a raster row's endpoint) rather than stopping exactly at the nominal
+    /// boundary. Geometry only -- no tool-radius compensation is folded in here,
+    /// since `extensionLength` is the operation's own explicit "how far past the
+    /// boundary" parameter (per its doc comment on `MachiningOperation.facing`),
+    /// not something this function should be second-guessing with its own
+    /// additional margin.
     ///
-    /// - Note (assumption -- flagging per Step 2A.1, since `Stock` has no prior
-    ///   consumer in the codebase to confirm this against): `stock.origin` is read as
-    ///   the stock's top-face, min-X/min-Y corner, so the rectangle spans
-    ///   `origin.x ... origin.x + width` and `origin.y ... origin.y + height`, not a
-    ///   center-referenced stock. This matches `origin`'s own doc comment ("WCS G54
-    ///   origin") under the common shop convention of touching off G54 at a stock
-    ///   corner, and is consistent with `MachineSettings.targetDepth` treating Z=0 as
-    ///   the stock's top surface (`origin.z`) rather than its middle. If your stock is
-    ///   actually center-referenced, or `origin` marks a different corner, this needs
-    ///   revisiting before 2A.2 builds waypoints on top of it.
-    func facingArea(stock: SC.Stock, extensionLength: Double) -> (minX: Double, maxX: Double, minY: Double, maxY: Double) {
-        (minX: stock.origin.x - extensionLength,
-         maxX: stock.origin.x + stock.width + extensionLength,
-         minY: stock.origin.y - extensionLength,
-         maxY: stock.origin.y + stock.height + extensionLength)
+    /// `.facing` doesn't trace `contour`'s actual profile -- it just uses this
+    /// bounding box as "the area to cover." That's deliberate: a caller faces
+    /// the finished part's own shape (its outline, not the raw stock block), so
+    /// only the material under that shape gets swept, not whatever extra stock
+    /// surrounds it.
+    ///
+    /// `nil` when `contour` has no measurable geometry (an empty or degenerate
+    /// contour) -- `buildFacingToolpath` is what turns that into a thrown
+    /// `SC.Error.invalidContour`, same split every other geometry helper in this
+    /// file uses between "nothing to build from" and the call site's own
+    /// translation into an error.
+    func facingArea(for contour: SC.Contour, extensionLength: Double) -> (minX: Double, maxX: Double, minY: Double, maxY: Double)? {
+        let box = contour.linearizedSegments.boundingBox
+        guard box.minX.isFinite, box.maxX.isFinite, box.minY.isFinite, box.maxY.isFinite else {
+            return nil
+        }
+
+        return (minX: box.minX - extensionLength,
+               maxX: box.maxX + extensionLength,
+               minY: box.minY - extensionLength,
+               maxY: box.maxY + extensionLength)
     }
 
     /// Row spacing for `.facing`, derived from the tool instead of taken as a
@@ -61,20 +68,22 @@ extension SCEngine {
 
     /// Generates the raster scanline geometry for `.facing`: parallel horizontal
     /// passes spaced `facingStepover(for: tool)` apart, each spanning the full width
-    /// of `facingArea(stock:extensionLength:)` -- geometry only, no waypoints yet.
-    /// That's left to `buildFacingToolpath` (Step 2A.2) below, same shape as
+    /// of `facingArea(for:extensionLength:)` -- geometry only, no waypoints yet.
+    /// That's left to `buildFacingToolpath` below, same shape as
     /// `buildPocketWaypoints` turning `rasterScanlines`' rows into an actual rapid/
     /// plunge/retract pass.
     ///
     /// Unlike pocketing's `rasterScanlines`, there's no boundary to clip against --
     /// facing's footprint is already the plain rectangle `facingArea` computes, so
     /// every row spans its full width directly with no intersection math needed.
-    /// Rows run bottom-to-top and alternate direction (boustrophedon), the same
-    /// convention `rasterScanlines` uses, so a future waypoint wrapper's connecting
-    /// move between rows is a short step rather than a long retrace. `direction`
-    /// only decides which way the *first* row travels (`.climb` left-to-right,
-    /// `.conventional` right-to-left) -- same as pocketing's raster, there's no wall
-    /// cut in a plain rectangular fill for climb/conventional to otherwise apply to.
+    /// (`contour`'s actual profile is never traced -- only its bounding box, per
+    /// `facingArea`'s doc comment.) Rows run bottom-to-top and alternate direction
+    /// (boustrophedon), the same convention `rasterScanlines` uses, so a future
+    /// waypoint wrapper's connecting move between rows is a short step rather than
+    /// a long retrace. `direction` only decides which way the *first* row travels
+    /// (`.climb` left-to-right, `.conventional` right-to-left) -- same as
+    /// pocketing's raster, there's no wall cut in a plain rectangular fill for
+    /// climb/conventional to otherwise apply to.
     ///
     /// The first and last rows are snapped exactly onto the footprint's near/far
     /// edges rather than landing short -- this is also what keeps every corner of
@@ -89,30 +98,29 @@ extension SCEngine {
     /// Each row is returned as a single-segment `[SC.Segment]`, matching
     /// `rasterScanlines`' per-row shape, so `buildFacingToolpath` below can reuse
     /// `chainedRingSegments` to link rows exactly the way pocketing's raster does.
-    /// Not converted to `throws` in Step 6.9 -- `buildFacingToolpath`'s own top-level
-    /// `stock.width > 0, stock.height > 0` guard already validates the stock before
-    /// ever calling this, so that half of the guard below is unreachable through the
-    /// normal call chain (kept only so a direct caller -- e.g. a test exercising this
-    /// helper alone -- gets an empty result rather than a crash, same reasoning
-    /// `counterboreRings`'s own unreachable guard gives). `stepover > 1e-6` and
-    /// `span > 1e-9` are genuinely reachable (a near-zero `tool.diameter`, or an
-    /// `extensionLength` negative enough to collapse the grown footprint) and
-    /// genuinely a "nothing to raster here" result rather than a broken input --
-    /// `buildFacingToolpath`'s own `!rows.isEmpty` guard is what turns *that* into a
-    /// thrown `SC.Error.geometryCollapsed`, not this function itself.
-    func facingScanlines(stock: SC.Stock,
+    /// Not converted to `throws` -- `buildFacingToolpath`'s own top-level bounding-box
+    /// guard already validates `contour` before ever calling this, so that half of
+    /// the guard below is unreachable through the normal call chain (kept only so a
+    /// direct caller -- e.g. a test exercising this helper alone -- gets an empty
+    /// result rather than a crash, same reasoning `counterboreRings`'s own
+    /// unreachable guard gives). `stepover > 1e-6` and both spans `> 1e-9` are
+    /// genuinely reachable (a near-zero `tool.diameter`, or an `extensionLength`
+    /// negative enough to collapse the grown footprint) and genuinely a "nothing to
+    /// raster here" result rather than a broken input -- `buildFacingToolpath`'s own
+    /// `!rows.isEmpty` guard is what turns *that* into a thrown
+    /// `SC.Error.geometryCollapsed`, not this function itself.
+    func facingScanlines(within contour: SC.Contour,
                          extensionLength: Double,
                          tool: SC.ToolParams,
                          direction: SC.CutDirection) -> [[SC.Segment]] {
 
         let stepover = facingStepover(for: tool)
-        guard stepover > 1e-6, stock.width > 0, stock.height > 0 else {
+        guard stepover > 1e-6, let area = facingArea(for: contour, extensionLength: extensionLength) else {
             return []
         }
 
-        let area = facingArea(stock: stock, extensionLength: extensionLength)
         let span = area.maxY - area.minY
-        guard span > 1e-9 else {
+        guard span > 1e-9, area.maxX - area.minX > 1e-9 else {
             return []
         }
 
@@ -149,8 +157,16 @@ extension SCEngine {
     /// `chainedRingSegments` (the same row-linking helper pocketing's raster uses --
     /// a list of rows is the same "segment groups needing connecting transitions"
     /// shape either way) and wraps the result with `buildWaypoints`' rapid/plunge/
-    /// retract pass, exactly the way `.facing`'s own doc comment and this file's
-    /// earlier notes said a later wrapper would.
+    /// retract pass.
+    ///
+    /// `contour` is read purely for its bounding box (see `facingArea`'s doc
+    /// comment) -- typically the finished part's own outline, so facing only
+    /// sweeps the area that shape actually occupies rather than a separately
+    /// tracked stock block. This is also what lets `.facing` go through the same
+    /// per-contour `buildToolpath` switch every other operation uses, rather than
+    /// needing its own batch entry point: a caller with several parts to face just
+    /// passes each part's contour to `generateToolpaths(from:tool:settings:operation:)`
+    /// like any other strategy.
     ///
     /// Single `ToolpathPass` at `-abs(settings.targetDepth)` -- facing is a one-pass
     /// datum operation per `MachiningOperation.facing`'s doc comment, not a
@@ -168,27 +184,28 @@ extension SCEngine {
     /// no wall cut in a plain rectangular fill for climb/conventional to otherwise
     /// apply to, same as pocketing's raster.
     ///
-    /// Throws (Step 6.9, same pattern established in 6.2-6.8) at its own top-level
-    /// guards: `SC.Error.invalidStock` when the stock's own width or height is zero
-    /// (or negative) -- there's no footprint to face at all, the one case `SC.Error`
-    /// already carries a dedicated stock-specific case for, rather than the generic
-    /// `geometryCollapsed` -- and `SC.Error.geometryCollapsed` if `facingScanlines`
-    /// or `chainedRingSegments` still comes back empty for an otherwise-valid stock
-    /// (an unfittable tool, or an `extensionLength` negative enough to collapse the
-    /// grown footprint). See `facingScanlines`'s own doc comment for why its internal
-    /// guards stay non-throwing rather than duplicating these checks.
-    func buildFacingToolpath(stock: SC.Stock,
+    /// Throws `SC.Error.invalidContour` when `contour` has no measurable geometry, or
+    /// when its bounding box has zero (or negative) width/height even after
+    /// `extensionLength` is applied -- there's no footprint to face at all. Throws
+    /// `SC.Error.geometryCollapsed` if `facingScanlines` or `chainedRingSegments`
+    /// still comes back empty for an otherwise-valid contour (an unfittable tool, or
+    /// an `extensionLength` negative enough to collapse the grown footprint). See
+    /// `facingScanlines`'s own doc comment for why its internal guards stay
+    /// non-throwing rather than duplicating these checks.
+    func buildFacingToolpath(for contour: SC.Contour,
                              tool: SC.ToolParams,
                              settings: SC.MachineSettings,
                              direction: SC.CutDirection,
                              extensionLength: Double,
                              operation: SC.MachiningOperation) throws -> SC.OutputToolpath {
 
-        guard stock.width > 0, stock.height > 0 else {
-            throw SC.Error.invalidStock
+        guard let area = facingArea(for: contour, extensionLength: extensionLength),
+              area.maxX - area.minX > 1e-9,
+              area.maxY - area.minY > 1e-9 else {
+            throw SC.Error.invalidContour
         }
 
-        let rows = facingScanlines(stock: stock,
+        let rows = facingScanlines(within: contour,
                                    extensionLength: extensionLength,
                                    tool: tool,
                                    direction: direction)

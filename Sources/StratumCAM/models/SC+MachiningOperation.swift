@@ -19,6 +19,14 @@ extension SC {
 
         /// Cleans the top surface of the stock to establish a flat datum plane.
         ///
+        /// Unlike every other case here, `.facing` doesn't trace the selected
+        /// contour's own geometry -- it rasters the contour's axis-aligned
+        /// bounding box instead, so the passed-in contour is read purely as "the
+        /// footprint to cover," not as a wall to cut along. In practice that
+        /// contour is the final part's own shape, not the raw stock block: facing
+        /// only needs to clean the area the finished part actually occupies, not
+        /// whatever extra stock surrounds it.
+        ///
         /// There's no `stepover` parameter: the row spacing between facing passes
         /// is derived from the tool's own diameter (see
         /// `SCEngine.facingStepover(for:)`), close to full engagement since facing
@@ -28,7 +36,7 @@ extension SC {
         /// - Parameters:
         ///   - direction: Cutting direction used for the facing passes.
         ///   - extensionLength: Distance by which the toolpath extends beyond
-        ///     the selected facing boundary to ensure complete coverage.
+        ///     the selected contour's bounding box to ensure complete coverage.
         case facing(direction: CutDirection,
                     extensionLength: Double)
 

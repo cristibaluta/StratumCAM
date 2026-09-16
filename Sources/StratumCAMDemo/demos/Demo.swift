@@ -114,7 +114,8 @@ class Demo {
     /// Computes the combined XY bounding box across one or more point arrays --
     /// used (Step: purple stock volume) to size a synthetic stock block for demos
     /// that only work from a bare contour/toolpath, with no `SC.Stock` of their
-    /// own the way a `.facing` operation carries one. Takes plain point arrays
+    /// own -- every demo, `.facing` included now that it sweeps a contour's own
+    /// bounding box rather than carrying a separate `Stock`. Takes plain point arrays
     /// (rather than segments) so the same helper covers every pattern uniformly,
     /// including drilling: a `.point` contour has no linearizable boundary at all
     /// (see `run(contours:...)`'s own comment on that), but its toolpath's plunge
@@ -224,77 +225,6 @@ class Demo {
         return RenderBatch(vertexBuffer: buffer,
                            vertexCount: vertices.count,
                            primitiveType: .line)
-    }
-
-    /// Same three-step shape as `run(contours:...)` above, but for `.facing`
-    /// (Step 2A.2's `SC.FacingOperation`): there's no `SC.Contour` to linearize for
-    /// the blue reference geometry -- facing clears a `Stock`'s whole top-face
-    /// footprint, not a selected contour (see `FacingOperation`'s doc comment) --
-    /// so the reference drawn here is the stock's own top-face rectangle instead,
-    /// closed back to its first corner so it reads as a boundary rather than an
-    /// open zig-zag. Toolpath generation goes through
-    /// `generateToolpaths(from operations: [SC.FacingOperation])` (Step 2A.2)
-    /// rather than the per-contour overload `run(contours:...)` uses, since
-    /// `.facing` can't go through the per-contour switch (Step 2A.1's flag).
-    func run(facing operation: SC.FacingOperation) -> DemoResult {
-
-        // 1. Reference geometry: the stock's own top-face rectangle at Z=0 (not the
-        // extended facing footprint the toolpath actually sweeps) so the preview
-        // shows the toolpath relative to the real part boundary underneath it.
-        let stock = operation.stock
-        let corners: [SIMD3<Float>] = [
-            SIMD3<Float>(Float(stock.origin.x), Float(stock.origin.y), 0),
-            SIMD3<Float>(Float(stock.origin.x + stock.width), Float(stock.origin.y), 0),
-            SIMD3<Float>(Float(stock.origin.x + stock.width), Float(stock.origin.y + stock.height), 0),
-            SIMD3<Float>(Float(stock.origin.x), Float(stock.origin.y + stock.height), 0),
-            SIMD3<Float>(Float(stock.origin.x), Float(stock.origin.y), 0)
-        ]
-
-        // 2. Convert the FacingOperation to a toolpath then to 3d simd points, via
-        // the Stock-driven overload Step 2A.2 added.
-        //
-        // `generateToolpaths(from: [SC.FacingOperation])` started throwing in Step 6.9
-        // (an invalid stock/geometry now throws rather than silently dropping the
-        // operation). Same non-throwing-`run`, catch-and-log-to-console fallback
-        // `run(contours:...)` above already uses for the per-contour overload's own
-        // Step 6.2 `throws` -- see that function's doc comment for why `run` itself
-        // stays a plain `-> DemoResult` rather than pushing `throws` through every
-        // Demo*.swift button.
-        let toolpaths: [SC.OutputToolpath]
-        do {
-            toolpaths = try engine.generateToolpaths(from: [operation])
-        } catch {
-            print("generateToolpaths failed: \(error)")
-            toolpaths = []
-        }
-        var toolpathPoints: [SIMD3<Float>] = []
-        for toolpath in toolpaths {
-            for pass in toolpath.passes {
-                toolpathPoints.append(contentsOf: tessellateForRender(pass.waypoints))
-            }
-        }
-
-        // 3. Build batches the same way run(contours:...) does: purple stock
-        // volume, blue dashed reference, yellow toolpath.
-        var batches: [RenderBatch] = []
-        if let stockBatch = stockBatch(stock: stock) {
-            batches.append(stockBatch)
-        }
-        if let baseBatch = renderBatch(forPoints: corners,
-                                       color: SIMD4<Float>(0.2, 0.8, 1.0, 1.0),
-                                       isDashed: true,
-                                       dashLength: 0.4) {
-            batches.append(baseBatch)
-        }
-        if let toolpathBatch = renderBatch(forPoints: toolpathPoints,
-                                           color: SIMD4<Float>(1.0, 0.8, 0.0, 1.0)) {
-            batches.append(toolpathBatch)
-        }
-
-        // 4. Generate G-code for the same toolpaths.
-        let gcode = gcodeEngine.generateGCode(from: toolpaths, settings: operation.settings)
-
-        return DemoResult(batches: batches, gcode: gcode, toolpathPoints: toolpathPoints, tool: operation.tool)
     }
 
     // MARK: - Bare reference circle (for point-only operations)

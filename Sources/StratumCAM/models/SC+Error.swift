@@ -61,14 +61,5 @@ extension SC {
         /// rounds to zero. Distinct from `invalidContour`: the input passed
         /// validation, the algorithm just had nothing left to build from.
         case geometryCollapsed
-
-        /// The stock's dimensions (or the facing area derived from them) aren't
-        /// usable for facing -- zero width/height, or a stepover that doesn't fit.
-        case invalidStock
-
-        /// The operation passed to a per-contour `generateToolpaths` call doesn't
-        /// support per-contour dispatch -- currently just `.facing`, which needs
-        /// `generateToolpaths(from: [SC.FacingOperation])` instead.
-        case unsupportedOperation(MachiningOperation)
     }
 }
