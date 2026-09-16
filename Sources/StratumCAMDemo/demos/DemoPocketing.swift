@@ -80,7 +80,8 @@ class DemoPocketing: Demo {
 
         let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .offset, entry: .plunge)
 
-        return self.run(contour: rectangleContour(width: 40, height: 24), tool: tool, settings: settings, operation: operation)
+        let contour = rectangleContour(width: 40, height: 24)
+        return self.run(contour: contour, tool: tool, settings: settings, operation: operation)
     }
 
     /// Same pocket as above but conventional direction, so the ring stack's
@@ -93,7 +94,8 @@ class DemoPocketing: Demo {
 
         let operation: SC.MachiningOperation = .pocket(direction: .conventional, pattern: .offset, entry: .plunge)
 
-        return self.run(contour: rectangleContour(width: 40, height: 24), tool: tool, settings: settings, operation: operation)
+        let contour = rectangleContour(width: 40, height: 24)
+        return self.run(contour: contour, tool: tool, settings: settings, operation: operation)
     }
 
     /// Clears a rounded rectangle, showing the ring stack's corner arcs shrinking
@@ -108,7 +110,8 @@ class DemoPocketing: Demo {
 
         let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .offset, entry: .plunge)
 
-        return self.run(contour: roundedRectangleContour(width: 40, height: 24, cornerRadius: 5), tool: tool, settings: settings, operation: operation)
+        let contour = roundedRectangleContour(width: 40, height: 24, cornerRadius: 5)
+        return self.run(contour: contour, tool: tool, settings: settings, operation: operation)
     }
 
     // MARK: - Multi-pass Z stepdown (Step 1.3)
@@ -129,7 +132,8 @@ class DemoPocketing: Demo {
 
         let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .offset, entry: .plunge)
 
-        return self.run(contour: rectangleContour(width: 20, height: 10), tool: tool, settings: settings, operation: operation)
+        let contour = rectangleContour(width: 20, height: 10)
+        return self.run(contour: contour, tool: tool, settings: settings, operation: operation)
     }
 
     /// Same rectangle and Z stepdown as `demoMultiPassZStepdown()`, but `.raster`
@@ -143,7 +147,8 @@ class DemoPocketing: Demo {
 
         let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .raster, entry: .plunge)
 
-        return self.run(contour: rectangleContour(width: 20, height: 10), tool: tool, settings: settings, operation: operation)
+        let contour = rectangleContour(width: 20, height: 10)
+        return self.run(contour: contour, tool: tool, settings: settings, operation: operation)
     }
 
     /// A smaller 4mm tool at 50% stepover produces 2 concentric rings; this clears
@@ -158,7 +163,8 @@ class DemoPocketing: Demo {
 
         let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .offset, entry: .plunge)
 
-        return self.run(contour: rectangleContour(width: 20, height: 10), tool: tool, settings: settings, operation: operation)
+        let contour = rectangleContour(width: 20, height: 10)
+        return self.run(contour: contour, tool: tool, settings: settings, operation: operation)
     }
 
     /// Ramp entry across 2 Z passes (-1.0, -2.0). Mirrors "Pocket ramp entry on a
@@ -174,7 +180,8 @@ class DemoPocketing: Demo {
 
         let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .offset, entry: .ramp(angleDegrees: 30))
 
-        return self.run(contour: rectangleContour(width: 20, height: 10), tool: tool, settings: settings, operation: operation)
+        let contour = rectangleContour(width: 20, height: 10)
+        return self.run(contour: contour, tool: tool, settings: settings, operation: operation)
     }
 
     /// Helix entry across 2 Z passes (-1.0, -2.0). Mirrors "Pocket helix entry on a
@@ -188,7 +195,8 @@ class DemoPocketing: Demo {
 
         let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .offset, entry: .helix(radius: 1.0, rampAngleDegrees: 30))
 
-        return self.run(contour: rectangleContour(width: 20, height: 10), tool: tool, settings: settings, operation: operation)
+        let contour = rectangleContour(width: 20, height: 10)
+        return self.run(contour: contour, tool: tool, settings: settings, operation: operation)
     }
 
     // MARK: - Raster clearing (Step 1.1)
@@ -203,7 +211,8 @@ class DemoPocketing: Demo {
 
         let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .raster, entry: .plunge)
 
-        return self.run(contour: rectangleContour(width: 40, height: 24), tool: tool, settings: settings, operation: operation)
+        let contour = rectangleContour(width: 40, height: 24)
+        return self.run(contour: contour, tool: tool, settings: settings, operation: operation)
     }
 
     /// Same raster clearing as above but conventional direction, so the first
@@ -216,7 +225,8 @@ class DemoPocketing: Demo {
 
         let operation: SC.MachiningOperation = .pocket(direction: .conventional, pattern: .raster, entry: .plunge)
 
-        return self.run(contour: rectangleContour(width: 40, height: 24), tool: tool, settings: settings, operation: operation)
+        let contour = rectangleContour(width: 40, height: 24)
+        return self.run(contour: contour, tool: tool, settings: settings, operation: operation)
     }
 
     /// Clears a rounded rectangle with scanlines, showing rows clip against the
@@ -230,7 +240,8 @@ class DemoPocketing: Demo {
 
         let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .raster, entry: .plunge)
 
-        return self.run(contour: roundedRectangleContour(width: 40, height: 24, cornerRadius: 5), tool: tool, settings: settings, operation: operation)
+        let contour = roundedRectangleContour(width: 40, height: 24, cornerRadius: 5)
+        return self.run(contour: contour, tool: tool, settings: settings, operation: operation)
     }
 
     /// Raster clearing with a ramp entry into the first row -- mirrors
@@ -243,7 +254,8 @@ class DemoPocketing: Demo {
 
         let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .raster, entry: .ramp(angleDegrees: 30))
 
-        return self.run(contour: rectangleContour(width: 40, height: 24), tool: tool, settings: settings, operation: operation)
+        let contour = rectangleContour(width: 40, height: 24)
+        return self.run(contour: contour, tool: tool, settings: settings, operation: operation)
     }
 
     /// Raster clearing with a helix entry into the first row -- same pairing as
@@ -255,7 +267,8 @@ class DemoPocketing: Demo {
 
         let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .raster, entry: .helix(radius: 2.0, rampAngleDegrees: 30))
 
-        return self.run(contour: rectangleContour(width: 40, height: 24), tool: tool, settings: settings, operation: operation)
+        let contour = rectangleContour(width: 40, height: 24)
+        return self.run(contour: contour, tool: tool, settings: settings, operation: operation)
     }
 
     /// Clears a concave "staple" shape (two prongs joined by a wide base) with
@@ -273,7 +286,8 @@ class DemoPocketing: Demo {
 
         let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .raster, entry: .plunge)
 
-        return self.run(contour: staplePolygonContour(scale: 2.0), tool: tool, settings: settings, operation: operation)
+        let contour = staplePolygonContour(scale: 2.0)
+        return self.run(contour: contour, tool: tool, settings: settings, operation: operation)
     }
 
     // MARK: - Spiral clearing (Step 1B.1)
@@ -289,7 +303,8 @@ class DemoPocketing: Demo {
 
         let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .spiral(direction: .outsideIn), entry: .plunge)
 
-        return self.run(contour: circleContour(radius: 20), tool: tool, settings: settings, operation: operation)
+        let contour = circleContour(radius: 20)
+        return self.run(contour: contour, tool: tool, settings: settings, operation: operation)
     }
 
     func demoSpiralCircleInsideOut() -> Demo.DemoResult {
@@ -299,7 +314,8 @@ class DemoPocketing: Demo {
 
         let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .spiral(direction: .insideOut), entry: .plunge)
 
-        return self.run(contour: circleContour(radius: 20), tool: tool, settings: settings, operation: operation)
+        let contour = circleContour(radius: 20)
+        return self.run(contour: contour, tool: tool, settings: settings, operation: operation)
     }
 
     /// The same 40x24 rectangle and settings as `demoPocketRectangle()`, but with
@@ -315,7 +331,8 @@ class DemoPocketing: Demo {
 
         let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .spiral(direction: .outsideIn), entry: .plunge)
 
-        return self.run(contour: rectangleContour(width: 40, height: 24), tool: tool, settings: settings, operation: operation)
+        let contour = rectangleContour(width: 40, height: 24)
+        return self.run(contour: contour, tool: tool, settings: settings, operation: operation)
     }
 
     // MARK: - Trochoidal clearing (Step 1B.2)
@@ -344,7 +361,8 @@ class DemoPocketing: Demo {
 
         let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .trochoidal(settings: tro), entry: .plunge)
 
-        return self.run(contour: rectangleContour(width: 40, height: 24), tool: tool, settings: settings, operation: operation)
+        let contour = rectangleContour(width: 40, height: 24)
+        return self.run(contour: contour, tool: tool, settings: settings, operation: operation)
     }
 
     /// Same trochoidal clearing as above but conventional direction, so the
@@ -361,7 +379,8 @@ class DemoPocketing: Demo {
 
         let operation: SC.MachiningOperation = .pocket(direction: .conventional, pattern: .trochoidal(settings: tro), entry: .plunge)
 
-        return self.run(contour: rectangleContour(width: 40, height: 24), tool: tool, settings: settings, operation: operation)
+        let contour = rectangleContour(width: 40, height: 24)
+        return self.run(contour: contour, tool: tool, settings: settings, operation: operation)
     }
 
     /// Clears the same 20mm-radius circle `demoSpiralCircle()` uses, but with
@@ -381,6 +400,7 @@ class DemoPocketing: Demo {
 
         let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .trochoidal(settings: tro), entry: .plunge)
 
-        return self.run(contour: circleContour(radius: 20), tool: tool, settings: settings, operation: operation)
+        let contour = circleContour(radius: 20)
+        return self.run(contour: contour, tool: tool, settings: settings, operation: operation)
     }
 }

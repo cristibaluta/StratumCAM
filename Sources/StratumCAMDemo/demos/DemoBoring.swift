@@ -46,7 +46,8 @@ class DemoBoring: Demo {
 
         let operation: SC.MachiningOperation = .boring(targetDiameter: 10.0, dwellTime: nil, shiftRetract: false)
 
-        return self.run(contour: pointContour(12, 20), tool: tool, settings: settings, operation: operation)
+        let contour = pointContour(12, 20)
+        return self.run(contour: contour, tool: tool, settings: settings, operation: operation)
     }
 
     /// Same cycle, but starting from a closed circle contour instead of a bare
@@ -80,7 +81,8 @@ class DemoBoring: Demo {
 
         let operation: SC.MachiningOperation = .boring(targetDiameter: 10.0, dwellTime: 0.5, shiftRetract: false)
 
-        return self.run(contour: pointContour(12, 20), tool: tool, settings: settings, operation: operation)
+        let contour = pointContour(12, 20)
+        return self.run(contour: contour, tool: tool, settings: settings, operation: operation)
     }
 
     /// Shifts the tool inward off the freshly bored wall (toward the hole
@@ -95,7 +97,8 @@ class DemoBoring: Demo {
 
         let operation: SC.MachiningOperation = .boring(targetDiameter: 10.0, dwellTime: nil, shiftRetract: true)
 
-        return self.run(contour: pointContour(12, 20), tool: tool, settings: settings, operation: operation)
+        let contour = pointContour(12, 20)
+        return self.run(contour: contour, tool: tool, settings: settings, operation: operation)
     }
 
     /// Both together: dwell at the bottom, then shift off the wall, then
@@ -109,7 +112,8 @@ class DemoBoring: Demo {
 
         let operation: SC.MachiningOperation = .boring(targetDiameter: 10.0, dwellTime: 0.5, shiftRetract: true)
 
-        return self.run(contour: pointContour(12, 20), tool: tool, settings: settings, operation: operation)
+        let contour = pointContour(12, 20)
+        return self.run(contour: contour, tool: tool, settings: settings, operation: operation)
     }
 
     // MARK: - Multiple bores

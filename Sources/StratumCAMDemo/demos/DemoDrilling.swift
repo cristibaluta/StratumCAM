@@ -11,33 +11,18 @@ import SwiftDXF
 
 class DemoDrilling: Demo {
 
-    // MARK: - Fixtures
-    // Mirrors the fixtures in Drilling_Tests.swift so each demo below reproduces
-    // the exact scenario a corresponding unit test asserts on.
-
-    /// A single `.point` entity at the given coordinates, the minimal contour
-    /// the engine recognizes as a drill point.
     private func pointContour(_ x: Double, _ y: Double) -> SC.Contour {
         SC.Contour(entities: [
             SC.Contour.Chained(entity: .point(at: DXF.Point(x, y), layer: "0", color: 7), reversed: false)
         ], isClosed: false)
     }
 
-    /// A single closed `.circle` entity, the other shape `drillPoint` recognizes --
-    /// common in DXF for marking hole centers since many CAD tools have no
-    /// dedicated point primitive. `isClosed` must be `true` or it reads as
-    /// engraveable geometry instead (see `Contour.drillPoint`).
     private func circleContour(center: (Double, Double), radius: Double) -> SC.Contour {
         SC.Contour(entities: [
             SC.Contour.Chained(entity: .circle(center: DXF.Point(center.0, center.1), radius: radius, layer: "0", color: 7), reversed: false)
         ], isClosed: true)
     }
 
-    /// A closed 4-line square -- not a point or a closed circle, so `drillPoint`
-    /// alone wouldn't recognize it, but it's closed, so `closedShapeCenter` picks
-    /// it up: `.drilling` resolves to its bounding-box center rather than
-    /// throwing. This is the shape behind e.g. pre-drilling a stress-relief hole
-    /// in the middle of a pocket boundary before running adaptive clearing on it.
     private func squareContour(origin: (Double, Double), size: Double) -> SC.Contour {
         let (x, y) = origin
         return SC.Contour(entities: [
@@ -48,10 +33,6 @@ class DemoDrilling: Demo {
         ], isClosed: true)
     }
 
-    /// The same square, missing its last side and flagged open -- an open boundary
-    /// has no well-defined center (`closedShapeCenter` returns `nil` for it, same
-    /// as `drillPoint`), so `.drilling` still has nothing to fall back to and
-    /// throws `SC.Error.missingDrillPoint`.
     private func openBracketContour(origin: (Double, Double), size: Double) -> SC.Contour {
         let (x, y) = origin
         return SC.Contour(entities: [
@@ -70,10 +51,10 @@ class DemoDrilling: Demo {
         let tool = SC.ToolParams(type: .drill)
         let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0)
         let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -8.0)
-
         let operation: SC.MachiningOperation = .drilling(peckDepth: nil)
+        let contour = pointContour(12, 20)
 
-        return self.run(contour: pointContour(12, 20), tool: tool, settings: settings, operation: operation)
+        return run(contour: contour, tool: tool, settings: settings, operation: operation)
     }
 
     // MARK: - Peck drilling
@@ -88,8 +69,9 @@ class DemoDrilling: Demo {
         let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0)
         let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, retractZ: 1.0, targetDepth: 8.0)
         let operation: SC.MachiningOperation = .drilling(peckDepth: 3.0)
+        let contour = pointContour(10, 10)
 
-        return self.run(contour: pointContour(10, 10), tool: tool, settings: settings, operation: operation)
+        return run(contour: contour, tool: tool, settings: settings, operation: operation)
     }
 
     // MARK: - Multiple drill points
@@ -102,7 +84,6 @@ class DemoDrilling: Demo {
         let tool = SC.ToolParams(type: .drill)
         let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0)
         let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: 8.0)
-
         let points = [
             (10.0, 20.0),
             (30.0, 20.0),
@@ -110,10 +91,9 @@ class DemoDrilling: Demo {
             (10.0, 40.0)
         ]
         let contours = points.map { pointContour($0.0, $0.1) }
-
         let operation: SC.MachiningOperation = .drilling(peckDepth: nil)
 
-        return self.run(contours: contours, tool: tool, settings: settings, operation: operation)
+        return run(contours: contours, tool: tool, settings: settings, operation: operation)
     }
 
     // MARK: - Circle as a drill point
@@ -127,10 +107,10 @@ class DemoDrilling: Demo {
         let tool = SC.ToolParams(type: .drill, diameter: 4.0)
         let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 250.0, stepdown: 1.0)
         let settings = SC.MachineSettings(cutting: cutting, safeZ: 6.0, targetDepth: -5.0)
-
         let operation: SC.MachiningOperation = .drilling(peckDepth: nil)
+        let contour = circleContour(center: (1, 2), radius: 2.0)
 
-        return self.run(contour: circleContour(center: (1, 2), radius: 2.0), tool: tool, settings: settings, operation: operation)
+        return run(contour: contour, tool: tool, settings: settings, operation: operation)
     }
 
     // MARK: - Any closed shape drills at its center
@@ -146,10 +126,10 @@ class DemoDrilling: Demo {
         let tool = SC.ToolParams(type: .drill, diameter: 4.0)
         let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0)
         let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -6.0)
-
         let operation: SC.MachiningOperation = .drilling(peckDepth: nil)
+        let contour = squareContour(origin: (10, 10), size: 20)
 
-        return self.run(contour: squareContour(origin: (10, 10), size: 20), tool: tool, settings: settings, operation: operation)
+        return run(contour: contour, tool: tool, settings: settings, operation: operation)
     }
 
     /// Points `.drilling` at the same square, minus its last side and flagged
@@ -164,9 +144,9 @@ class DemoDrilling: Demo {
         let tool = SC.ToolParams(type: .drill, diameter: 4.0)
         let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0)
         let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -6.0)
-
         let operation: SC.MachiningOperation = .drilling(peckDepth: nil)
+        let contour = openBracketContour(origin: (10, 10), size: 20)
 
-        return self.run(contour: openBracketContour(origin: (10, 10), size: 20), tool: tool, settings: settings, operation: operation)
+        return run(contour: contour, tool: tool, settings: settings, operation: operation)
     }
 }

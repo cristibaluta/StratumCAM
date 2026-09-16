@@ -40,7 +40,8 @@ class DemoThreadMilling: Demo {
         let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -3.0)
         let operation: SC.MachiningOperation = .threadMilling(pitch: 0.5, isInternal: true, direction: .rightHand, radialPasses: 3, targetDiameter: 3.0)
 
-        return self.run(contour: circleContour(center: (0, 0), diameter: 2.5), tool: tool, settings: settings, operation: operation)
+        let contour = circleContour(center: (0, 0), diameter: 2.5)
+        return self.run(contour: contour, tool: tool, settings: settings, operation: operation)
     }
 
     // MARK: - External threading (a turned boss)
@@ -55,7 +56,8 @@ class DemoThreadMilling: Demo {
         let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -3.0)
         let operation: SC.MachiningOperation = .threadMilling(pitch: 0.5, isInternal: false, direction: .rightHand, radialPasses: 3, targetDiameter: 3.0)
 
-        return self.run(contour: circleContour(center: (0, 0), diameter: 3.0), tool: tool, settings: settings, operation: operation)
+        let contour = circleContour(center: (0, 0), diameter: 3.0)
+        return self.run(contour: contour, tool: tool, settings: settings, operation: operation)
     }
 
     // MARK: - Multiple holes

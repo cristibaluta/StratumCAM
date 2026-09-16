@@ -74,7 +74,8 @@ class DemoContour: Demo {
                                                         leadOut: nil,
                                                         tabs: [])
 
-        return self.run(contour: ccwSquareContour(), tool: tool, settings: settings, operation: operation)
+        let contour = ccwSquareContour()
+        return self.run(contour: contour, tool: tool, settings: settings, operation: operation)
     }
 
     /// Profiles the inside wall of the square. Mirrors "Inside profile offsets
@@ -92,7 +93,8 @@ class DemoContour: Demo {
                                                         leadOut: nil,
                                                         tabs: [])
 
-        return self.run(contour: ccwSquareContour(), tool: tool, settings: settings, operation: operation)
+        let contour = ccwSquareContour()
+        return self.run(contour: contour, tool: tool, settings: settings, operation: operation)
     }
 
     // MARK: - Entry strategies
@@ -113,7 +115,8 @@ class DemoContour: Demo {
                                                         leadOut: nil,
                                                         tabs: [])
 
-        return self.run(contour: ccwSquareContour(), tool: tool, settings: settings, operation: operation)
+        let contour = ccwSquareContour()
+        return self.run(contour: contour, tool: tool, settings: settings, operation: operation)
     }
 
     /// Enters the outside profile by spiraling down. Mirrors "Helix entry
@@ -132,7 +135,8 @@ class DemoContour: Demo {
                                                         leadOut: nil,
                                                         tabs: [])
 
-        return self.run(contour: ccwSquareContour(), tool: tool, settings: settings, operation: operation)
+        let contour = ccwSquareContour()
+        return self.run(contour: contour, tool: tool, settings: settings, operation: operation)
     }
 
     // MARK: - Holding tabs
@@ -155,7 +159,8 @@ class DemoContour: Demo {
                                                         leadOut: nil,
                                                         tabs: [tab])
 
-        return self.run(contour: fourSegmentLineContour(), tool: tool, settings: settings, operation: operation)
+        let contour = fourSegmentLineContour()
+        return self.run(contour: contour, tool: tool, settings: settings, operation: operation)
     }
 
     func demoHoldingTabRectangle() -> Demo.DemoResult {
@@ -183,6 +188,7 @@ class DemoContour: Demo {
                                                         leadOut: nil,
                                                         tabs: tabs)
 
-        return self.run(contour: ccwRectangleContour(width: width, height: height), tool: tool, settings: settings, operation: operation)
+        let contour = ccwRectangleContour(width: width, height: height)
+        return self.run(contour: contour, tool: tool, settings: settings, operation: operation)
     }
 }

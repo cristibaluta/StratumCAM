@@ -79,7 +79,8 @@ class DemoCounterbore: Demo {
         let diameter = 3.6
         let operation: SC.MachiningOperation = .counterbore(diameter: diameter, depth: 3.0, direction: .climb, entry: .plunge)
 
-        let result = self.run(contour: pointContour(center.0, center.1), tool: tool, settings: settings, operation: operation)
+        let contour = pointContour(center.0, center.1)
+        let result = self.run(contour: contour, tool: tool, settings: settings, operation: operation)
         return withReferenceCircles(result, centers: [center], diameter: diameter, tool: tool)
     }
 
@@ -98,7 +99,8 @@ class DemoCounterbore: Demo {
         let diameter = 16.0
         let operation: SC.MachiningOperation = .counterbore(diameter: diameter, depth: 3.2, direction: .climb, entry: .plunge)
 
-        let result = self.run(contour: pointContour(center.0, center.1), tool: tool, settings: settings, operation: operation)
+        let contour = pointContour(center.0, center.1)
+        let result = self.run(contour: contour, tool: tool, settings: settings, operation: operation)
         return withReferenceCircles(result, centers: [center], diameter: diameter, tool: tool)
     }
 
@@ -116,7 +118,8 @@ class DemoCounterbore: Demo {
         let diameter = 20.0
         let operation: SC.MachiningOperation = .counterbore(diameter: diameter, depth: 1.0, direction: .climb, entry: .ramp(angleDegrees: 3.0))
 
-        let result = self.run(contour: pointContour(center.0, center.1), tool: tool, settings: settings, operation: operation)
+        let contour = pointContour(center.0, center.1)
+        let result = self.run(contour: contour, tool: tool, settings: settings, operation: operation)
         return withReferenceCircles(result, centers: [center], diameter: diameter, tool: tool)
     }
 
@@ -134,7 +137,8 @@ class DemoCounterbore: Demo {
         let diameter = 20.0
         let operation: SC.MachiningOperation = .counterbore(diameter: diameter, depth: 1.0, direction: .climb, entry: .helix(radius: 1.0, rampAngleDegrees: 30))
 
-        let result = self.run(contour: pointContour(center.0, center.1), tool: tool, settings: settings, operation: operation)
+        let contour = pointContour(center.0, center.1)
+        let result = self.run(contour: contour, tool: tool, settings: settings, operation: operation)
         return withReferenceCircles(result, centers: [center], diameter: diameter, tool: tool)
     }
 
@@ -153,7 +157,8 @@ class DemoCounterbore: Demo {
         let diameter = 20.0
         let operation: SC.MachiningOperation = .counterbore(diameter: diameter, depth: 1.0, direction: .conventional, entry: .plunge)
 
-        let result = self.run(contour: pointContour(center.0, center.1), tool: tool, settings: settings, operation: operation)
+        let contour = pointContour(center.0, center.1)
+        let result = self.run(contour: contour, tool: tool, settings: settings, operation: operation)
         return withReferenceCircles(result, centers: [center], diameter: diameter, tool: tool)
     }
 
