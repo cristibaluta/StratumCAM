@@ -18,17 +18,25 @@ extension SCEngine {
     /// doesn't step down in the sense profile/pocket passes do -- pecking is internal
     /// motion within a single hole, not separate Z-passes over 2D geometry.
     ///
+    /// The hole location is `contour.drillPoint` (an explicit point or closed-circle
+    /// marker) when available, falling back to `contour.closedShapeCenter` -- the
+    /// bounding-box center -- for any other closed contour. That fallback is what makes
+    /// a plain square, an odd polygon, or any other closed boundary drillable at its
+    /// center without needing its own point/circle marker: e.g. pre-drilling a
+    /// stress-relief hole in the middle of a pocket boundary before running adaptive
+    /// clearing over it. An *open* contour still has no well-defined center, so it still
+    /// falls through both and throws.
+    ///
     /// Throws `SC.Error.missingDrillPoint` (Step 6.2) rather than returning `nil` when
-    /// `contour` isn't recognizable as a single drill point -- once that's the only way
-    /// out of this function short of success, the return type no longer needs to be
-    /// optional at all.
+    /// neither of those resolves a location -- once that's the only way out of this
+    /// function short of success, the return type no longer needs to be optional at all.
     func buildDrillingToolpath(for contour: SC.Contour,
                                tool: SC.ToolParams,
                                settings: SC.MachineSettings,
                                peckDepth: Double?,
                                operation: SC.MachiningOperation) throws -> SC.OutputToolpath {
 
-        guard let point = contour.drillPoint else {
+        guard let point = contour.drillPoint ?? contour.closedShapeCenter else {
             throw SC.Error.missingDrillPoint
         }
 

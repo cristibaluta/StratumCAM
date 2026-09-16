@@ -73,8 +73,11 @@ struct ContentView: View {
                     demoButton("Circle as Drill Point") {
                         show(DemoDrilling().demoCircleDrill())
                     }
-                    demoButton("Square - Not a Drill Point") {
-                        show(DemoDrilling().demoSquareIsNotDrilled())
+                    demoButton("Square Drills at Center") {
+                        show(DemoDrilling().demoSquareDrillsAtCenter())
+                    }
+                    demoButton("Open Shape - Not Drilled") {
+                        show(DemoDrilling().demoOpenShapeIsNotDrilled())
                     }
                 }
                 Section("Boring") {

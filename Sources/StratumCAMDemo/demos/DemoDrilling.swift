@@ -33,9 +33,11 @@ class DemoDrilling: Demo {
         ], isClosed: true)
     }
 
-    /// A closed 4-line square -- real, machinable geometry, but not a drill point:
-    /// more than one entity, so `drillPoint` returns `nil` and `.drilling` throws
-    /// `SC.Error.missingDrillPoint` rather than silently doing nothing.
+    /// A closed 4-line square -- not a point or a closed circle, so `drillPoint`
+    /// alone wouldn't recognize it, but it's closed, so `closedShapeCenter` picks
+    /// it up: `.drilling` resolves to its bounding-box center rather than
+    /// throwing. This is the shape behind e.g. pre-drilling a stress-relief hole
+    /// in the middle of a pocket boundary before running adaptive clearing on it.
     private func squareContour(origin: (Double, Double), size: Double) -> SC.Contour {
         let (x, y) = origin
         return SC.Contour(entities: [
@@ -44,6 +46,19 @@ class DemoDrilling: Demo {
             SC.Contour.Chained(entity: .line(a: DXF.Point(x + size, y + size), b: DXF.Point(x, y + size), layer: "0", color: 7), reversed: false),
             SC.Contour.Chained(entity: .line(a: DXF.Point(x, y + size), b: DXF.Point(x, y), layer: "0", color: 7), reversed: false)
         ], isClosed: true)
+    }
+
+    /// The same square, missing its last side and flagged open -- an open boundary
+    /// has no well-defined center (`closedShapeCenter` returns `nil` for it, same
+    /// as `drillPoint`), so `.drilling` still has nothing to fall back to and
+    /// throws `SC.Error.missingDrillPoint`.
+    private func openBracketContour(origin: (Double, Double), size: Double) -> SC.Contour {
+        let (x, y) = origin
+        return SC.Contour(entities: [
+            SC.Contour.Chained(entity: .line(a: DXF.Point(x, y), b: DXF.Point(x + size, y), layer: "0", color: 7), reversed: false),
+            SC.Contour.Chained(entity: .line(a: DXF.Point(x + size, y), b: DXF.Point(x + size, y + size), layer: "0", color: 7), reversed: false),
+            SC.Contour.Chained(entity: .line(a: DXF.Point(x + size, y + size), b: DXF.Point(x, y + size), layer: "0", color: 7), reversed: false)
+        ], isClosed: false)
     }
 
     // MARK: - Basic drill cycle
@@ -115,23 +130,38 @@ class DemoDrilling: Demo {
         return self.run(contour: circleContour(center: (1, 2), radius: 2.0), tool: tool, settings: settings, operation: operation)
     }
 
-    // MARK: - Non-drill-point geometry
+    // MARK: - Any closed shape drills at its center
 
-    /// Points a `.drilling` operation at a square instead of a point or a closed
-    /// circle. Mirrors "A non-drill-point contour throws missingDrillPoint": a
-    /// square has real, closed, machinable geometry, but more than one entity, so
-    /// `Contour.drillPoint` returns `nil` and the engine throws rather than
-    /// guessing a hole location. `run(contour:...)` catches that (Step 6.2, see its
-    /// own doc comment) and falls back to an empty toolpath, so this demo renders
-    /// only the blue dashed square outline -- no yellow toolpath -- which is the
-    /// visual point: this shape is not drillable, even though it's a perfectly
-    /// valid contour for `.engrave`/`.contour`/`.pocket`.
-    func demoSquareIsNotDrilled() -> Demo.DemoResult {
+    /// Points a `.drilling` operation at a plain closed square -- no point or
+    /// circle marker anywhere. Mirrors "A closed square with no point/circle
+    /// marker still drills, at its bounding-box center": the square itself is
+    /// never cut, same as the circle demo above, but now any closed boundary
+    /// works as the marker, not just a circle. This is the shape of the actual
+    /// use case: pre-drilling a stress-relief hole in the middle of a pocket
+    /// boundary before coming back over it with adaptive clearing.
+    func demoSquareDrillsAtCenter() -> Demo.DemoResult {
         let tool = SC.ToolParams(type: .drill, diameter: 4.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: 8.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -6.0)
 
         let operation: SC.MachiningOperation = .drilling(peckDepth: nil)
 
         return self.run(contour: squareContour(origin: (10, 10), size: 20), tool: tool, settings: settings, operation: operation)
+    }
+
+    /// Points `.drilling` at the same square, minus its last side and flagged
+    /// open. Mirrors "An open, non-drill-point contour still throws
+    /// missingDrillPoint": an open boundary has no well-defined center, so the
+    /// engine throws rather than guessing one, and `run(contour:...)` (Step 6.2,
+    /// see its own doc comment) catches that and falls back to an empty
+    /// toolpath. This demo renders only the blue dashed bracket outline -- no
+    /// yellow toolpath, no marker -- the contrast with "Square Drills at
+    /// Center" above is the point: closed is drillable, open still isn't.
+    func demoOpenShapeIsNotDrilled() -> Demo.DemoResult {
+        let tool = SC.ToolParams(type: .drill, diameter: 4.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -6.0)
+
+        let operation: SC.MachiningOperation = .drilling(peckDepth: nil)
+
+        return self.run(contour: openBracketContour(origin: (10, 10), size: 20), tool: tool, settings: settings, operation: operation)
     }
 }

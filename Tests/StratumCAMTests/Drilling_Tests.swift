@@ -19,6 +19,7 @@ struct Drilling_Tests {
 
     @Test("A single .point entity is recognized as a drill point")
     func testPointEntityIsRecognizedAsDrillPoint() {
+        let engine = SCEngine()
         let contour = SC.Contour(entities: [
             .init(entity: .point(at: DXF.Point(5, 7), layer: "0", color: 7), reversed: false)
         ], isClosed: false)
@@ -31,6 +32,7 @@ struct Drilling_Tests {
 
     @Test("A single closed circle is recognized as a drill point at its center")
     func testClosedCircleIsRecognizedAsDrillPoint() {
+        let engine = SCEngine()
         let contour = SC.Contour(entities: [
             .init(entity: .circle(center: DXF.Point(3, 4), radius: 2.5, layer: "0", color: 7), reversed: false)
         ], isClosed: true)
@@ -43,6 +45,7 @@ struct Drilling_Tests {
 
     @Test("A circle marked as not closed is not treated as a drill point")
     func testOpenCircleIsNotRecognizedAsDrillPoint() {
+        let engine = SCEngine()
         let contour = SC.Contour(entities: [
             .init(entity: .circle(center: DXF.Point(3, 4), radius: 2.5, layer: "0", color: 7), reversed: false)
         ], isClosed: false)
@@ -52,6 +55,7 @@ struct Drilling_Tests {
 
     @Test("A line is not recognized as a drill point")
     func testLineIsNotRecognizedAsDrillPoint() {
+        let engine = SCEngine()
         let contour = SC.Contour(entities: [
             .init(entity: .line(a: DXF.Point(0, 0), b: DXF.Point(10, 0), layer: "0", color: 7), reversed: false)
         ], isClosed: false)
@@ -61,6 +65,7 @@ struct Drilling_Tests {
 
     @Test("A multi-entity contour is not recognized as a drill point")
     func testMultiEntityContourIsNotRecognizedAsDrillPoint() {
+        let engine = SCEngine()
         let contour = SC.Contour(entities: [
             .init(entity: .line(a: DXF.Point(0, 0), b: DXF.Point(10, 0), layer: "0", color: 7), reversed: false),
             .init(entity: .point(at: DXF.Point(5, 5), layer: "0", color: 7), reversed: false)
@@ -134,10 +139,92 @@ struct Drilling_Tests {
         #expect(wp1.position.z == -5.0, "Test Failed: plunge Z mismatch")
     }
 
+    // MARK: - Any closed shape drills at its bounding-box center
+
+    // Not a point or a closed circle -- `drillPoint` returns `nil` for this shape --
+    // but it's closed, so `closedShapeCenter` picks it up and `.drilling` still
+    // resolves a hole location instead of throwing. This is what makes something
+    // like pre-drilling a stress-relief hole in the middle of an arbitrary pocket
+    // boundary possible without also having to draw a separate point/circle marker
+    // at the same spot.
+    @Test("closedShapeCenter is the bounding-box center of a closed contour")
+    func testClosedShapeCenterIsBoundingBoxCenter() {
+        let square = SC.Contour(entities: [
+            .init(entity: .line(a: DXF.Point(0, 0), b: DXF.Point(20, 0), layer: "0", color: 7), reversed: false),
+            .init(entity: .line(a: DXF.Point(20, 0), b: DXF.Point(20, 10), layer: "0", color: 7), reversed: false),
+            .init(entity: .line(a: DXF.Point(20, 10), b: DXF.Point(0, 10), layer: "0", color: 7), reversed: false),
+            .init(entity: .line(a: DXF.Point(0, 10), b: DXF.Point(0, 0), layer: "0", color: 7), reversed: false)
+        ], isClosed: true)
+
+        let center = square.closedShapeCenter
+
+        #expect(center != nil, "Test Failed: expected a center for a closed square")
+        #expect(abs(center!.x - 10.0) < 1e-9 && abs(center!.y - 5.0) < 1e-9, "Test Failed: expected the bounding-box center of the square")
+    }
+
+    @Test("closedShapeCenter is nil for an open contour")
+    func testClosedShapeCenterIsNilWhenNotClosed() {
+        let openSquare = SC.Contour(entities: [
+            .init(entity: .line(a: DXF.Point(0, 0), b: DXF.Point(20, 0), layer: "0", color: 7), reversed: false),
+            .init(entity: .line(a: DXF.Point(20, 0), b: DXF.Point(20, 10), layer: "0", color: 7), reversed: false),
+            .init(entity: .line(a: DXF.Point(20, 10), b: DXF.Point(0, 10), layer: "0", color: 7), reversed: false)
+        ], isClosed: false)
+
+        #expect(openSquare.closedShapeCenter == nil, "Test Failed: an open contour has no well-defined center")
+    }
+
+    @Test("A closed square with no point/circle marker still drills, at its bounding-box center")
+    func testDrillingClosedSquareDrillsAtBoundingBoxCenter() throws {
+        let engine = SCEngine()
+        let tool = SC.ToolParams(type: .drill, diameter: 4.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -6.0)
+
+        let square = SC.Contour(entities: [
+            .init(entity: .line(a: DXF.Point(10, 10), b: DXF.Point(30, 10), layer: "0", color: 7), reversed: false),
+            .init(entity: .line(a: DXF.Point(30, 10), b: DXF.Point(30, 30), layer: "0", color: 7), reversed: false),
+            .init(entity: .line(a: DXF.Point(30, 30), b: DXF.Point(10, 30), layer: "0", color: 7), reversed: false),
+            .init(entity: .line(a: DXF.Point(10, 30), b: DXF.Point(10, 10), layer: "0", color: 7), reversed: false)
+        ], isClosed: true)
+
+        let toolpaths = try engine.generateToolpaths(from: [square], tool: tool, settings: settings, operation: .drilling(peckDepth: nil))
+
+        #expect(toolpaths.count == 1, "Test Failed: expected 1 output toolpath")
+        let wp1 = toolpaths[0].passes[0].waypoints[1]
+        #expect(abs(wp1.position.x - 20.0) < 1e-9 && abs(wp1.position.y - 20.0) < 1e-9, "Test Failed: drill should plunge at the square's bounding-box center")
+        #expect(wp1.position.z == -6.0, "Test Failed: plunge Z mismatch")
+    }
+
+    // Same shape as the test above, minus its last side -- an open boundary has no
+    // well-defined center (`closedShapeCenter` returns `nil` for it, same as
+    // `drillPoint`), so this still has to throw rather than guess a location.
+    @Test("An open, non-drill-point contour still throws missingDrillPoint")
+    func testDrillingOpenMultiEntityContourStillThrows() {
+        let engine = SCEngine()
+        let tool = SC.ToolParams(type: .drill, diameter: 4.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -6.0)
+
+        let openSquare = SC.Contour(entities: [
+            .init(entity: .line(a: DXF.Point(10, 10), b: DXF.Point(30, 10), layer: "0", color: 7), reversed: false),
+            .init(entity: .line(a: DXF.Point(30, 10), b: DXF.Point(30, 30), layer: "0", color: 7), reversed: false),
+            .init(entity: .line(a: DXF.Point(30, 30), b: DXF.Point(10, 30), layer: "0", color: 7), reversed: false)
+        ], isClosed: false)
+
+        do {
+            _ = try engine.generateToolpaths(from: [openSquare], tool: tool, settings: settings, operation: .drilling(peckDepth: nil))
+            Issue.record("Test Failed: expected SC.Error.missingDrillPoint to be thrown")
+        } catch SC.Error.missingDrillPoint {
+            // expected
+        } catch {
+            Issue.record("Test Failed: expected SC.Error.missingDrillPoint, got \(error)")
+        }
+    }
+
     // Step 6.2: this used to assert that a non-drill-point contour silently produced
     // an empty toolpaths array. It now throws `SC.Error.missingDrillPoint` instead --
     // that's the whole point of Track 6, not a regression -- so the test asserts the
-    // throw rather than an empty result.
+    // throw rather than an empty result. This particular contour (a single open line)
+    // stays a throwing case even after `closedShapeCenter`'s fallback was added above,
+    // since it's still open, not just an unrecognized shape.
     @Test("A non-drill-point contour throws missingDrillPoint")
     func testDrillingNonDrillPointContourThrows() {
         let engine = SCEngine()
