@@ -10,7 +10,16 @@ import SwiftDXF
 
 extension SCEngine {
 
-    /// Throws `SC.Error.invalidContour
+    /// Shared pipeline behind `.engrave` and (for now) `.contour`: linearize the contour,
+    /// optionally apply tool-radius compensation, step down through Z, and trace the
+    /// resulting segments once per pass. The `strategy` passed in is the one actually
+    /// requested by the caller, so the output is tagged accurately instead of hardcoded.
+    ///
+    /// Throws `SC.Error.invalidContour` (Step 6.4, same pattern established in 6.2/6.3)
+    /// rather than returning `nil` when the contour linearizes to zero segments. This
+    /// function backs both `.engrave` and `.profile` in `buildToolpath`'s dispatch switch,
+    /// so both operations start throwing on empty geometry as of this step, not just
+    /// `.profile` -- they share this one pipeline rather than each having their own copy.
     func buildContourTracingToolpath(for contour: SC.Contour,
                                      tool: SC.ToolParams,
                                      settings: SC.MachineSettings,
@@ -42,7 +51,17 @@ extension SCEngine {
         return SC.OutputToolpath(operation: operation, tool: tool, settings: settings, passes: passes)
     }
 
-    /// Builds a toolpath for `.contour`, honoring `direction`, `entry`, `leadIn`/`leadOut` and `tabs`
+    /// Builds a toolpath for `.contour`, honoring `direction`, `entry`, `leadIn`/`leadOut`,
+    /// and `tabs` -- unlike `.engrave`, which just traces the geometry at cutter-center with
+    /// a plain vertical plunge.
+    ///
+    /// Throws (Step 6.4, same pattern established in 6.2/6.3) at its two failure sites:
+    /// `SC.Error.invalidContour` when the contour linearizes to zero segments -- the input
+    /// itself has nothing to build from -- and `SC.Error.geometryCollapsed` when offsetting
+    /// an otherwise-valid contour leaves nothing behind (e.g. a tool radius wide enough to
+    /// consume the whole shape). Distinct cases because the second one only shows up after
+    /// `baseSegments` already passed validation; the algorithm, not the input, is what
+    /// produced nothing.
     func buildContourToolpath(for contour: SC.Contour,
                               tool: SC.ToolParams,
                               settings: SC.MachineSettings,
@@ -372,9 +391,33 @@ extension SCEngine {
             return (lower...upper, floorZ)
         }
 
+        // Every distance along the path a vertex now needs to exist at, beyond
+        // whatever vertices `segments` already has -- each span's own two
+        // boundaries, so the clamped floor covers exactly the configured tab
+        // width instead of only whichever pre-existing vertex happens to land
+        // inside it (which is what let a tab on a single long, un-subdivided
+        // wall segment -- e.g. one full side of a plain rectangle -- silently
+        // produce no clamp at all: no existing vertex ever fell inside the
+        // span). Also one short buffer point just outside each boundary, so
+        // the ramp between full depth and the tab floor covers a small fixed
+        // distance instead of however far back the nearest real vertex
+        // happens to be (which, on that same long wall, would otherwise ramp
+        // the entire remaining length of the wall rather than just dipping
+        // locally at the tab).
+        var splitDistances = Set<Double>()
+        for span in spans {
+            let rampBuffer = min(0.5, (span.range.upperBound - span.range.lowerBound) / 2)
+            splitDistances.insert(span.range.lowerBound)
+            splitDistances.insert(span.range.upperBound)
+            splitDistances.insert(max(0, span.range.lowerBound - rampBuffer))
+            splitDistances.insert(min(totalLength, span.range.upperBound + rampBuffer))
+        }
+
+        let tracedSegments = splitSegments(segments, atDistances: splitDistances.sorted())
+
         var waypoints: [SC.Waypoint] = []
         var cumulative = 0.0
-        for segment in segments {
+        for segment in tracedSegments {
             cumulative += segmentLength(segment)
 
             var effectiveZ = z
@@ -398,6 +441,79 @@ extension SCEngine {
             }
         }
         return waypoints
+    }
+
+    /// Splits `segments` into more (never fewer) pieces so a vertex exists at
+    /// each cumulative distance in `distances` (ascending) along the whole
+    /// chain -- `tracedWaypoints` above uses this so a tab's Z clamp doesn't
+    /// depend on luck of vertex placement. A distance within `1e-6` of an
+    /// existing vertex is treated as already satisfied and skipped, so this
+    /// never inserts a zero-length segment. Reuses `SC.Segment.withStart`/
+    /// `withEnd` (`SC+Segment.swift`) to build the two pieces of a split
+    /// segment, the same way `joinOffsetChain`'s corner trimming already does.
+    private func splitSegments(_ segments: [SC.Segment], atDistances distances: [Double]) -> [SC.Segment] {
+        guard !distances.isEmpty else {
+            return segments
+        }
+
+        var result: [SC.Segment] = []
+        var cumulative = 0.0
+        var remaining = distances
+
+        for segment in segments {
+            let segStart = cumulative
+            let segLength = segmentLength(segment)
+            let segEnd = segStart + segLength
+            cumulative = segEnd
+
+            var localSplits: [Double] = []
+            while let next = remaining.first, next <= segEnd + 1e-6 {
+                if next > segStart + 1e-6 && next < segEnd - 1e-6 {
+                    localSplits.append(next - segStart)
+                }
+                remaining.removeFirst()
+            }
+
+            guard !localSplits.isEmpty, segLength > 1e-9 else {
+                result.append(segment)
+                continue
+            }
+
+            var piece = segment
+            var consumed = 0.0
+            for localDistance in localSplits.sorted() {
+                let cutPoint = point(onSegment: piece, atDistance: localDistance - consumed, length: segLength - consumed)
+                result.append(piece.withEnd(cutPoint))
+                piece = piece.withStart(cutPoint)
+                consumed = localDistance
+            }
+            result.append(piece)
+        }
+
+        return result
+    }
+
+    /// Point at `distance` along `segment`, whose own full length is `length` --
+    /// used only by `splitSegments` above to find exactly where to cut. Angle
+    /// interpolates linearly between `startAngle`/`endAngle` with no `isCCW`
+    /// branching, matching how `SC.Segment.startPoint`/`endPoint` already read
+    /// those two stored angles directly: this codebase keeps them in whichever
+    /// order already encodes the correct sweep (see `linearizedSegments`'s own
+    /// DXF-arc conversion), so linear interpolation between them retraces the
+    /// same physical arc `segmentLength` measured.
+    private func point(onSegment segment: SC.Segment, atDistance distance: Double, length: Double) -> CGPoint {
+        guard length > 1e-9 else {
+            return segment.startPoint
+        }
+        let t = max(0, min(1, distance / length))
+        switch segment {
+            case .line(let start, let end):
+                return CGPoint(x: start.x + (end.x - start.x) * t, y: start.y + (end.y - start.y) * t)
+
+            case .arc(let center, let radius, let startAngle, let endAngle, _):
+                let angle = startAngle + (endAngle - startAngle) * t
+                return CGPoint(x: center.x + radius * cos(angle), y: center.y + radius * sin(angle))
+        }
     }
 
     private func segmentLength(_ segment: SC.Segment) -> Double {
