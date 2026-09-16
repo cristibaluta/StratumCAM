@@ -41,7 +41,8 @@ class DemoBoring: Demo {
     /// in a single pass.
     func demoPlainBore() -> Demo.DemoResult {
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 6.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -8.0)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -8.0)
 
         let operation: SC.MachiningOperation = .boring(targetDiameter: 10.0, dwellTime: nil, shiftRetract: false)
 
@@ -54,7 +55,8 @@ class DemoBoring: Demo {
     /// drilling accepts.
     func demoBoreFromCircleContour() -> Demo.DemoResult {
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 6.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 250.0, stepdown: 1.0), safeZ: 6.0, targetDepth: -5.0)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 250.0, stepdown: 1.0)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 6.0, targetDepth: -5.0)
 
         let contour = SC.Contour(entities: [
             SC.Contour.Chained(entity: .circle(center: DXF.Point(20, 20), radius: 3.0, layer: "0", color: 7), reversed: false)
@@ -73,7 +75,8 @@ class DemoBoring: Demo {
     /// an extra move in the 3D preview.
     func demoBoreWithDwell() -> Demo.DemoResult {
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 6.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -8.0)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -8.0)
 
         let operation: SC.MachiningOperation = .boring(targetDiameter: 10.0, dwellTime: 0.5, shiftRetract: false)
 
@@ -87,7 +90,8 @@ class DemoBoring: Demo {
     /// waypoint visible in the preview between the last arc and the retract.
     func demoBoreWithShiftRetract() -> Demo.DemoResult {
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 6.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -8.0)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -8.0)
 
         let operation: SC.MachiningOperation = .boring(targetDiameter: 10.0, dwellTime: nil, shiftRetract: true)
 
@@ -100,7 +104,8 @@ class DemoBoring: Demo {
     /// cycle order (cut -> dwell -> shift off the wall -> retract).
     func demoBoreWithDwellAndShiftRetract() -> Demo.DemoResult {
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 6.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -8.0)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -8.0)
 
         let operation: SC.MachiningOperation = .boring(targetDiameter: 10.0, dwellTime: 0.5, shiftRetract: true)
 
@@ -115,7 +120,8 @@ class DemoBoring: Demo {
     /// toolpath, all sharing the same tool, settings, and diameter.
     func demoMultipleBores() -> Demo.DemoResult {
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 6.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -8.0)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -8.0)
 
         let points = [
             (10.0, 20.0),

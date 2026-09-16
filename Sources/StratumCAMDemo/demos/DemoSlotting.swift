@@ -307,7 +307,8 @@ class DemoSlotting: Demo {
     /// running clean across the part rather than floating inset from its edges.
     func demoSlottingBothEndsOpen() -> Demo.DemoResult {
         let tool = SC.ToolParams(diameter: 6.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0), safeZ: 5.0, targetDepth: -1.0)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -1.0)
         let length = 30.0
         let width = 8.0
         let boundary = bothEndsOpenSlotBoundaryContour(length: length, width: width)

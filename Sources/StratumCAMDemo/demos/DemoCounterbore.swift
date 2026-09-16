@@ -91,7 +91,8 @@ class DemoCounterbore: Demo {
     /// counterbore's own `depth`, independent of `settings.targetDepth`.
     func demoCounterboreMultiPassDepth() -> Demo.DemoResult {
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 4.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.5), safeZ: 5.0, targetDepth: -999.0)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.5)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -999.0)
 
         let center = (3.0, 4.0)
         let diameter = 16.0
@@ -126,7 +127,8 @@ class DemoCounterbore: Demo {
     /// downward spiral right before the ring stack starts.
     func demoCounterboreWithHelixEntry() -> Demo.DemoResult {
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 4.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.5), safeZ: 5.0, targetDepth: -999.0)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.5)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -999.0)
 
         let center = (0.0, 0.0)
         let diameter = 20.0
@@ -144,7 +146,8 @@ class DemoCounterbore: Demo {
     /// already makes for an inside cut.
     func demoCounterboreConventional() -> Demo.DemoResult {
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 4.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.5), safeZ: 5.0, targetDepth: -999.0)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.5)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -999.0)
 
         let center = (5.0, 5.0)
         let diameter = 20.0
@@ -163,7 +166,8 @@ class DemoCounterbore: Demo {
     /// and each hole getting its own pair of dashed reference circles.
     func demoMultipleCounterbores() -> Demo.DemoResult {
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 4.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.5), safeZ: 5.0, targetDepth: -999.0)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.5)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -999.0)
 
         let points = [
             (10.0, 10.0),

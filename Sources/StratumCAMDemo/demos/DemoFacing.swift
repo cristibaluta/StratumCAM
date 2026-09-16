@@ -33,7 +33,8 @@ class DemoFacing: Demo {
     /// chained into one rapid-plunge-trace-retract pass at -abs(targetDepth).
     func demoFacingRectangleClimb() -> Demo.DemoResult {
         let tool = SC.ToolParams(diameter: 3.175)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0), safeZ: 5.0, targetDepth: 0.5)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: 0.5)
         let contour = rectangleContour(width: 20, height: 10)
 
         return self.run(contour: contour, tool: tool, settings: settings, operation: .facing(direction: .climb, extensionLength: 0))
@@ -45,7 +46,8 @@ class DemoFacing: Demo {
     /// the first) traveling the opposite way.
     func demoFacingRectangleConventional() -> Demo.DemoResult {
         let tool = SC.ToolParams(diameter: 6.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0), safeZ: 5.0, targetDepth: 0.5)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: 0.5)
         let contour = rectangleContour(width: 20, height: 10)
 
         return self.run(contour: contour, tool: tool, settings: settings, operation: .facing(direction: .conventional, extensionLength: 0))
@@ -61,7 +63,8 @@ class DemoFacing: Demo {
     /// blue contour outline.
     func demoFacingRectangleWithExtension() -> Demo.DemoResult {
         let tool = SC.ToolParams(diameter: 6.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0), safeZ: 5.0, targetDepth: 1.0)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: 1.0)
         let contour = rectangleContour(width: 20, height: 10)
 
         return self.run(contour: contour, tool: tool, settings: settings, operation: .facing(direction: .climb, extensionLength: 4.0))
@@ -75,7 +78,8 @@ class DemoFacing: Demo {
     /// than the small-footprint demos above, closer to a real datum-facing pass.
     func demoFacingLargeStockSmallTool() -> Demo.DemoResult {
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 4.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1500.0, plungeRate: 400.0), safeZ: 6.0, targetDepth: 0.3)
+        let cutting = SC.CuttingData(feedRate: 1500.0, plungeRate: 400.0)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 6.0, targetDepth: 0.3)
         let contour = rectangleContour(width: 60, height: 40)
 
         return self.run(contour: contour, tool: tool, settings: settings, operation: .facing(direction: .climb, extensionLength: 1.0))
@@ -91,8 +95,10 @@ class DemoFacing: Demo {
     func demoFacingBatch() -> Demo.DemoResult {
         let smallTool = SC.ToolParams(diameter: 6.0)
         let bigTool = SC.ToolParams(diameter: 10.0)
-        let settingsA = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0), safeZ: 5.0, targetDepth: 0.5)
-        let settingsB = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1200.0, plungeRate: 350.0), safeZ: 8.0, targetDepth: 1.5)
+        let cuttingA = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0)
+        let settingsA = SC.MachineSettings(cutting: cuttingA, safeZ: 5.0, targetDepth: 0.5)
+        let cuttingB = SC.CuttingData(feedRate: 1200.0, plungeRate: 350.0)
+        let settingsB = SC.MachineSettings(cutting: cuttingB, safeZ: 8.0, targetDepth: 1.5)
 
         let firstContour = rectangleContour(width: 20, height: 10)
         let secondContour = rectangleContour(width: 30, height: 15, originX: 30)

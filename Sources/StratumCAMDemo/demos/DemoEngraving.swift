@@ -15,11 +15,28 @@ class DemoEngraving: Demo {
     func demoLine() -> Demo.DemoResult {
         let tool = SC.ToolParams(diameter: 3.175)
 
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0,
-                                                                  plungeRate: 300.0,
-                                                                  stepdown: 0.1),
-                                          safeZ: 5.0,
-                                          targetDepth: 0.1)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 0.1)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: 0.1)
+
+        let lineEntity = DXF.Entity.line(a: DXF.Point(0, 0),
+                                         b: DXF.Point(20, 0),
+                                         layer: "0",
+                                         color: 7)
+        let contour = SC.Contour(
+            entities: [
+                SC.Contour.Chained(entity: lineEntity, reversed: false)
+            ],
+            isClosed: false
+        )
+
+        return self.run(contour: contour, tool: tool, settings: settings, operation: .engrave)
+    }
+
+    func demoLineMultiplePasses() -> Demo.DemoResult {
+        let tool = SC.ToolParams(diameter: 3.175)
+
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 0.1)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: 1)
 
         let lineEntity = DXF.Entity.line(a: DXF.Point(0, 0),
                                          b: DXF.Point(20, 0),
@@ -41,11 +58,8 @@ class DemoEngraving: Demo {
     func demoLetterS() -> Demo.DemoResult {
         let tool = SC.ToolParams(diameter: 3.175)
 
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0,
-                                                                  plungeRate: 300.0,
-                                                                  stepdown: 0.1),
-                                          safeZ: 5.0,
-                                          targetDepth: 1.0)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 0.1)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: 1.0)
 
         let radius = 5.0
 
@@ -94,11 +108,8 @@ class DemoEngraving: Demo {
     func demoWordSTRATUM() -> Demo.DemoResult {
         let tool = SC.ToolParams(diameter: 3.175)
 
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0,
-                                                                  plungeRate: 300.0,
-                                                                  stepdown: 0.1),
-                                          safeZ: 5.0,
-                                          targetDepth: 1.0)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 0.1)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: 1.0)
 
         let letterAdvance = 14.0 // 10-wide letter box + 4 of spacing
 

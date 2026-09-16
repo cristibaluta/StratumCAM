@@ -75,7 +75,8 @@ class DemoPocketing: Demo {
     /// Step 2.1's demo would show.
     func demoPocketRectangle() -> Demo.DemoResult {
         let tool = SC.ToolParams(diameter: 6.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4), safeZ: 5.0, targetDepth: -3.0)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -3.0)
 
         let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .offset, entry: .plunge)
 
@@ -87,7 +88,8 @@ class DemoPocketing: Demo {
     /// `demoPocketRectangle()`.
     func demoPocketRectangleConventional() -> Demo.DemoResult {
         let tool = SC.ToolParams(diameter: 6.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4), safeZ: 5.0, targetDepth: -3.0)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -3.0)
 
         let operation: SC.MachiningOperation = .pocket(direction: .conventional, pattern: .offset, entry: .plunge)
 
@@ -101,7 +103,8 @@ class DemoPocketing: Demo {
     /// invert (the winding-flip signal both demos ultimately rely on).
     func demoPocketRoundedRectangle() -> Demo.DemoResult {
         let tool = SC.ToolParams(diameter: 3.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.3), safeZ: 5.0, targetDepth: -2.0)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.3)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -2.0)
 
         let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .offset, entry: .plunge)
 
@@ -121,7 +124,8 @@ class DemoPocketing: Demo {
     /// see `demoRampEntryMultiPass()`/`demoHelixEntryMultiPass()` below).
     func demoMultiPassZStepdown() -> Demo.DemoResult {
         let tool = SC.ToolParams(diameter: 6.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -2.5)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -2.5)
 
         let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .offset, entry: .plunge)
 
@@ -134,7 +138,8 @@ class DemoPocketing: Demo {
     /// -1.0 then -2.0, proving Step 1.3 isn't wired to only one pattern type.
     func demoRasterMultiPassZStepdown() -> Demo.DemoResult {
         let tool = SC.ToolParams(diameter: 6.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.5), safeZ: 5.0, targetDepth: -2.0)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.5)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -2.0)
 
         let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .raster, entry: .plunge)
 
@@ -148,7 +153,8 @@ class DemoPocketing: Demo {
     /// only the Z of the trace changes, not the XY shape.
     func demoRingGeometryReusedAcrossPasses() -> Demo.DemoResult {
         let tool = SC.ToolParams(diameter: 4.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.5), safeZ: 5.0, targetDepth: -2.0)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.5)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -2.0)
 
         let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .offset, entry: .plunge)
 
@@ -163,7 +169,8 @@ class DemoPocketing: Demo {
     /// long re-covering ground the first pass already opened up.
     func demoRampEntryMultiPass() -> Demo.DemoResult {
         let tool = SC.ToolParams(diameter: 6.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -2.0)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -2.0)
 
         let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .offset, entry: .ramp(angleDegrees: 30))
 
@@ -176,7 +183,8 @@ class DemoPocketing: Demo {
     /// climbing back up through the depths the first pass already cleared.
     func demoHelixEntryMultiPass() -> Demo.DemoResult {
         let tool = SC.ToolParams(diameter: 6.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -2.0)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -2.0)
 
         let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .offset, entry: .helix(radius: 1.0, rampAngleDegrees: 30))
 
@@ -190,7 +198,8 @@ class DemoPocketing: Demo {
     /// stack, both clearing the identical rectangle with the identical tool.
     func demoRasterRectangle() -> Demo.DemoResult {
         let tool = SC.ToolParams(diameter: 6.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4), safeZ: 5.0, targetDepth: -3.0)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -3.0)
 
         let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .raster, entry: .plunge)
 
@@ -202,7 +211,8 @@ class DemoPocketing: Demo {
     /// `demoRasterRectangle()`.
     func demoRasterRectangleConventional() -> Demo.DemoResult {
         let tool = SC.ToolParams(diameter: 6.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4), safeZ: 5.0, targetDepth: -3.0)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -3.0)
 
         let operation: SC.MachiningOperation = .pocket(direction: .conventional, pattern: .raster, entry: .plunge)
 
@@ -215,7 +225,8 @@ class DemoPocketing: Demo {
     /// `Raster_Tests.testRasterClipsAgainstRoundedContour` locks in.
     func demoRasterRoundedRectangle() -> Demo.DemoResult {
         let tool = SC.ToolParams(diameter: 3.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.3), safeZ: 5.0, targetDepth: -2.0)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.3)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -2.0)
 
         let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .raster, entry: .plunge)
 
@@ -227,7 +238,8 @@ class DemoPocketing: Demo {
     /// proving Step 1.2's entry integration isn't wired to only one pattern type.
     func demoRasterRampEntry() -> Demo.DemoResult {
         let tool = SC.ToolParams(diameter: 6.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4), safeZ: 5.0, targetDepth: -1.0)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -1.0)
 
         let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .raster, entry: .ramp(angleDegrees: 30))
 
@@ -238,7 +250,8 @@ class DemoPocketing: Demo {
     /// `demoRasterRampEntry()`, for the other non-plunge entry style.
     func demoRasterHelixEntry() -> Demo.DemoResult {
         let tool = SC.ToolParams(diameter: 6.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4), safeZ: 5.0, targetDepth: -1.0)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -1.0)
 
         let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .raster, entry: .helix(radius: 2.0, rampAngleDegrees: 30))
 
@@ -255,7 +268,8 @@ class DemoPocketing: Demo {
     /// `Raster_Tests.testRasterSkipsConcaveReentrantRows`.
     func demoRasterConcaveStapleSkipsBridgingRows() -> Demo.DemoResult {
         let tool = SC.ToolParams(diameter: 4.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4), safeZ: 5.0, targetDepth: -1.0)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -1.0)
 
         let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .raster, entry: .plunge)
 
@@ -270,7 +284,8 @@ class DemoPocketing: Demo {
     /// passes, just one smoothly shrinking curve down to the center.
     func demoSpiralCircle() -> Demo.DemoResult {
         let tool = SC.ToolParams(diameter: 6.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4), safeZ: 5.0, targetDepth: -3.0)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -3.0)
 
         let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .spiral(direction: .outsideIn), entry: .plunge)
 
@@ -279,7 +294,8 @@ class DemoPocketing: Demo {
 
     func demoSpiralCircleInsideOut() -> Demo.DemoResult {
         let tool = SC.ToolParams(diameter: 6.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4), safeZ: 5.0, targetDepth: -3.0)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -3.0)
 
         let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .spiral(direction: .insideOut), entry: .plunge)
 
@@ -294,7 +310,8 @@ class DemoPocketing: Demo {
     /// point. See `isSpiralEligible`.
     func demoSpiralFallbackOnRectangle() -> Demo.DemoResult {
         let tool = SC.ToolParams(diameter: 6.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4), safeZ: 5.0, targetDepth: -3.0)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -3.0)
 
         let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .spiral(direction: .outsideIn), entry: .plunge)
 

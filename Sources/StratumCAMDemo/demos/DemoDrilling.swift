@@ -68,7 +68,8 @@ class DemoDrilling: Demo {
     /// location": rapid-plunge-retract, 3 waypoints in a single pass.
     func demoPlainDrill() -> Demo.DemoResult {
         let tool = SC.ToolParams(type: .drill)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -8.0)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -8.0)
 
         let operation: SC.MachiningOperation = .drilling(peckDepth: nil)
 
@@ -99,7 +100,8 @@ class DemoDrilling: Demo {
     /// settings, and (non-peck) strategy.
     func demoMultipleHoles() -> Demo.DemoResult {
         let tool = SC.ToolParams(type: .drill)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: 8.0)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: 8.0)
 
         let points = [
             (10.0, 20.0),
@@ -123,7 +125,8 @@ class DemoDrilling: Demo {
     /// point-contour demos above.
     func demoCircleDrill() -> Demo.DemoResult {
         let tool = SC.ToolParams(type: .drill, diameter: 4.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 250.0, stepdown: 1.0), safeZ: 6.0, targetDepth: -5.0)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 250.0, stepdown: 1.0)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 6.0, targetDepth: -5.0)
 
         let operation: SC.MachiningOperation = .drilling(peckDepth: nil)
 
@@ -141,7 +144,8 @@ class DemoDrilling: Demo {
     /// boundary before coming back over it with adaptive clearing.
     func demoSquareDrillsAtCenter() -> Demo.DemoResult {
         let tool = SC.ToolParams(type: .drill, diameter: 4.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -6.0)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -6.0)
 
         let operation: SC.MachiningOperation = .drilling(peckDepth: nil)
 
@@ -158,7 +162,8 @@ class DemoDrilling: Demo {
     /// Center" above is the point: closed is drillable, open still isn't.
     func demoOpenShapeIsNotDrilled() -> Demo.DemoResult {
         let tool = SC.ToolParams(type: .drill, diameter: 4.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -6.0)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -6.0)
 
         let operation: SC.MachiningOperation = .drilling(peckDepth: nil)
 
