@@ -123,7 +123,7 @@ extension SC {
     public struct AdaptiveSettings: Sendable, Codable, Equatable {
         /// Target radial engagement of the tool, in millimeters.
         /// Try to maintain <optimalLoad> mm radial engagement where geometry permits.
-        var optimalLoad: Double
+        public var optimalLoad: Double
 
         public init(optimalLoad: Double) {
             self.optimalLoad = optimalLoad
@@ -133,10 +133,10 @@ extension SC {
     public struct TrochoidalSettings: Sendable, Codable, Equatable {
         /// Forward pitch between successive bounce cycles, as a fraction
         /// (clamped to `0...1`) of the tool's own radius
-        let radialEngagement: Double
+        public let radialEngagement: Double
 
         // TODO: what is this?
-        let loopRadius: Double
+        public let loopRadius: Double
 
         public init(radialEngagement: Double, loopRadius: Double) {
             self.radialEngagement = radialEngagement
