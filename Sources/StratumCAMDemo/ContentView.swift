@@ -56,6 +56,12 @@ struct ContentView: View {
                     demoButton("Holding Tabs - Rectangle") {
                         show(DemoContour().demoHoldingTabRectangle())
                     }
+                    demoButton("Narrow Neck Outside (bug repro)") {
+                        show(DemoContour().demoNarrowNeckOutside())
+                    }
+                    demoButton("Narrow Neck Inside (bug repro)") {
+                        show(DemoContour().demoNarrowNeckInside())
+                    }
                 }
                 Section("Drilling") {
                     demoButton("Plain Drill") {

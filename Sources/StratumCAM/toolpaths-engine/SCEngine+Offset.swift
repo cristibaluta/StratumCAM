@@ -13,9 +13,14 @@ extension SCEngine {
     /// Offsets a linearized contour by the tool radius, producing the true toolpath
     /// for an inside or outside profile cut. `.onContour` (or a zero radius) is a no-op.
     ///
-    /// Known limitation: if the tool radius is bigger than the offset can support
-    /// (self-intersecting loops in tight inside corners / small features), this does
-    /// not clean up the resulting loops -- it returns the raw offset path as-is.
+    /// Known limitation: this only cleans up *local* self-intersections -- the gap
+    /// between two adjacent offset segments at one corner (`joinOffsetChain` below,
+    /// including its guard against wild miter-join extrapolations at sharp concave
+    /// notches). It does not detect *global* self-intersections, where the offset
+    /// curve loops back and crosses a segment further away in the same chain (e.g. a
+    /// tool radius that's larger than a narrow neck/waist can support, so the offset
+    /// boundaries from two different parts of the shape overlap each other). In that
+    /// case the raw, overlapping loop is still left in the output as-is.
     public func offsetContour(_ segments: [SC.Segment], side: SC.CutSide, toolRadius: Double, isClosed: Bool) -> [SC.Segment] {
         guard side != .onContour, toolRadius > 0, !segments.isEmpty else {
             return segments
@@ -75,9 +80,30 @@ extension SCEngine {
 
         var working = offset
         var fillets: [Int: SC.Segment] = [:]
+        var bridges: [Int: SC.Segment] = [:]
 
         let count = working.count
         let pairCount = isClosed ? count : count - 1
+
+        // A trimmed corner point should land within a sane multiple of the offset
+        // distance from the original vertex. This bound exists to catch a specific
+        // failure mode of `intersectionCandidates`: it treats lines as infinite and
+        // arcs as full circles (see its doc comment), so the "intersection" it solves
+        // for is really a miter join -- and a miter join's distance from the vertex is
+        // distance / sin(halfTurnAngle). That's well-behaved for an ordinary corner,
+        // but blows up for a sharp, near-reversing concave notch (a "hairpin": incoming
+        // and outgoing tangents pointing almost directly back at each other, halfTurnAngle
+        // near 0) -- exactly the kind of tight cusp you get at the pinched "neck" of a
+        // figure-8/keyring shape. A 1-degree hairpin there already extrapolates the trim
+        // point to ~57x the tool radius away from the true corner; sharper notches make
+        // it worse, and worse in direct proportion regardless of how small the tool is,
+        // since the multiplier (1/sin(halfTurnAngle)) only depends on the notch's own
+        // angle, not on `distance`. Left unchecked, that distant point gets spliced
+        // straight into the toolpath, producing the long spiking, self-crossing loops
+        // seen at the neck. 25x the offset distance comfortably covers legitimate
+        // trims while rejecting these blow-ups; the floor keeps the bound meaningful
+        // when `distance` itself is tiny.
+        let maxReasonableTrimDistance = max(abs(distance) * 25.0, 1.0)
 
         for i in 0..<pairCount {
             let j = (i + 1) % count
@@ -105,16 +131,23 @@ extension SCEngine {
                 let endAngle = atan2(gapEnd.y - vertex.y, gapEnd.x - vertex.x)
                 fillets[i] = .arc(center: vertex, radius: abs(distance), startAngle: startAngle, endAngle: endAngle, isCCW: turn > 0)
             } else {
-                let candidates = intersectionCandidates(curr, next)
+                let candidates = intersectionCandidates(curr, next).filter {
+                    hypot($0.x - vertex.x, $0.y - vertex.y) <= maxReasonableTrimDistance
+                }
                 if let closest = candidates.min(by: {
                     hypot($0.x - vertex.x, $0.y - vertex.y) < hypot($1.x - vertex.x, $1.y - vertex.y)
                 }) {
                     working[i] = curr.withEnd(closest)
                     working[j] = next.withStart(closest)
+                } else {
+                    // No usable intersection: either the segments are truly parallel,
+                    // or (the sharp-notch case above) the only solution was rejected
+                    // as an unreasonable miter-join extrapolation. Either way, don't
+                    // leave a raw gap for a downstream waypoint move to silently paper
+                    // over -- bridge it explicitly with a short straight line so the
+                    // chain stays a single, non-self-crossing path.
+                    bridges[i] = .line(start: gapStart, end: gapEnd)
                 }
-                // If no intersection exists (degenerate/parallel), we leave the small
-                // gap as-is; the next waypoint move will implicitly bridge it. TODO:
-                // insert an explicit bridging line for full robustness here.
             }
         }
 
@@ -123,6 +156,8 @@ extension SCEngine {
             result.append(working[i])
             if let fillet = fillets[i] {
                 result.append(fillet)
+            } else if let bridge = bridges[i] {
+                result.append(bridge)
             }
         }
         return result

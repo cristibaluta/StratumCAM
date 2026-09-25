@@ -191,4 +191,110 @@ class DemoContour: Demo {
         let contour = ccwRectangleContour(width: width, height: height)
         return self.run(contour: contour, tool: tool, settings: settings, operation: operation)
     }
+
+    /// A pendant/keyring shape: a big circular body with a small loop at the top,
+    /// joined by a narrow "neck" -- the exact shape from the reported "toolpath went
+    /// crazy" bug, reduced to its essentials. Each side of the neck has a small
+    /// zigzag notch (mimicking the tiny stray segments a raster-trace/auto-vectorize
+    /// leaves at a pinch point) where the path folds back on itself by ~178 degrees.
+    /// That's sharp enough that a line-line "trim" at that corner, if solved as an
+    /// infinite-line miter join, lands roughly 57x the tool radius away from the real
+    /// vertex -- see `SCEngine+Offset.swift`'s `maxReasonableTrimDistance` comment.
+    ///
+    /// `foldsTowardCenterline` picks which way the notch folds. A corner's
+    /// fillet-vs-trim classification depends on the *sign* of its local turn against
+    /// the offset distance's sign -- so for a given fold direction, exactly one of
+    /// `.outside`/`.inside` lands this notch in the buggy trim branch and the other in
+    /// the stable fillet branch. `false` (folding away from the centerline) hits it on
+    /// `.outside`; `true` (folding toward the centerline) hits it on `.inside` --
+    /// that's why the two demos below use different fixtures rather than the same one
+    /// with the side flipped: a single symmetric notch pair doesn't reproduce both.
+    private func narrowNeckPendantContour(notchFoldsTowardCenterline: Bool) -> SC.Contour {
+        // Main body.
+        let bodyCenter = DXF.Point(0, 0)
+        let bodyRadius = 25.0
+        // Junction points where the neck meets the body sit at +/-10 degrees either
+        // side of straight up (90 degrees), i.e. a 20-degree-wide gap at the top.
+        let bodyArc = DXF.Entity.arc(center: bodyCenter, radius: bodyRadius, startDeg: 100, endDeg: 440, layer: "0", color: 7)
+
+        // Loop (the keyring hole) sitting above the body.
+        let loopCenter = DXF.Point(0, 60)
+        let loopRadius = 9.0
+        // Junction points where the neck meets the loop sit at +/-10 degrees either
+        // side of straight down (270 degrees), i.e. a 20-degree-wide gap at the bottom.
+        let loopArc = DXF.Entity.arc(center: loopCenter, radius: loopRadius, startDeg: 280, endDeg: 620, layer: "0", color: 7)
+
+        // Left neck: body junction -> notch -> loop junction. notchLeft1 is the same
+        // in both variants; only notchLeft2 moves, to fold the ~178-degree hairpin one
+        // way or the other.
+        let bodyLeft = DXF.Point(-4.341, 24.620)
+        let notchLeft1 = DXF.Point(-7.278, 29.273)
+        let notchLeft2 = notchFoldsTowardCenterline ? DXF.Point(-6.039, 27.454) : DXF.Point(-6.169, 27.372)
+        let loopLeft = DXF.Point(-1.563, 51.137)
+
+        // Right neck: mirror image, walked in the opposite direction (loop -> body)
+        // so the whole contour reads as one continuous CCW loop.
+        let loopRight = DXF.Point(1.563, 51.137)
+        let notchRight1 = notchFoldsTowardCenterline ? DXF.Point(6.039, 27.454) : DXF.Point(6.169, 27.372)
+        let notchRight2 = DXF.Point(7.278, 29.273)
+        let bodyRight = DXF.Point(4.341, 24.620)
+
+        return SC.Contour(
+            entities: [
+                // Body, the long way around: bodyRight -> ... -> bodyLeft.
+                SC.Contour.Chained(entity: bodyArc, reversed: true),
+                SC.Contour.Chained(entity: .line(a: bodyLeft, b: notchLeft1, layer: "0", color: 7), reversed: false),
+                SC.Contour.Chained(entity: .line(a: notchLeft1, b: notchLeft2, layer: "0", color: 7), reversed: false),
+                SC.Contour.Chained(entity: .line(a: notchLeft2, b: loopLeft, layer: "0", color: 7), reversed: false),
+                // Loop, the long way around: loopLeft -> ... -> loopRight.
+                SC.Contour.Chained(entity: loopArc, reversed: true),
+                SC.Contour.Chained(entity: .line(a: loopRight, b: notchRight1, layer: "0", color: 7), reversed: false),
+                SC.Contour.Chained(entity: .line(a: notchRight1, b: notchRight2, layer: "0", color: 7), reversed: false),
+                SC.Contour.Chained(entity: .line(a: notchRight2, b: bodyRight, layer: "0", color: 7), reversed: false)
+            ],
+            isClosed: true
+        )
+    }
+
+    // MARK: - Narrow neck (reported bug repro)
+
+    /// Reproduces the reported "toolpath went crazy" bug on an outside contour offset
+    /// around the pendant's narrow neck. Before the `maxReasonableTrimDistance` fix,
+    /// the two neck notches spike to ~57x the tool radius away from the pendant;
+    /// after the fix, they're small clean bridges instead.
+    func demoNarrowNeckOutside() -> Demo.DemoResult {
+        let tool = SC.ToolParams(diameter: 6.0)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 0.1)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -1.0)
+
+        let operation: SC.MachiningOperation = .contour(side: .outside,
+                                                        direction: .climb,
+                                                        entry: .plunge,
+                                                        leadIn: nil,
+                                                        leadOut: nil,
+                                                        tabs: [])
+
+        let contour = narrowNeckPendantContour(notchFoldsTowardCenterline: false)
+        return self.run(contour: contour, tool: tool, settings: settings, operation: operation)
+    }
+
+    /// Reproduces the same bug on an inside contour offset -- a mirror-image notch
+    /// fixture from `demoNarrowNeckOutside()` (see `narrowNeckPendantContour(notchFoldsTowardCenterline:)`),
+    /// since it's the notch's fold direction relative to the offset side that decides
+    /// which one lands in the buggy trim branch.
+    func demoNarrowNeckInside() -> Demo.DemoResult {
+        let tool = SC.ToolParams(diameter: 6.0)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 0.1)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -1.0)
+
+        let operation: SC.MachiningOperation = .contour(side: .inside,
+                                                        direction: .climb,
+                                                        entry: .plunge,
+                                                        leadIn: nil,
+                                                        leadOut: nil,
+                                                        tabs: [])
+
+        let contour = narrowNeckPendantContour(notchFoldsTowardCenterline: true)
+        return self.run(contour: contour, tool: tool, settings: settings, operation: operation)
+    }
 }

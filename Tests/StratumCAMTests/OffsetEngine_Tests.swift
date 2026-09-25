@@ -96,4 +96,41 @@ struct OffsetEngine_Tests {
         let result = engine.offsetContour(square, side: .onContour, toolRadius: 1.0, isClosed: true)
         #expect(result == square)
     }
+
+    // Regression test for the "toolpath went crazy" bug: a sharp, near-reversing
+    // concave notch (a 1-degree half-angle spike -- the kind of tight cusp you get at
+    // the pinched "neck" of a figure-8/keyring pendant) meeting at the origin.
+    //
+    // `intersectionCandidates` treats both adjacent offset segments as infinite lines.
+    // For a genuine miter join, the trim point sits at distance / sin(halfAngle) from
+    // the vertex -- for a 1-degree spike that's over 57x the tool radius. Before the
+    // fix, that wild point got spliced straight into the toolpath (the long spiking,
+    // self-crossing loops seen at the neck in the reported bug). The fix rejects any
+    // trim candidate unreasonably far from the vertex and bridges the gap with a short
+    // straight line instead.
+    @Test func testSharpConcaveSpikeDoesNotProduceWildMiterPoint() {
+        let engine = SCEngine()
+
+        let halfAngle = 1.0 * Double.pi / 180.0
+        let a = CGPoint(x: -5 * sin(halfAngle), y: 5 * cos(halfAngle))
+        let v = CGPoint(x: 0, y: 0)
+        let b = CGPoint(x: 5 * sin(halfAngle), y: 5 * cos(halfAngle))
+
+        let segments: [SC.Segment] = [.line(start: a, end: v), .line(start: v, end: b)]
+
+        // .inside on this open 2-segment chain resolves to the concave/trim branch at
+        // the vertex -- the same branch that mishandled the pendant's neck.
+        let result = engine.offsetContour(segments, side: .inside, toolRadius: 1.0, isClosed: false)
+
+        // Nothing in the result should be extrapolated dozens of units from the vertex --
+        // the old bug placed a point ~57 units away for this exact geometry.
+        for segment in result {
+            #expect(hypot(segment.startPoint.x - v.x, segment.startPoint.y - v.y) < 5.0)
+            #expect(hypot(segment.endPoint.x - v.x, segment.endPoint.y - v.y) < 5.0)
+        }
+
+        // The corner should have been bridged with a short straight line (3 segments:
+        // seg0, bridge, seg1) instead of trimmed to a single wild extrapolated point.
+        #expect(result.count == 3)
+    }
 }
