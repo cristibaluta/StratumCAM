@@ -73,6 +73,9 @@ extension SCEngine {
                               tabs: [SC.HoldingTab],
                               operation: SC.MachiningOperation) throws -> SC.OutputToolpath {
 
+        var clock = OffsetTiming.now()
+        let totalStart = clock
+
         let baseSegments = contour.linearizedSegments
         guard !baseSegments.isEmpty else {
             throw SC.Error.invalidContour
@@ -80,13 +83,16 @@ extension SCEngine {
 
         // 1. Orient the chain so travel direction matches the requested climb/conventional cut.
         let oriented = orientedForDirection(baseSegments, side: side, direction: cutDirection)
+        let prepTime = OffsetTiming.lap(&clock)
 
         // 2. Tool-radius compensation. A shape can offset into several separate loops (a neck
         //    narrower than the tool pinches it in two), and a tool that doesn't fit anywhere
         //    offsets into none -- which is `geometryCollapsed`, not a silent cut on the contour.
         let toolpathLoops = offsetContours(oriented, side: side, toolRadius: tool.diameter / 2.0, isClosed: contour.isClosed)
             .filter { !$0.isEmpty }
+        let offsetTime = OffsetTiming.lap(&clock)
         guard !toolpathLoops.isEmpty else {
+            OffsetTiming.log("[contour] tool doesn't fit: no loops (\(baseSegments.count) segments, offset \(offsetTime) ms)")
             throw SC.Error.geometryCollapsed
         }
 
@@ -119,6 +125,10 @@ extension SCEngine {
             passes.append(SC.ToolpathPass(passIndex: i, depthZ: z, waypoints: waypoints))
             previousZ = z
         }
+        let waypointsTime = OffsetTiming.lap(&clock)
+        let waypointCount = passes.reduce(0) { $0 + $1.waypoints.count }
+        let totalTime = String(format: "%.2f", Double(OffsetTiming.now() &- totalStart) / 1_000_000)
+        OffsetTiming.log("[contour] \(baseSegments.count) segments -> \(toolpathLoops.count) loops (\(toolpathLoops.map { $0.count }) segments), \(zDepths.count) passes, \(waypointCount) waypoints | prep \(prepTime) ms, offset \(offsetTime) ms, waypoints \(waypointsTime) ms, total \(totalTime) ms")
 
         return SC.OutputToolpath(operation: operation, tool: tool, settings: settings, passes: passes)
     }

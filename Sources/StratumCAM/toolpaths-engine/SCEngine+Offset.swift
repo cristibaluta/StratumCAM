@@ -45,7 +45,9 @@ extension SCEngine {
             return [segments]
         }
 
+        var clock = OffsetTiming.now()
         let exact = exactOffsetContour(segments, side: side, toolRadius: toolRadius, isClosed: isClosed)
+        let exactTime = OffsetTiming.lap(&clock)
         guard isClosed else {
             return [exact]
         }
@@ -54,22 +56,29 @@ extension SCEngine {
         // enough to keep the point count reasonable.
         let tolerance = min(max(toolRadius * 0.001, 1e-4), 0.01)
         let original = PolygonOffset.flatten(segments, tolerance: tolerance)
+        let flattenTime = OffsetTiming.lap(&clock)
         guard original.count >= 3 else {
             return [exact] // Degenerate input (a point or a single line): nothing to validate against.
         }
 
+        OffsetTiming.log("offsetContours: \(segments.count) segments (\(original.count) pts flattened), tool radius \(toolRadius), tolerance \(tolerance) | exact offset \(exactTime) ms, flatten \(flattenTime) ms")
+
         if exact != segments {
             let candidate = PolygonOffset.flatten(exact, tolerance: tolerance)
-            if PolygonOffset.isValidOffset(candidate, of: original, radius: toolRadius, tolerance: tolerance) {
+            let valid = PolygonOffset.isValidOffset(candidate, of: original, radius: toolRadius, tolerance: tolerance)
+            OffsetTiming.log("offsetContours: exact result \(valid ? "kept" : "rejected, falling back to polygon offset") (flatten + validate \(OffsetTiming.lap(&clock)) ms)")
+            if valid {
                 return [exact]
             }
         }
 
         let distance = OffsetTools.offsetDistance(for: side, toolRadius: toolRadius, segments: segments)
         let loops = PolygonOffset.offset(polygon: original, distance: distance, tolerance: tolerance)
-        return loops
+        let result = loops
             .sorted { abs(PolygonOffset.signedArea($0)) > abs(PolygonOffset.signedArea($1)) }
             .map { PolygonOffset.segments(from: $0) }
+        OffsetTiming.log("offsetContours: polygon offset -> \(result.count) loops, \(result.map { $0.count }) segments each (\(OffsetTiming.lap(&clock)) ms)")
+        return result
     }
 
     /// The exact segment-by-segment offset: every segment is shifted on its own and

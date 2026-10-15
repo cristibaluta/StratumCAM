@@ -45,6 +45,9 @@ class Demo {
     /// drill holes) — mirrors the engine's own `generateToolpaths(from: [SC.Contour], ...)`.
     func run(contours: [SC.Contour], tool: SC.ToolParams, settings: SC.MachineSettings, operation: SC.MachiningOperation) -> DemoResult {
 
+        var clock = OffsetTiming.now()
+        let totalStart = clock
+
         // 1. Convert each Contour to 3D simd points
         var rawPoints: [SIMD3<Float>] = []
         for contour in contours {
@@ -54,16 +57,8 @@ class Demo {
         }
 
         // 2. Convert Contours to toolpaths then to 3d simd points
-        //
-        // `generateToolpaths(from:tool:settings:operation:)` started throwing in
-        // Step 6.2 (currently only `.drilling` on a non-drill-point contour). `run`
-        // stays non-throwing on purpose -- every Demo*.swift button calls it as a
-        // plain `-> DemoResult`, and pushing `throws` through all of those is a much
-        // bigger, unrelated change than this pilot step. So: catch here, log to the
-        // console the same way the existing `.facing`-via-wrong-overload warning
-        // does in SCEngine.swift, and fall back to an empty toolpath -- the demo
-        // still renders the base contour, it just won't show a toolpath for input
-        // the engine rejected.
+        // (the original explanatory comment about `generateToolpaths` throwing stays here)
+        let basePointsTime = OffsetTiming.lap(&clock)
         let toolpaths: [SC.OutputToolpath]
         do {
             toolpaths = try engine.generateToolpaths(from: contours,
@@ -74,17 +69,16 @@ class Demo {
             print("generateToolpaths failed: \(error)")
             toolpaths = []
         }
+        let engineTime = OffsetTiming.lap(&clock)
         var toolpathPoints: [SIMD3<Float>] = []
         for toolpath in toolpaths {
             for pass in toolpath.passes {
                 toolpathPoints.append(contentsOf: tessellateForRender(pass.waypoints))
             }
         }
+        let tessellateTime = OffsetTiming.lap(&clock)
 
         // 3. Build Contour vertices (blue and dashed)
-        // Some contours (e.g. a drilling point) have no linearizable base path,
-        // so rawPoints can legitimately be empty -- renderBatch(forPoints:...)
-        // returns nil in that case and the batch is skipped entirely.
         var batches: [RenderBatch] = []
         if let bbox = Demo.boundingBox(of: rawPoints, toolpathPoints),
            let stockBatch = stockBatch(stock: Demo.syntheticStock(around: bbox, tool: tool, settings: settings)) {
@@ -102,9 +96,14 @@ class Demo {
                                            color: SIMD4<Float>(1.0, 0.8, 0.0, 1.0)) {
             batches.append(toolpathBatch)
         }
+        let batchesTime = OffsetTiming.lap(&clock)
 
         // 5. Generate G-code for the same toolpaths
         let gcode = gcodeEngine.generateGCode(from: toolpaths, settings: settings)
+        let gcodeTime = OffsetTiming.lap(&clock)
+
+        let totalTime = String(format: "%.2f", Double(OffsetTiming.now() &- totalStart) / 1_000_000)
+        OffsetTiming.log("[demo] \(operation) | base points \(basePointsTime) ms, engine \(engineTime) ms, tessellate \(tessellateTime) ms (\(toolpathPoints.count) points), render batches \(batchesTime) ms, gcode \(gcodeTime) ms (\(gcode.count) chars), total \(totalTime) ms")
 
         return DemoResult(batches: batches, gcode: gcode, toolpathPoints: toolpathPoints, tool: tool)
     }

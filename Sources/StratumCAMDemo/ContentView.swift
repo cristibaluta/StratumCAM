@@ -301,6 +301,7 @@ struct ContentView: View {
     }
 
     private func rebuildRenderBatches() {
+        let start = Date()
         var batches = staticBatches
         if !toolpathPoints.isEmpty {
             let prefixIndex = Int(scrubIndex.rounded(.down))
@@ -317,5 +318,6 @@ struct ContentView: View {
             }
         }
         renderBatches = batches
+        print(">>>>>>>>>> rebuildRenderBatches took: \(Date().timeIntervalSince(start))")
     }
 }

@@ -53,7 +53,9 @@ enum PolygonOffset {
         let oriented = isClockwise ? Array(polygon.reversed()) : polygon
         let leftDistance = isClockwise ? -distance : distance
 
+        var clock = OffsetTiming.now()
         let raw = rawOffset(oriented, distance: leftDistance, tolerance: tolerance)
+        let rawTime = OffsetTiming.lap(&clock)
         guard raw.count >= 3 else {
             return []
         }
@@ -62,9 +64,14 @@ enum PolygonOffset {
         var loops: [[CGPoint]] = []
 
         let split = splitAtSelfIntersections(raw)
+        let splitTime = OffsetTiming.lap(&clock)
+        let windingIndex = WindingIndex(loop: raw)
+        let indexTime = OffsetTiming.lap(&clock)
+        var classifyTime = "-"
+        var chainTime = "-"
         if !split.hadIntersections {
             // The raw curve is already simple: it's either the answer or fully inverted.
-            switch classify(raw + [raw[0]], against: raw, probe: probe) {
+            switch classify(raw + [raw[0]], against: windingIndex, probe: probe) {
                 case 1:
                     loops = [raw]
                 case -1:
@@ -75,7 +82,7 @@ enum PolygonOffset {
         } else {
             var kept: [[CGPoint]] = []
             for piece in split.pieces {
-                switch classify(piece, against: raw, probe: probe) {
+                switch classify(piece, against: windingIndex, probe: probe) {
                     case 1:
                         kept.append(piece)
                     case -1:
@@ -84,8 +91,12 @@ enum PolygonOffset {
                         break
                 }
             }
+            classifyTime = OffsetTiming.lap(&clock)
             loops = chain(kept)
+            chainTime = OffsetTiming.lap(&clock)
         }
+
+        OffsetTiming.log("polygon offset: \(polygon.count) pts -> raw \(raw.count) pts, \(split.pieces.count) pieces, \(loops.count) loops | raw \(rawTime) ms, split \(splitTime) ms, index \(indexTime) ms, classify \(classifyTime) ms, chain \(chainTime) ms")
 
         // Drop hairline slivers (loops thinner than the tolerance), which come from tools that
         // fit with a hair to spare and would only produce a back-and-forth cut.
@@ -149,9 +160,15 @@ enum PolygonOffset {
             return false
         }
         guard (signedArea(candidate) > 0) == (signedArea(polygon) > 0) else {
+            OffsetTiming.log("validate exact offset: rejected, winding flipped")
             return false
         }
-        guard !hasSelfCrossing(candidate) else {
+
+        var clock = OffsetTiming.now()
+        let crossing = hasSelfCrossing(candidate)
+        let crossingTime = OffsetTiming.lap(&clock)
+        guard !crossing else {
+            OffsetTiming.log("validate exact offset: rejected, self-crossing (\(candidate.count) pts, check \(crossingTime) ms)")
             return false
         }
 
@@ -168,9 +185,11 @@ enum PolygonOffset {
         }
         let diagonal = hypot(maxX - minX, maxY - minY)
         let grid = SegmentGrid(polygon: polygon, cellSize: max(radius, diagonal / 512))
+        let gridTime = OffsetTiming.lap(&clock)
 
         let spacing = max(radius * 0.5, tolerance)
         let n = candidate.count
+        var samples = 0
         for i in 0..<n {
             let a = candidate[i]
             let b = candidate[(i + 1) % n]
@@ -179,11 +198,14 @@ enum PolygonOffset {
             for k in 0..<steps {
                 let t = Double(k) / Double(steps)
                 let p = CGPoint(x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t)
+                samples += 1
                 if grid.hasSegment(closerThan: limit, to: p) {
+                    OffsetTiming.log("validate exact offset: rejected, too close to the outline at (\(p.x), \(p.y)) (crossing check \(crossingTime) ms, grid \(gridTime) ms, distance check \(OffsetTiming.lap(&clock)) ms)")
                     return false
                 }
             }
         }
+        OffsetTiming.log("validate exact offset: accepted (\(candidate.count) pts, \(samples) samples; crossing check \(crossingTime) ms, grid \(gridTime) ms, distance check \(OffsetTiming.lap(&clock)) ms)")
         return true
     }
 
@@ -243,12 +265,12 @@ enum PolygonOffset {
                                             tolerance: Double) -> (t: Double, u: Double, point: CGPoint)? {
         let d1x = p2.x - p1.x, d1y = p2.y - p1.y
         let d2x = p4.x - p3.x, d2y = p4.y - p3.y
-        let denominator = d1x * d2y - d1y * d2x
+        let denominator: Double = d1x * d2y - d1y * d2x
         guard abs(denominator) > 1e-14 else {
             return nil
         }
-        var t: Double = ((p3.x - p1.x) * d2y - (p3.y - p1.y) * d2x) / denominator
-        var u: Double = ((p3.x - p1.x) * d1y - (p3.y - p1.y) * d1x) / denominator
+        var t = ((p3.x - p1.x) * d2y - (p3.y - p1.y) * d2x) / denominator
+        var u = ((p3.x - p1.x) * d1y - (p3.y - p1.y) * d1x) / denominator
         guard t >= -tolerance, t <= 1 + tolerance, u >= -tolerance, u <= 1 + tolerance else {
             return nil
         }
@@ -447,10 +469,14 @@ enum PolygonOffset {
 
         var minX = [Double](repeating: 0, count: edgeCount)
         var maxX = [Double](repeating: 0, count: edgeCount)
+        var minY = [Double](repeating: 0, count: edgeCount)
+        var maxY = [Double](repeating: 0, count: edgeCount)
         for i in 0..<edgeCount {
             let a = points[i], b = points[(i + 1) % pointCount]
             minX[i] = min(a.x, b.x)
             maxX[i] = max(a.x, b.x)
+            minY[i] = min(a.y, b.y)
+            maxY[i] = max(a.y, b.y)
         }
         let order = (0..<edgeCount).sorted { minX[$0] < minX[$1] }
 
@@ -463,6 +489,11 @@ enum PolygonOffset {
                     break
                 }
                 oj += 1
+
+                // The sweep only narrows candidates by x; most of the survivors are far apart in y.
+                if minY[j] > maxY[i] + 1e-9 || minY[i] > maxY[j] + 1e-9 {
+                    continue
+                }
 
                 let low = min(i, j), high = max(i, j)
                 let adjacent = (high - low == 1) || (closed && low == 0 && high == edgeCount - 1)
@@ -497,31 +528,10 @@ enum PolygonOffset {
 
     // MARK: - Winding classification
 
-    /// Winding number of `loop` around `p` (counter-clockwise loops wind +1 around their inside).
-    private static func windingNumber(of p: CGPoint, in loop: [CGPoint]) -> Int {
-        var winding = 0
-        let n = loop.count
-        for i in 0..<n {
-            let a = loop[i]
-            let b = loop[(i + 1) % n]
-            let side = (b.x - a.x) * (p.y - a.y) - (p.x - a.x) * (b.y - a.y)
-            if a.y <= p.y {
-                if b.y > p.y, side > 0 {
-                    winding += 1
-                }
-            } else {
-                if b.y <= p.y, side < 0 {
-                    winding -= 1
-                }
-            }
-        }
-        return winding
-    }
-
     /// Decides whether a piece of the raw curve is part of the result's boundary:
     /// 1 = keep as is (result lies to its left), -1 = keep reversed (result lies to its
     /// right), 0 = drop.
-    private static func classify(_ piece: [CGPoint], against raw: [CGPoint], probe: Double) -> Int {
+    private static func classify(_ piece: [CGPoint], against index: WindingIndex, probe: Double) -> Int {
 
         // Probe next to the longest edge; its direction is the least noisy.
         var longest = 0.0
@@ -542,8 +552,8 @@ enum PolygonOffset {
         let midX = (a.x + b.x) / 2, midY = (a.y + b.y) / 2
         let nx = -(b.y - a.y) / longest, ny = (b.x - a.x) / longest
 
-        let left = windingNumber(of: CGPoint(x: midX + nx * probe, y: midY + ny * probe), in: raw)
-        let right = windingNumber(of: CGPoint(x: midX - nx * probe, y: midY - ny * probe), in: raw)
+        let left = index.winding(around: CGPoint(x: midX + nx * probe, y: midY + ny * probe))
+        let right = index.winding(around: CGPoint(x: midX - nx * probe, y: midY - ny * probe))
 
         if left > 0, right <= 0 {
             return 1
@@ -630,10 +640,12 @@ enum PolygonOffset {
     }
 }
 
-// MARK: - Spatial index
+// MARK: - Spatial indexes
 
 /// Uniform grid over a closed polygon's edges, for "is any edge closer than r to this point?".
-private struct SegmentGrid {
+/// A reference type so the per-query "already checked" marks can live in one reusable array
+/// instead of a freshly allocated `Set` for every query.
+private final class SegmentGrid {
 
     private struct CellKey: Hashable {
         let x: Int
@@ -643,20 +655,30 @@ private struct SegmentGrid {
     private let points: [CGPoint]
     private let cellSize: Double
     private var cells: [CellKey: [Int]] = [:]
+    private var stamps: [Int]
+    private var currentStamp = 0
 
     init(polygon: [CGPoint], cellSize: Double) {
         self.points = polygon
         self.cellSize = max(cellSize, 1e-6)
+        self.stamps = [Int](repeating: 0, count: polygon.count)
 
+        // Register each edge in the cells it passes through by sampling along it (twice per cell).
+        // Covering the edge's whole bounding box instead would put a long diagonal edge into
+        // (length / cellSize)^2 cells -- tens of thousands of dictionary inserts for one edge.
         let n = polygon.count
         for i in 0..<n {
             let a = polygon[i]
             let b = polygon[(i + 1) % n]
-            let x0 = cell(min(a.x, b.x)), x1 = cell(max(a.x, b.x))
-            let y0 = cell(min(a.y, b.y)), y1 = cell(max(a.y, b.y))
-            for cx in x0...x1 {
-                for cy in y0...y1 {
-                    cells[CellKey(x: cx, y: cy), default: []].append(i)
+            let length = hypot(b.x - a.x, b.y - a.y)
+            let steps = max(1, Int((length / (self.cellSize * 0.5)).rounded(.up)))
+            var previousKey: CellKey?
+            for k in 0...steps {
+                let t = Double(k) / Double(steps)
+                let key = CellKey(x: cell(a.x + (b.x - a.x) * t), y: cell(a.y + (b.y - a.y) * t))
+                if key != previousKey {
+                    cells[key, default: []].append(i)
+                    previousKey = key
                 }
             }
         }
@@ -670,16 +692,19 @@ private struct SegmentGrid {
         guard radius > 0 else {
             return false
         }
-        let reach = Int((radius / cellSize).rounded(.up))
+        currentStamp += 1
+        // +1: edges are registered by sampling, so one may sit up to a quarter cell away from
+        // the nearest cell it was filed under.
+        let reach = Int((radius / cellSize).rounded(.up)) + 1
         let cx = cell(p.x), cy = cell(p.y)
         let n = points.count
-        var seen = Set<Int>()
         for gx in (cx - reach)...(cx + reach) {
             for gy in (cy - reach)...(cy + reach) {
                 guard let indices = cells[CellKey(x: gx, y: gy)] else {
                     continue
                 }
-                for i in indices where seen.insert(i).inserted {
+                for i in indices where stamps[i] != currentStamp {
+                    stamps[i] = currentStamp
                     if distance(from: p, toSegmentFrom: points[i], to: points[(i + 1) % n]) < radius {
                         return true
                     }
@@ -697,5 +722,105 @@ private struct SegmentGrid {
         }
         let t = max(0, min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / lengthSquared))
         return hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy))
+    }
+}
+
+/// Winding-number queries against a closed polyline. Edges are bucketed into horizontal
+/// strips, so a query only visits the edges that straddle its own y instead of the whole
+/// curve. This is the hot spot of the polygon offset: it runs twice per piece of the raw
+/// curve, and a noisy outline (traced bitmaps, tessellated splines) yields thousands of
+/// pieces -- scanning every edge each time made the cost grow with pieces x edges.
+private struct WindingIndex {
+
+    private let loop: [CGPoint]
+    private let minY: Double
+    private let stripHeight: Double
+    private let stripCount: Int
+    private var strips: [[Int]]
+
+    init(loop: [CGPoint]) {
+        self.loop = loop
+        let n = loop.count
+
+        var low = Double.infinity, high = -Double.infinity
+        for p in loop {
+            low = min(low, p.y)
+            high = max(high, p.y)
+        }
+        let count = max(1, min(4096, n / 4))
+        let span = high - low
+        self.minY = low
+        self.stripCount = count
+        self.stripHeight = span > 0 ? span / Double(count) : 1
+        self.strips = [[Int]](repeating: [], count: count)
+
+        for i in 0..<n {
+            let a = loop[i]
+            let b = loop[(i + 1) % n]
+            let first = stripIndex(min(a.y, b.y))
+            let last = stripIndex(max(a.y, b.y))
+            for k in first...last {
+                strips[k].append(i)
+            }
+        }
+    }
+
+    private func stripIndex(_ y: Double) -> Int {
+        max(0, min(stripCount - 1, Int((y - minY) / stripHeight)))
+    }
+
+    /// Winding number of the loop around `p` (counter-clockwise loops wind +1 around their inside).
+    func winding(around p: CGPoint) -> Int {
+        if p.y < minY || p.y > minY + stripHeight * Double(stripCount) {
+            return 0
+        }
+        let n = loop.count
+        var winding = 0
+        for i in strips[stripIndex(p.y)] {
+            let a = loop[i]
+            let b = loop[(i + 1) % n]
+            let side = (b.x - a.x) * (p.y - a.y) - (p.x - a.x) * (b.y - a.y)
+            if a.y <= p.y {
+                if b.y > p.y, side > 0 {
+                    winding += 1
+                }
+            } else {
+                if b.y <= p.y, side < 0 {
+                    winding -= 1
+                }
+            }
+        }
+        return winding
+    }
+}
+
+// MARK: - Timing
+
+/// Timing log for the toolpath pipeline. On by default while this is being tuned: every
+/// offset and contour build prints lines prefixed `[offset]` / `[contour]` to the console.
+/// Turn it off with the environment variable `SC_OFFSET_TIMING=0` (in Xcode: Product > Scheme >
+/// Edit Scheme > Run > Arguments > Environment Variables) or in code with
+/// `OffsetTiming.isEnabled = false`.
+public enum OffsetTiming {
+
+    public static var isEnabled: Bool = ProcessInfo.processInfo.environment["SC_OFFSET_TIMING"] != "0"
+
+    public static func now() -> UInt64 {
+        DispatchTime.now().uptimeNanoseconds
+    }
+
+    /// Milliseconds since `clock`, formatted; resets `clock` to now so consecutive calls
+    /// measure consecutive stages.
+    public static func lap(_ clock: inout UInt64) -> String {
+        let end = now()
+        let milliseconds = Double(end &- clock) / 1_000_000
+        clock = end
+        return String(format: "%.2f", milliseconds)
+    }
+
+    public static func log(_ message: @autoclosure () -> String) {
+        if isEnabled {
+            print("[offset] " + message())
+        }
     }
 }
