@@ -14,6 +14,7 @@ import SwiftDXF
 struct ContentView: View {
     @State private var renderBatches: [RenderBatch] = []
     @State private var gcodeText: String = ""
+    @State private var gcodeLines: [String] = []
     @State private var selectedDemoID: String? = nil
     @State private var toolpathPoints: [SIMD3<Float>] = []
     @State private var activeTool: SC.ToolParams = SC.ToolParams()
@@ -232,14 +233,33 @@ struct ContentView: View {
         } content: {
             // G-code for the shape currently on the canvas
             ScrollView {
-                Text(gcodeText.isEmpty ? "No G-code yet. Run a demo from the sidebar." : gcodeText)
-                    .font(.system(.caption, design: .monospaced))
-                    .foregroundStyle(gcodeText.isEmpty ? .secondary : .primary)
-                    .textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                if gcodeLines.isEmpty {
+                    Text("No G-code yet. Run a demo from the sidebar.")
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .padding(8)
+                } else {
+                    // Lazy: only the visible lines are laid out, so 6k lines cost the same as 60.
+                    LazyVStack(alignment: .leading, spacing: 0) {
+                        ForEach(Array(gcodeLines.enumerated()), id: \.offset) { _, line in
+                            Text(line)
+                                .font(.system(.caption, design: .monospaced))
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
                     .padding(8)
+                }
             }
             .navigationTitle("G-Code")
+            .toolbar {
+                ToolbarItem {
+                    Button("Copy G-code") {
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(gcodeText, forType: .string)
+                    }
+                    .disabled(gcodeText.isEmpty)
+                }
+            }
             .frame(minWidth: 260, idealWidth: 320)
         } detail: {
             // Interactive 3D Metal Canvas
@@ -250,10 +270,10 @@ struct ContentView: View {
                             HStack(spacing: 8) {
                                 Text("Scrub")
                                     .font(.caption)
-                                Slider(value: $scrubIndex, in: 0...Double(max(0, toolpathPoints.count - 1)))
-                                    .onChange(of: scrubIndex) { _ in
-                                        rebuildRenderBatches()
-                                    }
+                                Slider(value: Binding(
+                                            get: { scrubIndex },
+                                            set: { scrubIndex = $0; rebuildRenderBatches() }),
+                                       in: 0...Double(max(0, toolpathPoints.count - 1)))
                                     .frame(minWidth: 160)
                                 Text("\(Int(scrubIndex.rounded())) / \(max(0, toolpathPoints.count - 1))")
                                     .font(.caption.monospacedDigit())
@@ -293,6 +313,7 @@ struct ContentView: View {
 
     private func show(_ result: Demo.DemoResult) {
         gcodeText = result.gcode
+        gcodeLines = result.gcode.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
         toolpathPoints = result.toolpathPoints
         activeTool = result.tool
         staticBatches = toolpathPoints.isEmpty ? result.batches : Array(result.batches.dropLast())
