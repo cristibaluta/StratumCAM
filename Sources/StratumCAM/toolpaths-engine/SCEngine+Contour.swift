@@ -81,9 +81,12 @@ extension SCEngine {
         // 1. Orient the chain so travel direction matches the requested climb/conventional cut.
         let oriented = orientedForDirection(baseSegments, side: side, direction: cutDirection)
 
-        // 2. Tool-radius compensation (existing offset engine).
-        let toolpathSegments = offsetContour(oriented, side: side, toolRadius: tool.diameter / 2.0, isClosed: contour.isClosed)
-        guard let firstSegment = toolpathSegments.first else {
+        // 2. Tool-radius compensation. A shape can offset into several separate loops (a neck
+        //    narrower than the tool pinches it in two), and a tool that doesn't fit anywhere
+        //    offsets into none -- which is `geometryCollapsed`, not a silent cut on the contour.
+        let toolpathLoops = offsetContours(oriented, side: side, toolRadius: tool.diameter / 2.0, isClosed: contour.isClosed)
+            .filter { !$0.isEmpty }
+        guard !toolpathLoops.isEmpty else {
             throw SC.Error.geometryCollapsed
         }
 
@@ -93,19 +96,26 @@ extension SCEngine {
         var passes: [SC.ToolpathPass] = []
         var previousZ = 0.0 // top of stock -- pass 0 ramps/helixes down from here, not from safeZ.
         for (i, z) in zDepths.enumerated() {
-            let waypoints = buildContourWaypoints(
-                for: toolpathSegments,
-                firstSegment: firstSegment,
-                atZ: z,
-                previousZ: previousZ,
-                totalDepth: totalDepth,
-                side: side,
-                settings: settings,
-                entry: entry,
-                leadIn: leadIn,
-                leadOut: leadOut,
-                tabs: tabs
-            )
+            // Every loop is cut at this depth before stepping down; each one starts with its own
+            // rapid + entry and ends with a retract, so they chain without extra connecting moves.
+            var waypoints: [SC.Waypoint] = []
+            for loop in toolpathLoops {
+                waypoints.append(
+                    contentsOf: buildContourWaypoints(
+                        for: loop,
+                        firstSegment: loop[0],
+                        atZ: z,
+                        previousZ: previousZ,
+                        totalDepth: totalDepth,
+                        side: side,
+                        settings: settings,
+                        entry: entry,
+                        leadIn: leadIn,
+                        leadOut: leadOut,
+                        tabs: tabs
+                    )
+                )
+            }
             passes.append(SC.ToolpathPass(passIndex: i, depthZ: z, waypoints: waypoints))
             previousZ = z
         }

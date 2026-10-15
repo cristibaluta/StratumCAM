@@ -142,4 +142,106 @@ struct OffsetEngine_Tests {
             #expect(hypot(segment.endPoint.x - v.x, segment.endPoint.y - v.y) < 5.0)
         }
     }
+
+    // MARK: - Shapes the exact offset can't handle (necks, splitting shapes, tool too big)
+
+    /// Two 10x10 squares joined by a 10-long, 2-wide neck, counter-clockwise.
+    private func dumbbell() -> [SC.Segment] {
+        let points: [(Double, Double)] = [
+            (0, 0), (10, 0), (10, 4), (20, 4), (20, 0), (30, 0),
+            (30, 10), (20, 10), (20, 6), (10, 6), (10, 10), (0, 10)
+        ]
+        return points.indices.map { (i: Int) -> SC.Segment in
+            let a = points[i]
+            let b = points[(i + 1) % points.count]
+            return .line(start: CGPoint(x: a.0, y: a.1), end: CGPoint(x: b.0, y: b.1))
+        }
+    }
+
+    /// Shortest distance from `p` to any line segment of `polygon`.
+    private func distance(from p: CGPoint, toPolygon polygon: [SC.Segment]) -> Double {
+        var best = Double.infinity
+        for case let .line(a, b) in polygon {
+            let dx = b.x - a.x, dy = b.y - a.y
+            let t = max(0, min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / (dx * dx + dy * dy)))
+            best = min(best, hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy)))
+        }
+        return best
+    }
+
+    // The 2 mm neck is narrower than a 4 mm tool, so the inside offset must not cross it:
+    // the shape splits into one loop per square, and no point of either loop may come
+    // closer than the tool radius to the original outline (that would be a bit collision).
+    @Test func testNeckNarrowerThanToolSplitsInsideOffsetIntoTwoLoops() {
+        let engine = SCEngine()
+        let outline = dumbbell()
+        let loops = engine.offsetContours(outline, side: .inside, toolRadius: 2.0, isClosed: true)
+
+        #expect(loops.count == 2)
+
+        var sawLeft = false
+        var sawRight = false
+        for loop in loops {
+            let xs = loop.map { $0.startPoint.x }
+            let isLeft = xs.allSatisfy { $0 < 10 }
+            let isRight = xs.allSatisfy { $0 > 20 }
+            #expect(isLeft || isRight, "a loop crossed the neck")
+            sawLeft = sawLeft || isLeft
+            sawRight = sawRight || isRight
+
+            for segment in loop {
+                #expect(distance(from: segment.startPoint, toPolygon: outline) > 2.0 - 0.02)
+            }
+        }
+        #expect(sawLeft && sawRight)
+    }
+
+    // `offsetContour` still returns a single chain: the largest loop, not the input.
+    @Test func testOffsetContourReturnsOneLoopForASplitShape() {
+        let engine = SCEngine()
+        let outline = dumbbell()
+        let result = engine.offsetContour(outline, side: .inside, toolRadius: 2.0, isClosed: true)
+
+        #expect(result != outline)
+        let xs = result.map { $0.startPoint.x }
+        #expect(xs.allSatisfy { $0 < 10 } || xs.allSatisfy { $0 > 20 })
+    }
+
+    // Outside, the tool just goes round the whole dumbbell: one loop, every vertex exactly
+    // one tool radius from the outline.
+    @Test func testOutsideOffsetOfDumbbellIsOneLoopAtToolRadius() {
+        let engine = SCEngine()
+        let outline = dumbbell()
+        let loops = engine.offsetContours(outline, side: .outside, toolRadius: 2.0, isClosed: true)
+
+        #expect(loops.count == 1)
+        for segment in loops.first ?? [] {
+            #expect(abs(distance(from: segment.startPoint, toPolygon: outline) - 2.0) < 0.02)
+        }
+    }
+
+    // A tool wider than the whole shape fits nowhere: no loops (the contour operation turns
+    // this into `geometryCollapsed`), and `offsetContour` keeps its "tool too big" contract of
+    // handing the input back unchanged.
+    @Test func testToolLargerThanShapeYieldsNoLoops() {
+        let engine = SCEngine()
+        let square = ccwSquare()
+
+        #expect(engine.offsetContours(square, side: .inside, toolRadius: 6.0, isClosed: true).isEmpty)
+        #expect(engine.offsetContour(square, side: .inside, toolRadius: 6.0, isClosed: true) == square)
+    }
+
+    // A valid offset keeps its true arcs: the polygon fallback must only kick in when the
+    // exact construction is wrong.
+    @Test func testValidOffsetKeepsExactArcs() {
+        let engine = SCEngine()
+        let loops = engine.offsetContours(ccwSquare(), side: .outside, toolRadius: 1.0, isClosed: true)
+
+        #expect(loops.count == 1)
+        let arcCount = (loops.first ?? []).filter {
+            if case .arc = $0 { return true }
+            return false
+        }.count
+        #expect(arcCount == 4)
+    }
 }

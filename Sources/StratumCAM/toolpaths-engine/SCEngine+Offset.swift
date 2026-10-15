@@ -10,8 +10,70 @@ import CoreGraphics
 
 extension SCEngine {
 
-    /// Offsets a linearized contour by the tool radius, producing the true toolpath
-    /// for an inside or outside profile cut. `.onContour` (or a zero radius) is a no-op.
+    /// Offsets a linearized contour by the tool radius and returns the single longest
+    /// resulting loop. `.onContour` (or a zero radius) is a no-op, and an offset that
+    /// leaves nothing (the tool doesn't fit anywhere) returns the input unchanged -- the
+    /// "tool too big" signal `pocketRings` relies on.
+    ///
+    /// When the shape splits into several loops (a neck narrower than the tool pinches it
+    /// in two) only the largest loop comes back from this function; use `offsetContours`
+    /// to get all of them.
+    public func offsetContour(_ segments: [SC.Segment], side: SC.CutSide, toolRadius: Double, isClosed: Bool) -> [SC.Segment] {
+        guard side != .onContour, toolRadius > 0, !segments.isEmpty else {
+            return segments
+        }
+        return offsetContours(segments, side: side, toolRadius: toolRadius, isClosed: isClosed).first ?? segments
+    }
+
+    /// Offsets a linearized contour by the tool radius, producing every closed loop the
+    /// tool centre can travel along for an inside or outside profile cut, largest first.
+    ///
+    /// - A closed contour is first offset with the exact segment-by-segment construction
+    ///   below (`exactOffsetContour`), which keeps true arcs. That result is then checked:
+    ///   it must not cross itself and no point of it may come closer to the original
+    ///   contour than the tool radius, which is the actual "bit collision" test. If it
+    ///   passes it is returned as the single loop.
+    /// - If it fails (a neck or notch the tool can't follow, hairpin corners, a shape that
+    ///   splits), the contour is offset again as a polygon (`PolygonOffset`): arcs are
+    ///   flattened to short lines, the raw offset curve is split at every self-crossing,
+    ///   and only the pieces bounding the region the tool can actually reach are kept.
+    ///   That can return several loops, or none.
+    /// - An empty array means the tool doesn't fit anywhere on this contour.
+    /// - `.onContour`, a zero radius, and open chains return the exact construction as-is.
+    public func offsetContours(_ segments: [SC.Segment], side: SC.CutSide, toolRadius: Double, isClosed: Bool) -> [[SC.Segment]] {
+        guard side != .onContour, toolRadius > 0, !segments.isEmpty else {
+            return [segments]
+        }
+
+        let exact = exactOffsetContour(segments, side: side, toolRadius: toolRadius, isClosed: isClosed)
+        guard isClosed else {
+            return [exact]
+        }
+
+        // Chord error for flattened arcs: fine enough to be invisible at the cutter, loose
+        // enough to keep the point count reasonable.
+        let tolerance = min(max(toolRadius * 0.001, 1e-4), 0.01)
+        let original = PolygonOffset.flatten(segments, tolerance: tolerance)
+        guard original.count >= 3 else {
+            return [exact] // Degenerate input (a point or a single line): nothing to validate against.
+        }
+
+        if exact != segments {
+            let candidate = PolygonOffset.flatten(exact, tolerance: tolerance)
+            if PolygonOffset.isValidOffset(candidate, of: original, radius: toolRadius, tolerance: tolerance) {
+                return [exact]
+            }
+        }
+
+        let distance = OffsetTools.offsetDistance(for: side, toolRadius: toolRadius, segments: segments)
+        let loops = PolygonOffset.offset(polygon: original, distance: distance, tolerance: tolerance)
+        return loops
+            .sorted { abs(PolygonOffset.signedArea($0)) > abs(PolygonOffset.signedArea($1)) }
+            .map { PolygonOffset.segments(from: $0) }
+    }
+
+    /// The exact segment-by-segment offset: every segment is shifted on its own and
+    /// neighbouring ones are joined at their corners, keeping true arcs.
     ///
     /// Known limitation: this only cleans up *local* self-intersections -- the gap
     /// between two adjacent offset segments at one corner (`joinOffsetChain` below,
@@ -20,9 +82,9 @@ extension SCEngine {
     /// self-intersections, where the offset curve loops back and crosses a segment
     /// further away in the same chain (e.g. a tool radius that's larger than a narrow
     /// neck/waist can support, so the offset boundaries from two different parts of
-    /// the shape overlap each other). In that case the raw, overlapping loop is still
-    /// left in the output as-is.
-    public func offsetContour(_ segments: [SC.Segment], side: SC.CutSide, toolRadius: Double, isClosed: Bool) -> [SC.Segment] {
+    /// the shape overlap each other). `offsetContours` above validates this function's
+    /// result for closed contours and replaces it with a polygon offset when it's wrong.
+    func exactOffsetContour(_ segments: [SC.Segment], side: SC.CutSide, toolRadius: Double, isClosed: Bool) -> [SC.Segment] {
         guard side != .onContour, toolRadius > 0, !segments.isEmpty else {
             return segments
         }
