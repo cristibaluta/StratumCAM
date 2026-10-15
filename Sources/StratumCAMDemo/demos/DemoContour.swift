@@ -259,9 +259,11 @@ class DemoContour: Demo {
     // MARK: - Narrow neck (reported bug repro)
 
     /// Reproduces the reported "toolpath went crazy" bug on an outside contour offset
-    /// around the pendant's narrow neck. Before the `maxReasonableTrimDistance` fix,
-    /// the two neck notches spike to ~57x the tool radius away from the pendant;
-    /// after the fix, they're small clean bridges instead.
+    /// around the pendant's narrow neck. Before the fix, the two neck notches spiked
+    /// to ~57x the tool radius away from the pendant; after the `maxReasonableTrimDistance`
+    /// fix alone (an earlier iteration of this fix), they became a straight-line
+    /// shortcut that cut across the notch instead of following it; with the current
+    /// fix they're a tool-radius arc pivoting around the notch's own tip instead.
     func demoNarrowNeckOutside() -> Demo.DemoResult {
         let tool = SC.ToolParams(diameter: 6.0)
         let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 0.1)

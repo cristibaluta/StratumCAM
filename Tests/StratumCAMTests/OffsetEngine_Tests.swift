@@ -122,15 +122,24 @@ struct OffsetEngine_Tests {
         // the vertex -- the same branch that mishandled the pendant's neck.
         let result = engine.offsetContour(segments, side: .inside, toolRadius: 1.0, isClosed: false)
 
-        // Nothing in the result should be extrapolated dozens of units from the vertex --
-        // the old bug placed a point ~57 units away for this exact geometry.
+        // The corner should be bridged with a tool-radius arc pivoting around the
+        // original vertex `v` (3 segments: seg0, arc, seg1) -- not trimmed to a single
+        // wild extrapolated point (the old bug placed one ~57 units from the vertex
+        // for this exact geometry) and not a straight-line shortcut across the notch
+        // either (which would cut across it instead of following it).
+        #expect(result.count == 3)
+        guard case let .arc(center, radius, _, _, _) = result[1] else {
+            Issue.record("expected the middle segment to be a pivot arc, got \(result[1])")
+            return
+        }
+        #expect(hypot(center.x - v.x, center.y - v.y) < 1e-6)
+        #expect(abs(radius - 1.0) < 1e-6)
+
+        // Every point in the result should stay near the tool radius from the vertex --
+        // nothing extrapolated dozens of units away.
         for segment in result {
             #expect(hypot(segment.startPoint.x - v.x, segment.startPoint.y - v.y) < 5.0)
             #expect(hypot(segment.endPoint.x - v.x, segment.endPoint.y - v.y) < 5.0)
         }
-
-        // The corner should have been bridged with a short straight line (3 segments:
-        // seg0, bridge, seg1) instead of trimmed to a single wild extrapolated point.
-        #expect(result.count == 3)
     }
 }

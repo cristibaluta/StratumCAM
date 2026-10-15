@@ -15,12 +15,13 @@ extension SCEngine {
     ///
     /// Known limitation: this only cleans up *local* self-intersections -- the gap
     /// between two adjacent offset segments at one corner (`joinOffsetChain` below,
-    /// including its guard against wild miter-join extrapolations at sharp concave
-    /// notches). It does not detect *global* self-intersections, where the offset
-    /// curve loops back and crosses a segment further away in the same chain (e.g. a
-    /// tool radius that's larger than a narrow neck/waist can support, so the offset
-    /// boundaries from two different parts of the shape overlap each other). In that
-    /// case the raw, overlapping loop is still left in the output as-is.
+    /// including its fallback to a tool-radius pivot arc when a sharp concave notch
+    /// has no usable nearby trim point). It does not detect *global*
+    /// self-intersections, where the offset curve loops back and crosses a segment
+    /// further away in the same chain (e.g. a tool radius that's larger than a narrow
+    /// neck/waist can support, so the offset boundaries from two different parts of
+    /// the shape overlap each other). In that case the raw, overlapping loop is still
+    /// left in the output as-is.
     public func offsetContour(_ segments: [SC.Segment], side: SC.CutSide, toolRadius: Double, isClosed: Bool) -> [SC.Segment] {
         guard side != .onContour, toolRadius > 0, !segments.isEmpty else {
             return segments
@@ -140,13 +141,27 @@ extension SCEngine {
                     working[i] = curr.withEnd(closest)
                     working[j] = next.withStart(closest)
                 } else {
-                    // No usable intersection: either the segments are truly parallel,
-                    // or (the sharp-notch case above) the only solution was rejected
-                    // as an unreasonable miter-join extrapolation. Either way, don't
-                    // leave a raw gap for a downstream waypoint move to silently paper
-                    // over -- bridge it explicitly with a short straight line so the
-                    // chain stays a single, non-self-crossing path.
-                    bridges[i] = .line(start: gapStart, end: gapEnd)
+                    // No usable nearby intersection: either the segments are truly
+                    // parallel, or (the sharp-notch case above) the only solution was
+                    // an unreasonable miter-join extrapolation. Physically this means
+                    // the tool is too wide to reach into this notch at all -- it can
+                    // only pivot around the original vertex, the same way a convex
+                    // corner gets a fillet. `gapStart`/`gapEnd` are each still exactly
+                    // `distance` from `vertex` (offsetting a segment is a rigid
+                    // shift/radius change, so its endpoint stays exactly that far from
+                    // the corner it came from), so a tool-radius arc through both is
+                    // an exact fit, not an approximation -- and it's what the tool's
+                    // edge actually traces rolling across the gap, unlike a
+                    // straight-line shortcut that cuts across the notch instead of
+                    // following it.
+                    let startAngle = atan2(gapStart.y - vertex.y, gapStart.x - vertex.x)
+                    let endAngle = atan2(gapEnd.y - vertex.y, gapEnd.x - vertex.x)
+                    // Sweep the short way around -- the tool rolls smoothly past the
+                    // tip rather than looping the long way around the vertex.
+                    var sweep = endAngle - startAngle
+                    while sweep > .pi { sweep -= 2 * .pi }
+                    while sweep < -.pi { sweep += 2 * .pi }
+                    bridges[i] = .arc(center: vertex, radius: abs(distance), startAngle: startAngle, endAngle: endAngle, isCCW: sweep > 0)
                 }
             }
         }
