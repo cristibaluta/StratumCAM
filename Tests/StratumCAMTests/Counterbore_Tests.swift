@@ -143,9 +143,15 @@ struct Counterbore_Tests {
             }
         }
 
-        #expect(isArcMotion(waypoints[1].motion), "Test Failed: expected a helical (arc) entry move right after the rapid, got \(waypoints[1].motion)")
+        // [1] rapid down to previousZ (top of stock) -- the helix itself starts from there, not
+        // from safeZ -- then [2...] the helical arc moves.
+        #expect(waypoints[1].position.z == 0.0, "Test Failed: expected a rapid down to previousZ (0) before the helix starts")
+        if case .rapid = waypoints[1].motion {} else {
+            Issue.record("Test Failed: second waypoint motion must be .rapid down to previousZ")
+        }
+        #expect(isArcMotion(waypoints[2].motion), "Test Failed: expected a helical (arc) entry move right after the rapids, got \(waypoints[2].motion)")
 
-        let helixTurns = waypoints.dropFirst().prefix { isArcMotion($0.motion) }
+        let helixTurns = waypoints.dropFirst(2).prefix { isArcMotion($0.motion) }
         #expect(helixTurns.count > 1, "Test Failed: expected multiple helical turns spiralling down, got \(helixTurns.count)")
 
         let helixZs = helixTurns.map { Double($0.position.z) }

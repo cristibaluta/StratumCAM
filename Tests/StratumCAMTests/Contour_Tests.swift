@@ -321,20 +321,30 @@ struct Contour_Tests {
 
         let waypoints = toolpaths[0].passes[0].waypoints
 
-        // [0] Rapid @ SafeZ, [1] Plunge @ -3.0 (0,0)
-        // [2] End of seg 1 (5,0) @ -3.0 -- full depth, outside the tab span
-        // [3] End of seg 2 (10,0) @ -1.5 -- tab center, clamped to its remaining-stock floor
-        // [4] End of seg 3 (15,0) @ -3.0 -- full depth again, past the tab
+        // [0] Rapid @ SafeZ, [1] Plunge @ -3.0 at the path start, then the traced path.
+        //
+        // The trace is split so a vertex exists at each edge of the tab span (center +- width/2)
+        // and a short 0.5mm ramp-buffer point sits just outside each edge. On this 20mm line the
+        // tab (center 10, width 2, floor -1.5) therefore spans x in [9, 11], with buffer
+        // vertices at x = 8.5 and 11.5. A straight line has zero winding area, so the engine may
+        // travel it in either direction -- look waypoints up by x instead of by index.
         #expect(waypoints.count >= 5)
 
-        let clamped = waypoints[3]
-        #expect(clamped.position.x ~= 10.0, "Test Failed: expected the tab-clamped waypoint at x=10")
-        #expect(clamped.position.z ~= -1.5, "Test Failed: tab should clamp Z to its remaining-stock floor (-1.5), not full depth")
+        func z(atX x: Double) -> Double? {
+            waypoints.dropFirst(2).first { $0.position.x ~= x }?.position.z
+        }
 
-        let unclampedBefore = waypoints[2]
-        #expect(unclampedBefore.position.z ~= -3.0, "Test Failed: waypoint before the tab should still be at full depth")
+        // Tab center: clamped to the remaining-stock floor. (The span's exact edges at x=9/11 are
+        // deliberately not asserted -- whether the boundary vertex counts as "inside" depends on
+        // floating-point error in the accumulated path length.)
+        #expect(z(atX: 10.0) ?? 0 ~= -1.5, "Test Failed: the tab center should be clamped to -1.5")
 
-        let unclampedAfter = waypoints[4]
-        #expect(unclampedAfter.position.z ~= -3.0, "Test Failed: waypoint after the tab should return to full depth")
+        // Just outside the tab (ramp-buffer points) and at the far end: full depth again.
+        for x in [8.5, 11.5] {
+            #expect(z(atX: x) ?? 0 ~= -3.0, "Test Failed: x=\(x) is outside the tab and should be at full depth")
+        }
+        let tracedZs = waypoints.dropFirst(2).filter { !($0.motion == .rapid) }.map { Double($0.position.z) }
+        #expect(tracedZs.first! ~= -3.0, "Test Failed: the first traced waypoint, before the tab, should be at full depth")
+        #expect(tracedZs.last! ~= -3.0, "Test Failed: the last traced waypoint, past the tab, should be at full depth")
     }
 }

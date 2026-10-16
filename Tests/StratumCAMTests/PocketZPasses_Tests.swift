@@ -176,12 +176,15 @@ struct PocketZPasses_Tests {
         let passes = toolpaths[0].passes
         #expect(passes.count == 2, "Test Failed: expected 2 passes")
 
+        // Each pass is: [0] rapid @ safeZ, [1] rapid down to previousZ, then the ramp legs.
         // Pass 0 ramps the fresh 0 -> -1.0 stepdown: first leg partway down at -0.5,
         // second leg lands exactly on the ring start at -1.0.
         let firstPassWaypoints = passes[0].waypoints
-        #expect(firstPassWaypoints[1].position.z ~= -0.5,
+        #expect(firstPassWaypoints[1].position.z ~= 0.0,
+                "Test Failed: pass 0 should rapid down to top-of-stock before ramping")
+        #expect(firstPassWaypoints[2].position.z ~= -0.5,
                 "Test Failed: pass 0's first ramp leg should be halfway through its 0 -> -1.0 stepdown")
-        #expect(firstPassWaypoints[2].position.z ~= -1.0,
+        #expect(firstPassWaypoints[3].position.z ~= -1.0,
                 "Test Failed: pass 0's ramp should land exactly at -1.0")
 
         // Pass 1 should ramp the fresh -1.0 -> -2.0 stepdown -- i.e. start from where
@@ -189,9 +192,11 @@ struct PocketZPasses_Tests {
         // weren't threaded through, this first leg would incorrectly land at -0.5
         // (the same as pass 0's) instead of -1.5.
         let secondPassWaypoints = passes[1].waypoints
-        #expect(secondPassWaypoints[1].position.z ~= -1.5,
+        #expect(secondPassWaypoints[1].position.z ~= -1.0,
+                "Test Failed: pass 1 should rapid down to the previous pass's depth (-1.0), not top-of-stock")
+        #expect(secondPassWaypoints[2].position.z ~= -1.5,
                 "Test Failed: pass 1's first ramp leg should be halfway through its -1.0 -> -2.0 stepdown, not restarting from top-of-stock")
-        #expect(secondPassWaypoints[2].position.z ~= -2.0,
+        #expect(secondPassWaypoints[3].position.z ~= -2.0,
                 "Test Failed: pass 1's ramp should land exactly at -2.0")
 
         // Neither pass should ever cut past its own target depth.

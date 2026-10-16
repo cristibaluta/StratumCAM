@@ -96,14 +96,15 @@ struct Facing_Tests {
     func testFacingScanlinesHonorExtensionLength() {
         let engine = SCEngine()
         let contour = rectangleContour(width: 20, height: 10)
-        let tool = SC.ToolParams(diameter: 9)
+        // 5mm diameter -> 4.5mm stepover (90% engagement).
+        let tool = SC.ToolParams(diameter: 5)
 
-        // 3mm extension -> footprint [-3,23]x[-3,13], a 16mm-tall span, vs. the
-        // 10mm-tall span with no extension -- strictly more rows are needed to cover it.
+        // 3mm extension -> footprint [-3,23]x[-3,13], a 16mm-tall span (16/4.5 -> 4 steps -> 5 rows),
+        // vs. the 10mm-tall span with no extension (10/4.5 -> 3 steps -> 4 rows).
         let baseRows = engine.facingScanlines(within: contour, extensionLength: 0, tool: tool, direction: .climb)
         let extendedRows = engine.facingScanlines(within: contour, extensionLength: 3.0, tool: tool, direction: .climb)
 
-        #expect(extendedRows.count > baseRows.count,
+        #expect(baseRows.count == 4 && extendedRows.count == 5,
                 "Test Failed: expected extensionLength to require more rows to cover the taller span")
 
         for row in extendedRows {

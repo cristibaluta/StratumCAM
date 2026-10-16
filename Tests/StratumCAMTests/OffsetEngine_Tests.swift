@@ -135,11 +135,13 @@ struct OffsetEngine_Tests {
         #expect(hypot(center.x - v.x, center.y - v.y) < 1e-6)
         #expect(radius ~= 1.0)
 
-        // Every point in the result should stay near the tool radius from the vertex --
-        // nothing extrapolated dozens of units away.
+        // Every point in the result should stay near the original geometry -- nothing
+        // extrapolated dozens of units away. The far ends of the two 5-long legs, shifted
+        // sideways by the tool radius, sit sqrt(5^2 + 1^2) ~= 5.1 from the vertex, so the bound
+        // has to allow for that; the old bug placed a point ~57 units away.
         for segment in result {
-            #expect(hypot(segment.startPoint.x - v.x, segment.startPoint.y - v.y) < 5.0)
-            #expect(hypot(segment.endPoint.x - v.x, segment.endPoint.y - v.y) < 5.0)
+            #expect(hypot(segment.startPoint.x - v.x, segment.startPoint.y - v.y) < 6.0)
+            #expect(hypot(segment.endPoint.x - v.x, segment.endPoint.y - v.y) < 6.0)
         }
     }
 
