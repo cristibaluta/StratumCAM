@@ -1,0 +1,21 @@
+{
+  "unit": "mm",
+  "programName": "arcs",
+  "stock": {"zHigh": 0, "zLow": -12},
+  "sections": [
+    {
+      "comment": "Arcs", "spindleSpeed": 12000,
+      "tool": {"number": 2, "diameter": 6, "description": "6mm end mill", "type": 2},
+      "moves": [
+        {"t":"rapid","x":33,"y":20,"z":5},
+        {"t":"linear","x":33,"y":20,"z":-1,"f":300},
+        {"t":"arc","cw":false,"cx":30,"cy":20,"x":33,"y":20,"z":-1,"f":600},
+        {"t":"arc","cw":false,"cx":30,"cy":20,"x":30,"y":23,"z":-1,"f":600},
+        {"t":"arc","cw":true,"cx":30,"cy":20,"x":30,"y":17,"z":-1,"f":600},
+        {"t":"arc","cw":false,"cx":30,"cy":20,"x":33,"y":20,"z":-2,"f":600},
+        {"t":"arc","cw":false,"cx":30,"cy":20,"x":33,"y":20,"z":-3,"f":600},
+        {"t":"rapid","x":33,"y":20,"z":5}
+      ]
+    }
+  ]
+}
