@@ -48,13 +48,13 @@ struct OffsetTools_Tests {
     @Test("outside on a CCW contour returns a negative offset equal to -toolRadius")
     func outsideOnCCWContour() {
         let distance = OffsetTools.offsetDistance(for: .outside, toolRadius: 2.5, segments: ccwSquareSegments)
-        #expect(abs(distance + 2.5) < 1e-9)
+        #expect(distance ~= -2.5)
     }
 
     @Test("outside on a CW contour returns a positive offset equal to +toolRadius")
     func outsideOnCWContour() {
         let distance = OffsetTools.offsetDistance(for: .outside, toolRadius: 2.5, segments: cwSquareSegments)
-        #expect(abs(distance - 2.5) < 1e-9)
+        #expect(distance ~= 2.5)
     }
 
     // MARK: - offsetDistance: .inside
@@ -62,13 +62,13 @@ struct OffsetTools_Tests {
     @Test("inside on a CCW contour returns a positive offset equal to +toolRadius")
     func insideOnCCWContour() {
         let distance = OffsetTools.offsetDistance(for: .inside, toolRadius: 1.75, segments: ccwSquareSegments)
-        #expect(abs(distance - 1.75) < 1e-9)
+        #expect(distance ~= 1.75)
     }
 
     @Test("inside on a CW contour returns a negative offset equal to -toolRadius")
     func insideOnCWContour() {
         let distance = OffsetTools.offsetDistance(for: .inside, toolRadius: 1.75, segments: cwSquareSegments)
-        #expect(abs(distance - (-1.75)) < 1e-9)
+        #expect(distance ~= -1.75)
     }
 
     @Test("A zero tool radius always yields a zero offset, regardless of side or winding")

@@ -17,32 +17,32 @@ struct PathSegmentPathLengthTests {
     @Test("Horizontal line returns the horizontal distance")
     func horizontalLine() {
         let segment = SC.Segment.line(start: CGPoint(x: 0, y: 0), end: CGPoint(x: 5, y: 0))
-        #expect(abs(segment.pathLength - 5) < 1e-9)
+        #expect(segment.pathLength ~= 5)
     }
 
     @Test("Vertical line returns the vertical distance")
     func verticalLine() {
         let segment = SC.Segment.line(start: CGPoint(x: 2, y: 2), end: CGPoint(x: 2, y: -3))
-        #expect(abs(segment.pathLength - 5) < 1e-9)
+        #expect(segment.pathLength ~= 5)
     }
 
     @Test("Diagonal line returns the straight-line (Euclidean) distance")
     func diagonalLine() {
         // 3-4-5 triangle
         let segment = SC.Segment.line(start: CGPoint(x: 0, y: 0), end: CGPoint(x: 3, y: 4))
-        #expect(abs(segment.pathLength - 5) < 1e-9)
+        #expect(segment.pathLength ~= 5)
     }
 
     @Test("Zero-length line (identical start and end) returns zero")
     func zeroLengthLine() {
         let segment = SC.Segment.line(start: CGPoint(x: 1, y: 1), end: CGPoint(x: 1, y: 1))
-        #expect(abs(segment.pathLength - 0) < 1e-9)
+        #expect(segment.pathLength ~= 0)
     }
 
     @Test("Line with negative coordinates still returns the correct distance")
     func negativeCoordinatesLine() {
         let segment = SC.Segment.line(start: CGPoint(x: -3, y: -4), end: CGPoint(x: 0, y: 0))
-        #expect(abs(segment.pathLength - 5) < 1e-9)
+        #expect(segment.pathLength ~= 5)
     }
 
     // MARK: - .arc
@@ -57,7 +57,7 @@ struct PathSegmentPathLengthTests {
             isCCW: false
         )
         let expected: Double = 10 * (.pi / 2)
-        #expect(abs(segment.pathLength - expected) < 1e-9)
+        #expect(segment.pathLength ~= expected)
     }
 
     @Test("Half-circle arc returns radius * π")
@@ -70,7 +70,7 @@ struct PathSegmentPathLengthTests {
             isCCW: false
         )
         let expected = 4 * Double.pi
-        #expect(abs(segment.pathLength - expected) < 1e-9)
+        #expect(segment.pathLength ~= expected)
     }
 
     @Test("Full-circle arc (sweep of 2π) returns the full circumference")
@@ -83,7 +83,7 @@ struct PathSegmentPathLengthTests {
             isCCW: false
         )
         let expected = 3 * (2 * Double.pi)
-        #expect(abs(segment.pathLength - expected) < 1e-9)
+        #expect(segment.pathLength ~= expected)
     }
 
     @Test("Negative sweep (endAngle before startAngle) is measured as a positive length")
@@ -96,7 +96,7 @@ struct PathSegmentPathLengthTests {
             isCCW: true
         )
         let expected = 5 * Double.pi
-        #expect(abs(segment.pathLength - expected) < 1e-9)
+        #expect(segment.pathLength ~= expected)
     }
 
     @Test("Zero sweep (startAngle == endAngle) returns zero length regardless of radius")
@@ -108,7 +108,7 @@ struct PathSegmentPathLengthTests {
             endAngle: .pi / 4,
             isCCW: false
         )
-        #expect(abs(segment.pathLength - 0) < 1e-9)
+        #expect(segment.pathLength ~= 0)
     }
 
     @Test("Sweep greater than a full turn accumulates length beyond one circumference")
@@ -121,7 +121,7 @@ struct PathSegmentPathLengthTests {
             isCCW: false
         )
         let expected = 2 * (3 * Double.pi)
-        #expect(abs(segment.pathLength - expected) < 1e-9)
+        #expect(segment.pathLength ~= expected)
     }
 
     @Test("Zero radius arc returns zero length regardless of sweep")
@@ -133,7 +133,7 @@ struct PathSegmentPathLengthTests {
             endAngle: .pi,
             isCCW: false
         )
-        #expect(abs(segment.pathLength - 0) < 1e-9)
+        #expect(segment.pathLength ~= 0)
     }
 
     @Test("Arc length is unaffected by the center point's position")
@@ -152,6 +152,6 @@ struct PathSegmentPathLengthTests {
             endAngle: .pi / 3,
             isCCW: false
         )
-        #expect(abs(segmentA.pathLength - segmentB.pathLength) < 1e-9)
+        #expect(segmentA.pathLength ~= segmentB.pathLength)
     }
 }

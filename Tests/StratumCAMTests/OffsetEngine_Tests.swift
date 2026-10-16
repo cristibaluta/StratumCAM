@@ -27,8 +27,8 @@ struct OffsetEngine_Tests {
             return
         }
         // Left of travelling +x is +y
-        #expect(abs(start.y - 1.0) < 1e-9)
-        #expect(abs(end.y - 1.0) < 1e-9)
+        #expect(start.y ~= 1.0)
+        #expect(end.y ~= 1.0)
     }
 
     @Test func testArcOffsetShrinksOnLeftForCCWArc() {
@@ -38,7 +38,7 @@ struct OffsetEngine_Tests {
             Issue.record("Expected an arc segment")
             return
         }
-        #expect(abs(radius - 4.0) < 1e-9)
+        #expect(radius ~= 4.0)
     }
 
     @Test func testArcOffsetCollapsesWhenToolTooBig() {
@@ -58,8 +58,8 @@ struct OffsetEngine_Tests {
             Issue.record("Expected first segment to remain a line")
             return
         }
-        #expect(abs(start.y - (-1.0)) < 1e-6)
-        #expect(abs(end.y - (-1.0)) < 1e-6)
+        #expect(start.y ~= -1.0)
+        #expect(end.y ~= -1.0)
 
         // Every fillet should carry the tool radius
         let fillets = result.compactMap { segment -> Double? in
@@ -68,7 +68,7 @@ struct OffsetEngine_Tests {
         }
         #expect(fillets.count == 4)
         for radius in fillets {
-            #expect(abs(radius - 1.0) < 1e-6)
+            #expect(radius ~= 1.0)
         }
     }
 
@@ -84,10 +84,10 @@ struct OffsetEngine_Tests {
             return
         }
         // Bottom edge moved inward (up) by 1, and trimmed to meet the (now inset) side walls
-        #expect(abs(start.y - 1.0) < 1e-6)
-        #expect(abs(end.y - 1.0) < 1e-6)
-        #expect(abs(start.x - 1.0) < 1e-6)   // trimmed to meet the inset left wall
-        #expect(abs(end.x - 9.0) < 1e-6)     // trimmed to meet the inset right wall
+        #expect(start.y ~= 1.0)
+        #expect(end.y ~= 1.0)
+        #expect(start.x ~= 1.0)   // trimmed to meet the inset left wall
+        #expect(end.x ~= 9.0)     // trimmed to meet the inset right wall
     }
 
     @Test func testOnContourSideIsANoOp() {
@@ -133,7 +133,7 @@ struct OffsetEngine_Tests {
             return
         }
         #expect(hypot(center.x - v.x, center.y - v.y) < 1e-6)
-        #expect(abs(radius - 1.0) < 1e-6)
+        #expect(radius ~= 1.0)
 
         // Every point in the result should stay near the tool radius from the vertex --
         // nothing extrapolated dozens of units away.

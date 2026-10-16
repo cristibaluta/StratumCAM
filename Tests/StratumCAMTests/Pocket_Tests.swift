@@ -85,15 +85,15 @@ struct Pocket_Tests {
                 "Test Failed: expected exactly 2 rings before the next stepover would invert the ring")
 
         let ring0Box = segmentsBBox(rings[0])
-        #expect(abs(ring0Box.minX - 2.0) < 1e-5 && abs(ring0Box.maxX - 18.0) < 1e-5,
+        #expect(ring0Box.minX ~= 2.0 && ring0Box.maxX ~= 18.0,
                 "Test Failed: ring 0 X bounds mismatch")
-        #expect(abs(ring0Box.minY - 2.0) < 1e-5 && abs(ring0Box.maxY - 8.0) < 1e-5,
+        #expect(ring0Box.minY ~= 2.0 && ring0Box.maxY ~= 8.0,
                 "Test Failed: ring 0 Y bounds mismatch")
 
         let ring1Box = segmentsBBox(rings[1])
-        #expect(abs(ring1Box.minX - 4.0) < 1e-5 && abs(ring1Box.maxX - 16.0) < 1e-5,
+        #expect(ring1Box.minX ~= 4.0 && ring1Box.maxX ~= 16.0,
                 "Test Failed: ring 1 X bounds mismatch -- stepover not honored")
-        #expect(abs(ring1Box.minY - 4.0) < 1e-5 && abs(ring1Box.maxY - 6.0) < 1e-5,
+        #expect(ring1Box.minY ~= 4.0 && ring1Box.maxY ~= 6.0,
                 "Test Failed: ring 1 Y bounds mismatch -- stepover not honored")
     }
 
@@ -132,13 +132,13 @@ struct Pocket_Tests {
         // closing point into ring 1's start corner -- proof the rings were
         // actually chained, not just concatenated as two separate passes.
         let transition = waypoints[6]
-        #expect(abs(transition.position.x - 4.0) < 1e-5 && abs(transition.position.y - 4.0) < 1e-5,
+        #expect(transition.position.x ~= 4.0 && transition.position.y ~= 4.0,
                 "Test Failed: expected the ring-0-to-ring-1 transition to land on ring 1's start corner")
 
         // Ring 1 traces its own four corners after the transition, closing back
         // on itself before the final retract.
         let ring1Close = waypoints[10]
-        #expect(abs(ring1Close.position.x - 4.0) < 1e-5 && abs(ring1Close.position.y - 4.0) < 1e-5,
+        #expect(ring1Close.position.x ~= 4.0 && ring1Close.position.y ~= 4.0,
                 "Test Failed: expected ring 1 to close back on its own start corner")
 
         #expect(waypoints[11].position.z == 5.0, "Test Failed: expected the final retract to safeZ")
@@ -179,16 +179,16 @@ struct Pocket_Tests {
         let box = bbox(firstPass.waypoints)
 
         // 20x10 rectangle, 3mm tool radius -> first inward ring is [3, 17] x [3, 7].
-        #expect(abs(box.minX - 3.0) < 1e-5,
+        #expect(box.minX ~= 3.0,
                 "Test Failed: inward offset minX mismatch")
 
-        #expect(abs(box.maxX - 17.0) < 1e-5,
+        #expect(box.maxX ~= 17.0,
                 "Test Failed: inward offset maxX mismatch")
 
-        #expect(abs(box.minY - 3.0) < 1e-5,
+        #expect(box.minY ~= 3.0,
                 "Test Failed: inward offset minY mismatch")
 
-        #expect(abs(box.maxY - 7.0) < 1e-5,
+        #expect(box.maxY ~= 7.0,
                 "Test Failed: inward offset maxY mismatch")
     }
 
@@ -217,16 +217,16 @@ struct Pocket_Tests {
 
         // Original rounded rectangle is 20x10. A 1.5mm cutter radius moves the
         // boundary inward to [1.5, 18.5] x [1.5, 8.5]. Corner radius becomes 0.5mm.
-        #expect(abs(box.minX - 1.5) < 1e-5,
+        #expect(box.minX ~= 1.5,
                 "Test Failed: rounded pocket minX mismatch")
 
-        #expect(abs(box.maxX - 18.5) < 1e-5,
+        #expect(box.maxX ~= 18.5,
                 "Test Failed: rounded pocket maxX mismatch")
 
-        #expect(abs(box.minY - 1.5) < 1e-5,
+        #expect(box.minY ~= 1.5,
                 "Test Failed: rounded pocket minY mismatch")
 
-        #expect(abs(box.maxY - 8.5) < 1e-5,
+        #expect(box.maxY ~= 8.5,
                 "Test Failed: rounded pocket maxY mismatch")
 
         // The four original corner arcs remain arcs after offsetting, with their
@@ -277,35 +277,35 @@ struct Pocket_Tests {
         // is reversed because profile's direction helper is reused.
         let climbPlunge = climb[1]
 
-        #expect(abs(climbPlunge.position.x - 3.0) < 1e-5 &&
-                abs(climbPlunge.position.y - 3.0) < 1e-5,
+        #expect(climbPlunge.position.x ~= 3.0 &&
+                climbPlunge.position.y ~= 3.0,
                 "Test Failed: climb pocket should start at the inward bottom-left corner")
 
         let conventionalPlunge = conventional[1]
 
-        #expect(abs(conventionalPlunge.position.x - 3.0) < 1e-5 &&
-                abs(conventionalPlunge.position.y - 3.0) < 1e-5,
+        #expect(conventionalPlunge.position.x ~= 3.0 &&
+                conventionalPlunge.position.y ~= 3.0,
                 "Test Failed: conventional pocket should start at the inward bottom-left corner")
 
         let climbFirstCut = climb[2]
 
-        #expect(abs(climbFirstCut.position.x - 3.0) < 1e-5 &&
-                abs(climbFirstCut.position.y - 7.0) < 1e-5,
+        #expect(climbFirstCut.position.x ~= 3.0 &&
+                climbFirstCut.position.y ~= 7.0,
                 "Test Failed: climb pocket should travel upward from the start corner")
 
         let conventionalFirstCut = conventional[2]
 
-        #expect(abs(conventionalFirstCut.position.x - 17.0) < 1e-5 &&
-                abs(conventionalFirstCut.position.y - 3.0) < 1e-5,
+        #expect(conventionalFirstCut.position.x ~= 17.0 &&
+                conventionalFirstCut.position.y ~= 3.0,
                 "Test Failed: conventional pocket should travel rightward from the start corner")
 
         let climbBox = bbox(climb)
         let conventionalBox = bbox(conventional)
 
-        #expect(abs(climbBox.minX - conventionalBox.minX) < 1e-5)
-        #expect(abs(climbBox.maxX - conventionalBox.maxX) < 1e-5)
-        #expect(abs(climbBox.minY - conventionalBox.minY) < 1e-5)
-        #expect(abs(climbBox.maxY - conventionalBox.maxY) < 1e-5)
+        #expect(climbBox.minX ~= conventionalBox.minX)
+        #expect(climbBox.maxX ~= conventionalBox.maxX)
+        #expect(climbBox.minY ~= conventionalBox.minY)
+        #expect(climbBox.maxY ~= conventionalBox.maxY)
     }
 
     // MARK: - Validation

@@ -102,7 +102,7 @@ struct PocketZPasses_Tests {
         // every pass -- the scanline geometry wasn't regenerated per pass.
         for pass in passes {
             let plunge = pass.waypoints[1]
-            #expect(abs(plunge.position.x - 3.0) < 1e-5 && abs(plunge.position.y - 3.0) < 1e-5,
+            #expect(plunge.position.x ~= 3.0 && plunge.position.y ~= 3.0,
                     "Test Failed: expected every pass's first row to start at the same (3, 3) corner")
         }
     }
@@ -144,7 +144,7 @@ struct PocketZPasses_Tests {
         for i in 0..<firstPassWaypoints.count {
             let a = firstPassWaypoints[i].position
             let b = secondPassWaypoints[i].position
-            #expect(abs(a.x - b.x) < 1e-9 && abs(a.y - b.y) < 1e-9,
+            #expect(a.x ~= b.x && a.y ~= b.y,
                     "Test Failed: waypoint \(i)'s XY differs between passes -- ring geometry should be identical")
         }
 
@@ -179,9 +179,9 @@ struct PocketZPasses_Tests {
         // Pass 0 ramps the fresh 0 -> -1.0 stepdown: first leg partway down at -0.5,
         // second leg lands exactly on the ring start at -1.0.
         let firstPassWaypoints = passes[0].waypoints
-        #expect(abs(firstPassWaypoints[1].position.z - (-0.5)) < 1e-6,
+        #expect(firstPassWaypoints[1].position.z ~= -0.5,
                 "Test Failed: pass 0's first ramp leg should be halfway through its 0 -> -1.0 stepdown")
-        #expect(abs(firstPassWaypoints[2].position.z - (-1.0)) < 1e-6,
+        #expect(firstPassWaypoints[2].position.z ~= -1.0,
                 "Test Failed: pass 0's ramp should land exactly at -1.0")
 
         // Pass 1 should ramp the fresh -1.0 -> -2.0 stepdown -- i.e. start from where
@@ -189,9 +189,9 @@ struct PocketZPasses_Tests {
         // weren't threaded through, this first leg would incorrectly land at -0.5
         // (the same as pass 0's) instead of -1.5.
         let secondPassWaypoints = passes[1].waypoints
-        #expect(abs(secondPassWaypoints[1].position.z - (-1.5)) < 1e-6,
+        #expect(secondPassWaypoints[1].position.z ~= -1.5,
                 "Test Failed: pass 1's first ramp leg should be halfway through its -1.0 -> -2.0 stepdown, not restarting from top-of-stock")
-        #expect(abs(secondPassWaypoints[2].position.z - (-2.0)) < 1e-6,
+        #expect(secondPassWaypoints[2].position.z ~= -2.0,
                 "Test Failed: pass 1's ramp should land exactly at -2.0")
 
         // Neither pass should ever cut past its own target depth.
@@ -230,7 +230,7 @@ struct PocketZPasses_Tests {
                 "Test Failed: pass 1's helix/trace should never be shallower than the previous pass's depth (-1.0)")
 
         // It should still faithfully reach the full target depth by the end of the entry.
-        let landsAtTarget = secondPassWaypoints.contains { abs($0.position.z - (-2.0)) < 1e-6 }
+        let landsAtTarget = secondPassWaypoints.contains { $0.position.z ~= -2.0 }
         #expect(landsAtTarget, "Test Failed: pass 1 should still reach the full -2.0 target depth")
     }
 

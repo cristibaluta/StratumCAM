@@ -75,8 +75,8 @@ struct Engraving_Tests {
 
         // Verify Line Motion
         let wp2 = firstPass.waypoints[2]
-        #expect(abs(wp2.position.x - 10.0) < 1e-5, "Test Failed: Arc end X mismatch")
-        #expect(abs(wp2.position.y - 0.0) < 1e-5, "Test Failed: Arc end Y mismatch")
+        #expect(wp2.position.x ~= 10.0, "Test Failed: Arc end X mismatch")
+        #expect(wp2.position.y ~= 0.0, "Test Failed: Arc end Y mismatch")
         if case .linear = wp2.motion {
             // All good
         } else {
@@ -85,8 +85,8 @@ struct Engraving_Tests {
 
         // Verify Retract Move
         let wp4 = firstPass.waypoints[3]
-        #expect(abs(wp4.position.x - 10.0) < 1e-5, "Test Failed: Arc end X mismatch")
-        #expect(abs(wp4.position.y - 0.0) < 1e-5, "Test Failed: Arc end Y mismatch")
+        #expect(wp4.position.x ~= 10.0, "Test Failed: Arc end X mismatch")
+        #expect(wp4.position.y ~= 0.0, "Test Failed: Arc end Y mismatch")
         #expect(wp4.position.z == 5.0, "Test Failed: Final retract Z mismatch")
     }
 
@@ -143,7 +143,7 @@ struct Engraving_Tests {
 
         // Verify Rapid Move Above Start
         let wp0 = firstPass.waypoints[0]
-        #expect(abs(wp0.position.x - 10) < 1e-5 && abs(wp0.position.y - 0) < 1e-5 && wp0.position.z == 5.0, "Test Failed: Initial rapid move incorrect")
+        #expect(wp0.position.x ~= 10 && wp0.position.y ~= 0 && wp0.position.z == 5.0, "Test Failed: Initial rapid move incorrect")
         if case .rapid = wp0.motion {} else {
             Issue.record("Test Failed: First waypoint motion must be .rapid")
         }
@@ -155,8 +155,8 @@ struct Engraving_Tests {
 
         // Verify Arc Motion
         let wp2 = firstPass.waypoints[2]
-        #expect(abs(wp2.position.x - 15.0) < 1e-5, "Test Failed: Arc end X mismatch")
-        #expect(abs(wp2.position.y - 5.0) < 1e-5, "Test Failed: Arc end Y mismatch")
+        #expect(wp2.position.x ~= 15.0, "Test Failed: Arc end X mismatch")
+        #expect(wp2.position.y ~= 5.0, "Test Failed: Arc end Y mismatch")
         if case .arcCCW(let center) = wp2.motion {
             #expect(center.x == 10.0 && center.y == 5.0, "Test Failed: Arc center mismatch")
         } else {
@@ -165,8 +165,8 @@ struct Engraving_Tests {
 
         // Verify Retract Move
         let wp3 = firstPass.waypoints[3]
-        #expect(abs(wp3.position.x - 15.0) < 1e-5, "Test Failed: Arc end X mismatch")
-        #expect(abs(wp3.position.y - 5.0) < 1e-5, "Test Failed: Arc end Y mismatch")
+        #expect(wp3.position.x ~= 15.0, "Test Failed: Arc end X mismatch")
+        #expect(wp3.position.y ~= 5.0, "Test Failed: Arc end Y mismatch")
         #expect(wp3.position.z == 5.0, "Test Failed: Final retract Z mismatch")
     }
 

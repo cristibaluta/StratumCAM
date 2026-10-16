@@ -49,7 +49,7 @@ struct Boring_Tests {
 
         // [0] Rapid to (17, 20) @ SafeZ -- the hole center offset by radius along +X
         let wp0 = waypoints[0]
-        #expect(abs(wp0.position.x - (12.0 + radius)) < 1e-9 && abs(wp0.position.y - 20.0) < 1e-9 && wp0.position.z == 5.0,
+        #expect(wp0.position.x ~= 12.0 + radius && wp0.position.y ~= 20.0 && wp0.position.z == 5.0,
                 "Test Failed: initial rapid move should land on the bore's edge at Safe Z")
         if case .rapid = wp0.motion {} else {
             Issue.record("Test Failed: first waypoint motion must be .rapid")
@@ -57,7 +57,7 @@ struct Boring_Tests {
 
         // [1] Plunge straight down to target depth, still at the bore's edge (off-center)
         let wp1 = waypoints[1]
-        #expect(abs(wp1.position.x - (12.0 + radius)) < 1e-9 && abs(wp1.position.y - 20.0) < 1e-9, "Test Failed: plunge XY mismatch")
+        #expect(wp1.position.x ~= 12.0 + radius && wp1.position.y ~= 20.0, "Test Failed: plunge XY mismatch")
         #expect(wp1.position.z == -8.0, "Test Failed: plunge Z mismatch")
         #expect(wp1.feedRate == 200.0, "Test Failed: plunge feed rate should match settings")
         if case .linear = wp1.motion {} else {
@@ -66,27 +66,27 @@ struct Boring_Tests {
 
         // [2] First half-circle arc, centered on the hole, ending on the opposite side
         let wp2 = waypoints[2]
-        #expect(abs(wp2.position.x - (12.0 - radius)) < 1e-9 && abs(wp2.position.y - 20.0) < 1e-9, "Test Failed: first arc endpoint mismatch")
+        #expect(wp2.position.x ~= 12.0 - radius && wp2.position.y ~= 20.0, "Test Failed: first arc endpoint mismatch")
         #expect(wp2.position.z == -8.0, "Test Failed: first arc should stay at target depth")
         if case .arcCCW(let center) = wp2.motion {
-            #expect(abs(center.x - 12.0) < 1e-9 && abs(center.y - 20.0) < 1e-9, "Test Failed: first arc center should be the hole center")
+            #expect(center.x ~= 12.0 && center.y ~= 20.0, "Test Failed: first arc center should be the hole center")
         } else {
             Issue.record("Test Failed: expected arcCCW motion for the first half of the circular interpolation")
         }
 
         // [3] Second half-circle arc, back to the starting edge point
         let wp3 = waypoints[3]
-        #expect(abs(wp3.position.x - (12.0 + radius)) < 1e-9 && abs(wp3.position.y - 20.0) < 1e-9, "Test Failed: second arc endpoint mismatch")
+        #expect(wp3.position.x ~= 12.0 + radius && wp3.position.y ~= 20.0, "Test Failed: second arc endpoint mismatch")
         #expect(wp3.position.z == -8.0, "Test Failed: second arc should stay at target depth")
         if case .arcCCW(let center) = wp3.motion {
-            #expect(abs(center.x - 12.0) < 1e-9 && abs(center.y - 20.0) < 1e-9, "Test Failed: second arc center should be the hole center")
+            #expect(center.x ~= 12.0 && center.y ~= 20.0, "Test Failed: second arc center should be the hole center")
         } else {
             Issue.record("Test Failed: expected arcCCW motion for the second half of the circular interpolation")
         }
 
         // [4] Retract back to Safe Z, still above the bore's edge
         let wp4 = waypoints[4]
-        #expect(abs(wp4.position.x - (12.0 + radius)) < 1e-9 && abs(wp4.position.y - 20.0) < 1e-9, "Test Failed: retract XY mismatch")
+        #expect(wp4.position.x ~= 12.0 + radius && wp4.position.y ~= 20.0, "Test Failed: retract XY mismatch")
         #expect(wp4.position.z == 5.0, "Test Failed: retract Z mismatch")
         if case .rapid = wp4.motion {} else {
             Issue.record("Test Failed: retract motion must be .rapid")
@@ -113,11 +113,11 @@ struct Boring_Tests {
 
         // Both arcs' centers should be the circle's own center, independent of its own radius.
         if case .arcCCW(let center) = waypoints[2].motion {
-            #expect(abs(center.x - 1.0) < 1e-9 && abs(center.y - 2.0) < 1e-9, "Test Failed: bore should be centered on the circle's center")
+            #expect(center.x ~= 1.0 && center.y ~= 2.0, "Test Failed: bore should be centered on the circle's center")
         } else {
             Issue.record("Test Failed: expected arcCCW motion")
         }
-        #expect(abs(waypoints[1].position.x - (1.0 + 4.0)) < 1e-9, "Test Failed: plunge should sit targetDiameter / 2 off the hole center")
+        #expect(waypoints[1].position.x ~= 1.0 + 4.0, "Test Failed: plunge should sit targetDiameter / 2 off the hole center")
         #expect(waypoints[1].position.z == -5.0, "Test Failed: plunge Z mismatch")
     }
 
@@ -170,7 +170,7 @@ struct Boring_Tests {
         for (toolpath, expected) in zip(toolpaths, points) {
             let waypoints = toolpath.passes[0].waypoints
             #expect(waypoints.count == 5, "Test Failed: each bore should contain rapid-plunge-arc-arc-retract")
-            #expect(abs(waypoints[1].position.x - (expected.0 + 3.0)) < 1e-9 && abs(waypoints[1].position.y - expected.1) < 1e-9,
+            #expect(waypoints[1].position.x ~= expected.0 + 3.0 && waypoints[1].position.y ~= expected.1,
                     "Test Failed: toolpath was assigned to the wrong hole")
         }
     }
@@ -195,7 +195,7 @@ struct Boring_Tests {
 
         // Retract should sit directly above the bore's edge (5.0, 0) where the circular pass finished.
         let retract = waypoints[4]
-        #expect(abs(retract.position.x - 5.0) < 1e-9 && abs(retract.position.y - 0.0) < 1e-9, "Test Failed: retract should stay at the bore's edge")
+        #expect(retract.position.x ~= 5.0 && retract.position.y ~= 0.0, "Test Failed: retract should stay at the bore's edge")
         #expect(retract.position.z == 5.0, "Test Failed: retract Z mismatch")
         if case .rapid = retract.motion {} else {
             Issue.record("Test Failed: retract motion must be .rapid")
@@ -221,7 +221,7 @@ struct Boring_Tests {
 
         // [4] Shift inward by the tool's radius (3.0), still at depth
         let shift = waypoints[4]
-        #expect(abs(shift.position.x - 2.0) < 1e-9 && abs(shift.position.y - 0.0) < 1e-9, "Test Failed: shift should move inward by the tool radius")
+        #expect(shift.position.x ~= 2.0 && shift.position.y ~= 0.0, "Test Failed: shift should move inward by the tool radius")
         #expect(shift.position.z == -8.0, "Test Failed: shift should stay at target depth")
         if case .linear = shift.motion {} else {
             Issue.record("Test Failed: shift motion must be .linear")
@@ -229,7 +229,7 @@ struct Boring_Tests {
 
         // [5] Retract up from the shifted point, not the bore's edge
         let retract = waypoints[5]
-        #expect(abs(retract.position.x - 2.0) < 1e-9 && abs(retract.position.y - 0.0) < 1e-9, "Test Failed: retract should lift from the shifted point")
+        #expect(retract.position.x ~= 2.0 && retract.position.y ~= 0.0, "Test Failed: retract should lift from the shifted point")
         #expect(retract.position.z == 5.0, "Test Failed: retract Z mismatch")
         if case .rapid = retract.motion {} else {
             Issue.record("Test Failed: retract motion must be .rapid")
@@ -251,7 +251,7 @@ struct Boring_Tests {
 
         let shift = toolpaths[0].passes[0].waypoints[4]
         // Clamped to the hole's own center (0, 0) rather than overshooting past it.
-        #expect(abs(shift.position.x - 0.0) < 1e-9 && abs(shift.position.y - 0.0) < 1e-9, "Test Failed: shift should clamp to the hole center, not overshoot past it")
+        #expect(shift.position.x ~= 0.0 && shift.position.y ~= 0.0, "Test Failed: shift should clamp to the hole center, not overshoot past it")
     }
 
     @Test("shiftRetract lands exactly on the hole center when the tool radius exactly matches the bore radius")
@@ -268,7 +268,7 @@ struct Boring_Tests {
                                                   operation: .boring(targetDiameter: 10.0, dwellTime: nil, shiftRetract: true)) // bore radius 5.0
 
         let shift = toolpaths[0].passes[0].waypoints[4]
-        #expect(abs(shift.position.x - 0.0) < 1e-9 && abs(shift.position.y - 0.0) < 1e-9,
+        #expect(shift.position.x ~= 0.0 && shift.position.y ~= 0.0,
                 "Test Failed: an exactly-matching tool/bore radius should shift precisely to the hole center, not stop short or overshoot")
     }
 

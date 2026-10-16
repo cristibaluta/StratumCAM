@@ -56,7 +56,7 @@ struct Counterbore_Tests {
         let waypoints = toolpaths[0].passes[0].waypoints
 
         let expectedWallRadius = 20.0 / 2.0 - 2.0 // target radius minus tool radius
-        #expect(abs(maxRadius(waypoints, from: center) - expectedWallRadius) < 1e-6,
+        #expect(maxRadius(waypoints, from: center) ~= expectedWallRadius,
                 "Test Failed: the cutter should reach exactly diameter/2 - toolRadius from center, not short of or past it")
     }
 
@@ -104,7 +104,7 @@ struct Counterbore_Tests {
             let xy = pass.waypoints.map { (Double($0.position.x), Double($0.position.y)) }
             #expect(xy.count == firstPassXY.count, "Test Failed: every pass should trace identical ring geometry -- waypoint counts differ")
             for (a, b) in zip(firstPassXY, xy) {
-                #expect(abs(a.0 - b.0) < 1e-9 && abs(a.1 - b.1) < 1e-9,
+                #expect(a.0 ~= b.0 && a.1 ~= b.1,
                         "Test Failed: ring geometry should be identical across passes -- only Z should change")
             }
         }
@@ -154,7 +154,7 @@ struct Counterbore_Tests {
             return
         }
         #expect(firstHelixZ > -1.0 + 1e-6, "Test Failed: the helix's first turn should not already be at full depth")
-        #expect(abs(lastHelixZ - (-1.0)) < 1e-6, "Test Failed: the helix should land exactly at target depth by its final turn")
+        #expect(lastHelixZ ~= -1.0, "Test Failed: the helix should land exactly at target depth by its final turn")
 
         // Strictly non-increasing Z as the helix spirals down (each turn at or below
         // the previous one).
@@ -178,7 +178,7 @@ struct Counterbore_Tests {
             Issue.record("Test Failed: expected the last ring to be arc geometry")
             return
         }
-        #expect(abs(lastRadius - 7.0) < 1e-9, "Test Failed: last ring must land exactly on wallRadius even with uneven spacing, got \(lastRadius)")
+        #expect(lastRadius ~= 7.0, "Test Failed: last ring must land exactly on wallRadius even with uneven spacing, got \(lastRadius)")
     }
 
     @Test("A counterbore too small for even one stepover still produces a single wall-radius ring")
@@ -196,7 +196,7 @@ struct Counterbore_Tests {
             Issue.record("Test Failed: expected arc geometry")
             return
         }
-        #expect(abs(radius - 1.5) < 1e-9, "Test Failed: the single ring should sit exactly at the wall radius")
+        #expect(radius ~= 1.5, "Test Failed: the single ring should sit exactly at the wall radius")
     }
 
     // MARK: - No overcut
@@ -246,7 +246,7 @@ struct Counterbore_Tests {
             let waypoints = toolpaths[0].passes[0].waypoints
 
             let expectedWallRadius = targetDiameter / 2.0 - toolDiameter / 2.0
-            #expect(abs(maxRadius(waypoints, from: center) - expectedWallRadius) < 1e-6,
+            #expect(maxRadius(waypoints, from: center) ~= expectedWallRadius,
                     "Test Failed: tool diameter \(toolDiameter) should reach exactly \(expectedWallRadius), got \(maxRadius(waypoints, from: center))")
         }
     }

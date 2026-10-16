@@ -82,12 +82,12 @@ struct Facing_Tests {
         let rows = engine.facingScanlines(within: contour, extensionLength: 0, tool: tool, direction: .climb)
 
         #expect(rows.count == 3, "Test Failed: expected 3 rows, got \(rows.count)")
-        #expect(abs(rows.first![0].startPoint.y - 0.0) < 1e-5, "Test Failed: expected the first row to sit exactly on the footprint's near edge")
-        #expect(abs(rows.last![0].startPoint.y - 10.0) < 1e-5, "Test Failed: expected the last row to sit exactly on the footprint's far edge")
+        #expect(rows.first![0].startPoint.y ~= 0.0, "Test Failed: expected the first row to sit exactly on the footprint's near edge")
+        #expect(rows.last![0].startPoint.y ~= 10.0, "Test Failed: expected the last row to sit exactly on the footprint's far edge")
 
         for row in rows {
             let xs = [row[0].startPoint.x, row[0].endPoint.x].sorted()
-            #expect(abs(xs[0] - 0.0) < 1e-5 && abs(xs[1] - 20.0) < 1e-5,
+            #expect(xs[0] ~= 0.0 && xs[1] ~= 20.0,
                     "Test Failed: expected every row to span the full footprint width [0,20]")
         }
     }
@@ -108,12 +108,12 @@ struct Facing_Tests {
 
         for row in extendedRows {
             let xs = [row[0].startPoint.x, row[0].endPoint.x].sorted()
-            #expect(abs(xs[0] - (-3.0)) < 1e-5 && abs(xs[1] - 23.0) < 1e-5,
+            #expect(xs[0] ~= -3.0 && xs[1] ~= 23.0,
                     "Test Failed: expected every row to span the extended footprint width [-3,23]")
         }
-        #expect(abs(extendedRows.first![0].startPoint.y - (-3.0)) < 1e-5,
+        #expect(extendedRows.first![0].startPoint.y ~= -3.0,
                 "Test Failed: expected the first row to sit on the extended footprint's near edge")
-        #expect(abs(extendedRows.last![0].startPoint.y - 13.0) < 1e-5,
+        #expect(extendedRows.last![0].startPoint.y ~= 13.0,
                 "Test Failed: expected the last row to sit on the extended footprint's far edge")
     }
 
@@ -224,10 +224,10 @@ struct Facing_Tests {
         let xs = toolpath.passes[0].waypoints.map { $0.position.x }
         let ys = toolpath.passes[0].waypoints.map { $0.position.y }
 
-        #expect(abs(xs.min()! - (-4.0)) < 1e-9, "Test Failed: expected the toolpath to reach past the contour by extensionLength on -X")
-        #expect(abs(xs.max()! - 24.0) < 1e-9, "Test Failed: expected the toolpath to reach past the contour by extensionLength on +X")
-        #expect(abs(ys.min()! - (-4.0)) < 1e-9, "Test Failed: expected the toolpath to reach past the contour by extensionLength on -Y")
-        #expect(abs(ys.max()! - 14.0) < 1e-9, "Test Failed: expected the toolpath to reach past the contour by extensionLength on +Y")
+        #expect(xs.min()! ~= -4.0, "Test Failed: expected the toolpath to reach past the contour by extensionLength on -X")
+        #expect(xs.max()! ~= 24.0, "Test Failed: expected the toolpath to reach past the contour by extensionLength on +X")
+        #expect(ys.min()! ~= -4.0, "Test Failed: expected the toolpath to reach past the contour by extensionLength on -Y")
+        #expect(ys.max()! ~= 14.0, "Test Failed: expected the toolpath to reach past the contour by extensionLength on +Y")
     }
 
     @Test("Facing only sweeps the passed-in contour's own shape, not an unrelated larger stock")

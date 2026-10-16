@@ -113,13 +113,13 @@ struct Raster_Tests {
         #expect(waypoints[1].position.z == -1.0, "Test Failed: expected a single plunge to targetDepth")
 
         // Climb starts the bottom row at the wall offset's bottom-left corner.
-        #expect(abs(waypoints[1].position.x - 2.0) < 1e-5 && abs(waypoints[1].position.y - 2.0) < 1e-5,
+        #expect(waypoints[1].position.x ~= 2.0 && waypoints[1].position.y ~= 2.0,
                 "Test Failed: expected the first plunge at (2, 2)")
 
         let box = bbox(waypoints)
-        #expect(abs(box.minX - 2.0) < 1e-5 && abs(box.maxX - 18.0) < 1e-5,
+        #expect(box.minX ~= 2.0 && box.maxX ~= 18.0,
                 "Test Failed: raster X bounds should match the tool-radius wall offset")
-        #expect(abs(box.minY - 2.0) < 1e-5 && abs(box.maxY - 8.0) < 1e-5,
+        #expect(box.minY ~= 2.0 && box.maxY ~= 8.0,
                 "Test Failed: raster Y bounds should match the tool-radius wall offset")
 
         #expect(waypoints[9].position.z == 5.0, "Test Failed: expected the final retract to safeZ")
@@ -155,28 +155,28 @@ struct Raster_Tests {
         // Both start the bottom row at the same Y, but climb sweeps left-to-right
         // while conventional sweeps right-to-left.
         let climbPlunge = climb[1]
-        #expect(abs(climbPlunge.position.x - 2.0) < 1e-5 && abs(climbPlunge.position.y - 2.0) < 1e-5,
+        #expect(climbPlunge.position.x ~= 2.0 && climbPlunge.position.y ~= 2.0,
                 "Test Failed: climb raster should start at the bottom-left corner")
 
         let climbFirstCut = climb[2]
-        #expect(abs(climbFirstCut.position.x - 18.0) < 1e-5 && abs(climbFirstCut.position.y - 2.0) < 1e-5,
+        #expect(climbFirstCut.position.x ~= 18.0 && climbFirstCut.position.y ~= 2.0,
                 "Test Failed: climb raster's first row should travel left-to-right")
 
         let conventionalPlunge = conventional[1]
-        #expect(abs(conventionalPlunge.position.x - 18.0) < 1e-5 && abs(conventionalPlunge.position.y - 2.0) < 1e-5,
+        #expect(conventionalPlunge.position.x ~= 18.0 && conventionalPlunge.position.y ~= 2.0,
                 "Test Failed: conventional raster should start at the bottom-right corner")
 
         let conventionalFirstCut = conventional[2]
-        #expect(abs(conventionalFirstCut.position.x - 2.0) < 1e-5 && abs(conventionalFirstCut.position.y - 2.0) < 1e-5,
+        #expect(conventionalFirstCut.position.x ~= 2.0 && conventionalFirstCut.position.y ~= 2.0,
                 "Test Failed: conventional raster's first row should travel right-to-left")
 
         // Same coverage either way -- direction only changes travel order, not area.
         let climbBox = bbox(climb)
         let conventionalBox = bbox(conventional)
-        #expect(abs(climbBox.minX - conventionalBox.minX) < 1e-5)
-        #expect(abs(climbBox.maxX - conventionalBox.maxX) < 1e-5)
-        #expect(abs(climbBox.minY - conventionalBox.minY) < 1e-5)
-        #expect(abs(climbBox.maxY - conventionalBox.maxY) < 1e-5)
+        #expect(climbBox.minX ~= conventionalBox.minX)
+        #expect(climbBox.maxX ~= conventionalBox.maxX)
+        #expect(climbBox.minY ~= conventionalBox.minY)
+        #expect(climbBox.maxY ~= conventionalBox.maxY)
     }
 
     // MARK: - Arc-bounded clipping
@@ -216,24 +216,24 @@ struct Raster_Tests {
         // like the middle rows do.
         let bottomRowStart = waypoints[1]
         let bottomRowEnd = waypoints[2]
-        #expect(abs(bottomRowStart.position.y - 1.5) < 1e-5, "Test Failed: expected the bottom row at y=1.5")
-        #expect(abs(bottomRowStart.position.x - 2.0) < 1e-5,
+        #expect(bottomRowStart.position.y ~= 1.5, "Test Failed: expected the bottom row at y=1.5")
+        #expect(bottomRowStart.position.x ~= 2.0,
                 "Test Failed: bottom row should start at x=2.0 (the corner arc's tangent point), not the bbox edge at 1.5")
-        #expect(abs(bottomRowEnd.position.x - 18.0) < 1e-5,
+        #expect(bottomRowEnd.position.x ~= 18.0,
                 "Test Failed: bottom row should end at x=18.0 (the corner arc's tangent point), not the bbox edge at 18.5")
 
         // A middle row (y=4.5) sits between the corner arcs entirely, so it spans the
         // full straight-edge width.
         let middleRowEnd = waypoints[6]
-        #expect(abs(middleRowEnd.position.y - 4.5) < 1e-5, "Test Failed: expected a middle row at y=4.5")
-        #expect(abs(middleRowEnd.position.x - 18.5) < 1e-5,
+        #expect(middleRowEnd.position.y ~= 4.5, "Test Failed: expected a middle row at y=4.5")
+        #expect(middleRowEnd.position.x ~= 18.5,
                 "Test Failed: middle row should reach the full straight-edge width at x=18.5")
 
         // The top row (y=8.5) is narrowed by the top corner arcs the same way the
         // bottom row is.
         let topRowEnd = waypoints[12]
-        #expect(abs(topRowEnd.position.y - 8.5) < 1e-5, "Test Failed: expected the top row at y=8.5")
-        #expect(abs(topRowEnd.position.x - 2.0) < 1e-5,
+        #expect(topRowEnd.position.y ~= 8.5, "Test Failed: expected the top row at y=8.5")
+        #expect(topRowEnd.position.x ~= 2.0,
                 "Test Failed: top row should end at x=2.0 (the corner arc's tangent point), not the bbox edge at 1.5")
     }
 
@@ -260,7 +260,7 @@ struct Raster_Tests {
         let rowYs = rows.map { $0[0].startPoint.y }
         let expectedYs = [2.0, 4.5, 7.0, 8.0]
         for (actual, expected) in zip(rowYs, expectedYs) {
-            #expect(abs(actual - expected) < 1e-5,
+            #expect(actual ~= expected,
                     "Test Failed: expected row at y=\(expected), got y=\(actual)")
         }
 
@@ -294,7 +294,7 @@ struct Raster_Tests {
                     "Test Failed: no row above the notch's base (y=4) should have been generated -- got a row at y=\(y)")
 
             let xs = [row[0].startPoint.x, row[0].endPoint.x].sorted()
-            #expect(abs(xs[0] - 0.0) < 1e-5 && abs(xs[1] - 20.0) < 1e-5,
+            #expect(xs[0] ~= 0.0 && xs[1] ~= 20.0,
                     "Test Failed: expected the surviving rows to span the full 0-20 base width")
         }
     }

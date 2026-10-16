@@ -77,13 +77,13 @@ struct Slotting_Tests {
         // traced XY position must land exactly on the original centerline (y=0)
         // -- a larger tool changes nothing about where the path runs.
         for waypoint in waypoints {
-            #expect(abs(waypoint.position.y - 0.0) < 1e-9,
+            #expect(waypoint.position.y ~= 0.0,
                     "Test Failed: expected every waypoint to stay on the centerline (y=0), got y=\(waypoint.position.y)")
         }
 
         let xs = waypoints.map { $0.position.x }
-        #expect(abs((xs.min() ?? -1) - 0.0) < 1e-9, "Test Failed: expected the path to start at the centerline's own x=0")
-        #expect(abs((xs.max() ?? -1) - 20.0) < 1e-9, "Test Failed: expected the path to end at the centerline's own x=20, not offset by the tool radius")
+        #expect((xs.min() ?? -1) ~= 0.0, "Test Failed: expected the path to start at the centerline's own x=0")
+        #expect((xs.max() ?? -1) ~= 20.0, "Test Failed: expected the path to end at the centerline's own x=20, not offset by the tool radius")
     }
 
     @Test("A larger tool diameter does not change the traced XY path")
@@ -110,7 +110,7 @@ struct Slotting_Tests {
         #expect(smallToolWaypoints.count == bigToolWaypoints.count,
                 "Test Failed: expected tool diameter to have no bearing on waypoint count")
         for (small, big) in zip(smallToolWaypoints, bigToolWaypoints) {
-            #expect(abs(small.position.x - big.position.x) < 1e-9 && abs(small.position.y - big.position.y) < 1e-9,
+            #expect(small.position.x ~= big.position.x && small.position.y ~= big.position.y,
                     "Test Failed: expected identical XY paths regardless of tool diameter")
         }
     }
@@ -137,7 +137,7 @@ struct Slotting_Tests {
         let expectedTracedPoints: [(Double, Double)] = [(0, 0), (20, 0), (20, 10)]
         let tracedPoints = waypoints[1..<4].map { ($0.position.x, $0.position.y) }
         for ((ex, ey), (ax, ay)) in zip(expectedTracedPoints, tracedPoints) {
-            #expect(abs(ex - ax) < 1e-9 && abs(ey - ay) < 1e-9,
+            #expect(ex ~= ax && ey ~= ay,
                     "Test Failed: expected traced point (\(ex), \(ey)), got (\(ax), \(ay))")
         }
     }
@@ -276,12 +276,12 @@ struct Slotting_Tests {
         // Every ramp still lands back exactly on the centerline's own start (0, 0)
         // at its pass's target depth, ready to hand off into the straight trace.
         let pass0LandsAtTarget = pass0.waypoints.contains { wp in
-            abs(wp.position.x - 0.0) < 1e-6 && abs(wp.position.y - 0.0) < 1e-6 && abs(wp.position.z - (-1.0)) < 1e-6
+            wp.position.x ~= 0.0 && wp.position.y ~= 0.0 && wp.position.z ~= -1.0
         }
         #expect(pass0LandsAtTarget, "Test Failed: expected pass 0's ramp to land on the centerline start at -1.0")
 
         let pass1LandsAtTarget = pass1.waypoints.contains { wp in
-            abs(wp.position.x - 0.0) < 1e-6 && abs(wp.position.y - 0.0) < 1e-6 && abs(wp.position.z - (-2.0)) < 1e-6
+            wp.position.x ~= 0.0 && wp.position.y ~= 0.0 && wp.position.z ~= -2.0
         }
         #expect(pass1LandsAtTarget, "Test Failed: expected pass 1's ramp to land on the centerline start at -2.0")
 
@@ -289,7 +289,7 @@ struct Slotting_Tests {
         // target depth -- the trace itself still runs after the ramp entry.
         for (pass, depth) in [(pass0, -1.0), (pass1, -2.0)] {
             let tracesEnd = pass.waypoints.contains { wp in
-                abs(wp.position.x - 20.0) < 1e-6 && abs(wp.position.y - 0.0) < 1e-6 && abs(wp.position.z - depth) < 1e-6
+                wp.position.x ~= 20.0 && wp.position.y ~= 0.0 && wp.position.z ~= depth
             }
             #expect(tracesEnd, "Test Failed: expected the centerline's far end to still be traced at depth \(depth)")
         }
@@ -331,7 +331,7 @@ struct Slotting_Tests {
         for wp in waypoints {
             switch wp.motion {
                 case .arcCW(let center), .arcCCW(let center):
-                    #expect(abs(center.y - 0.0) < 1e-6,
+                    #expect(center.y ~= 0.0,
                             "Test Failed: expected the helix to be centered on the centerline (y=0), got center.y=\(center.y)")
                 default:
                     break
@@ -341,7 +341,7 @@ struct Slotting_Tests {
         // The straight trace itself still runs afterwards, reaching the centerline's
         // far end at target depth.
         let tracesEnd = waypoints.contains { wp in
-            abs(wp.position.x - 20.0) < 1e-6 && abs(wp.position.y - 0.0) < 1e-6 && abs(wp.position.z - (-1.0)) < 1e-6
+            wp.position.x ~= 20.0 && wp.position.y ~= 0.0 && wp.position.z ~= -1.0
         }
         #expect(tracesEnd, "Test Failed: expected the centerline's far end to still be traced after the helix entry")
 
@@ -386,9 +386,9 @@ struct Slotting_Tests {
         }
 
         let xs = [start.x, end.x].sorted()
-        #expect(abs(xs[0] - 3.0) < 1e-6, "Test Failed: expected the centerline to start inset 3mm (tool radius) from x=0")
-        #expect(abs(xs[1] - 27.0) < 1e-6, "Test Failed: expected the centerline to end inset 3mm from x=30")
-        #expect(abs(start.y - 3.0) < 1e-6 && abs(end.y - 3.0) < 1e-6,
+        #expect(xs[0] ~= 3.0, "Test Failed: expected the centerline to start inset 3mm (tool radius) from x=0")
+        #expect(xs[1] ~= 27.0, "Test Failed: expected the centerline to end inset 3mm from x=30")
+        #expect(start.y ~= 3.0 && end.y ~= 3.0,
                 "Test Failed: expected the centerline to run along the rectangle's own mid-height (y=3)")
     }
 
@@ -418,8 +418,8 @@ struct Slotting_Tests {
         // The centerline itself runs x=[3,27]; the swept tool (radius 3mm) reaches
         // exactly x=[0,30] at either extreme -- the original rectangle's own length,
         // with the corners naturally rounded rather than left square.
-        #expect(abs((xs.min() ?? -1) - toolRadius) < 1e-6, "Test Failed: expected the centerline's own near extent at x=3")
-        #expect(abs((xs.max() ?? -1) - (30 - toolRadius)) < 1e-6, "Test Failed: expected the centerline's own far extent at x=27")
+        #expect((xs.min() ?? -1) ~= toolRadius, "Test Failed: expected the centerline's own near extent at x=3")
+        #expect((xs.max() ?? -1) ~= 30 - toolRadius, "Test Failed: expected the centerline's own far extent at x=27")
     }
 
     @Test("A rotated rectangle boundary still derives a correct centerline along its own long axis")
@@ -446,10 +446,10 @@ struct Slotting_Tests {
             return
         }
 
-        #expect(abs(start.x - 2.0) < 1e-6 && abs(end.x - 2.0) < 1e-6,
+        #expect(start.x ~= 2.0 && end.x ~= 2.0,
                 "Test Failed: expected the centerline to run along x=2 (the rectangle's own mid-width)")
         let ys = [start.y, end.y].sorted()
-        #expect(abs(ys[0] - 2.0) < 1e-6 && abs(ys[1] - 18.0) < 1e-6,
+        #expect(ys[0] ~= 2.0 && ys[1] ~= 18.0,
                 "Test Failed: expected the centerline to span y=[2,18], inset 2mm (tool radius) from each end")
     }
 

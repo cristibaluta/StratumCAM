@@ -89,7 +89,7 @@ struct ThreadMilling_Tests {
         }
 
         let wp2 = waypoints[2]
-        #expect(abs(wp2.position.x - millRadius) < 1e-9 && abs(wp2.position.y) < 1e-9 && wp2.position.z == -3.0,
+        #expect(wp2.position.x ~= millRadius && wp2.position.y ~= 0 && wp2.position.z == -3.0,
                 "Test Failed: third waypoint should feed sideways to the mill radius, still at the bottom")
         if case .linear = wp2.motion {} else {
             Issue.record("Test Failed: engage waypoint motion must be .linear")
@@ -98,7 +98,7 @@ struct ThreadMilling_Tests {
         // End of turn 1: back at the engage XY, one pitch higher.
         let endOfTurn1 = waypoints[10]
         #expect(endOfTurn1.position.z == -2.0, "Test Failed: turn 1 should end exactly one pitch above the bottom")
-        #expect(abs(endOfTurn1.position.x - millRadius) < 1e-9 && abs(endOfTurn1.position.y) < 1e-9,
+        #expect(endOfTurn1.position.x ~= millRadius && endOfTurn1.position.y ~= 0,
                 "Test Failed: a full revolution should return to the engage XY")
         // Right-hand thread sweeps CCW as it climbs bottom-to-top (see Step 2D.2's
         // coverage below for left-hand, and for handedness being independent of
@@ -115,7 +115,7 @@ struct ThreadMilling_Tests {
         for i in 27...34 {
             #expect(waypoints[i].position.z == 0.0, "Test Failed: closing lap waypoint \(i) should stay flat at the top")
         }
-        #expect(abs(waypoints[34].position.x - millRadius) < 1e-9 && abs(waypoints[34].position.y) < 1e-9,
+        #expect(waypoints[34].position.x ~= millRadius && waypoints[34].position.y ~= 0,
                 "Test Failed: closing lap should also return to the engage XY")
 
         // Disengage back to center, still at the top, before retracting -- this is the
@@ -151,7 +151,7 @@ struct ThreadMilling_Tests {
         // the compensated mill radius (waypoints 0-1 are the center entry).
         let engage = toolpaths[0].passes[0].waypoints[2]
         // Expected mill radius: 6.0 - 2.0 = 4.0, offset from the hole's own center.
-        #expect(abs(engage.position.x - (10.0 + 4.0)) < 1e-9 && abs(engage.position.y - 20.0) < 1e-9,
+        #expect(engage.position.x ~= 10.0 + 4.0 && engage.position.y ~= 20.0,
                 "Test Failed: internal threading should orbit inside the drawn diameter by the tool's radius")
     }
 
@@ -168,7 +168,7 @@ struct ThreadMilling_Tests {
 
         let engage = toolpaths[0].passes[0].waypoints[2]
         // Expected mill radius: 6.0 + 2.0 = 8.0, offset from the boss's own center.
-        #expect(abs(engage.position.x - (10.0 + 8.0)) < 1e-9 && abs(engage.position.y - 20.0) < 1e-9,
+        #expect(engage.position.x ~= 10.0 + 8.0 && engage.position.y ~= 20.0,
                 "Test Failed: external threading should orbit outside the drawn diameter by the tool's radius")
     }
 
@@ -327,11 +327,11 @@ struct ThreadMilling_Tests {
         let millRadius = 5.0 - 1.5
         for (toolpath, center) in zip(toolpaths, centers) {
             let entry = toolpath.passes[0].waypoints[0]
-            #expect(abs(entry.position.x - center.0) < 1e-9 && abs(entry.position.y - center.1) < 1e-9,
+            #expect(entry.position.x ~= center.0 && entry.position.y ~= center.1,
                     "Test Failed: the initial center entry was assigned to the wrong hole")
 
             let engage = toolpath.passes[0].waypoints[2]
-            #expect(abs(engage.position.x - (center.0 + millRadius)) < 1e-9 && abs(engage.position.y - center.1) < 1e-9,
+            #expect(engage.position.x ~= center.0 + millRadius && engage.position.y ~= center.1,
                     "Test Failed: the wall-engage move was assigned to the wrong hole")
         }
     }
@@ -354,7 +354,7 @@ struct ThreadMilling_Tests {
         #expect(positive[0].passes[0].waypoints.count == negative[0].passes[0].waypoints.count,
                 "Test Failed: negative pitch should produce the same waypoint layout as its positive magnitude")
         for (pw, nw) in zip(positive[0].passes[0].waypoints, negative[0].passes[0].waypoints) {
-            #expect(abs(pw.position.z - nw.position.z) < 1e-9, "Test Failed: negative pitch should step identically to its magnitude")
+            #expect(pw.position.z ~= nw.position.z, "Test Failed: negative pitch should step identically to its magnitude")
         }
     }
 
@@ -375,13 +375,13 @@ struct ThreadMilling_Tests {
 
         // wp[1] is the initial rapid straight down center -- should land exactly on the
         // true target depth, not one pitch past it.
-        #expect(abs(waypoints[1].position.z - (-3.5)) < 1e-9, "Test Failed: the center entry should rapid straight to the true target depth")
+        #expect(waypoints[1].position.z ~= -3.5, "Test Failed: the center entry should rapid straight to the true target depth")
 
         // End of turn 1 (index 3 + 8 - 1 = 10): the shortened, 0.5-pitch turn off the bottom.
-        #expect(abs(waypoints[10].position.z - (-3.0)) < 1e-9, "Test Failed: the shortened first turn should land exactly half a pitch above the bottom")
+        #expect(waypoints[10].position.z ~= -3.0, "Test Failed: the shortened first turn should land exactly half a pitch above the bottom")
 
         // End of turn 4 (index 3 + 4*8 - 1 = 34): the last helical turn, landing exactly at the top.
-        #expect(abs(waypoints[34].position.z - 0.0) < 1e-9, "Test Failed: the final helical turn should land exactly at the top")
+        #expect(waypoints[34].position.z ~= 0.0, "Test Failed: the final helical turn should land exactly at the top")
     }
 
     @Test("A target depth shallower than one full pitch still produces a single shortened turn plus closing lap")
@@ -399,10 +399,10 @@ struct ThreadMilling_Tests {
         #expect(waypoints.count == 5 + 2 * 8, "Test Failed: expected 1 shortened turn + 1 closing lap when depth < pitch")
 
         let endOfOnlyTurn = waypoints[10]
-        #expect(abs(endOfOnlyTurn.position.z - 0.0) < 1e-9, "Test Failed: the single shortened turn should climb straight from the shallow bottom to the top")
+        #expect(endOfOnlyTurn.position.z ~= 0.0, "Test Failed: the single shortened turn should climb straight from the shallow bottom to the top")
 
         for i in 11...18 {
-            #expect(abs(waypoints[i].position.z - 0.0) < 1e-9, "Test Failed: closing lap waypoint \(i) should stay flat at the top")
+            #expect(waypoints[i].position.z ~= 0.0, "Test Failed: closing lap waypoint \(i) should stay flat at the top")
         }
     }
 
@@ -442,7 +442,7 @@ struct ThreadMilling_Tests {
             let dx = waypoint.position.x - center.0
             let dy = waypoint.position.y - center.1
             let radius = (dx * dx + dy * dy).squareRoot()
-            #expect(abs(radius - expectedRadius) < 1e-9, "Test Failed: arc waypoint drifted off the compensated mill radius")
+            #expect(radius ~= expectedRadius, "Test Failed: arc waypoint drifted off the compensated mill radius")
         }
     }
 
@@ -542,7 +542,7 @@ struct ThreadMilling_Tests {
                 "Test Failed: the surviving toolpath should still enter through the good contour's own hole center")
 
         let engage = goodToolpaths[0].passes[0].waypoints[2]
-        #expect(abs(engage.position.x - millRadius) < 1e-9 && abs(engage.position.y) < 1e-9,
+        #expect(engage.position.x ~= millRadius && engage.position.y ~= 0,
                 "Test Failed: the surviving toolpath should still engage the good contour's hole at the compensated mill radius")
     }
 
@@ -588,7 +588,7 @@ struct ThreadMilling_Tests {
             #expect(radius > previousRadius, "Test Failed: pass \(index) should engage farther out than the previous pass")
             previousRadius = radius
         }
-        #expect(abs(previousRadius - finalMillRadius) < 1e-9, "Test Failed: the final pass should land exactly on the target diameter")
+        #expect(previousRadius ~= finalMillRadius, "Test Failed: the final pass should land exactly on the target diameter")
     }
 
     @Test("Radial passes on an external thread step inward from the existing boss, ending exactly on the target diameter")
@@ -611,7 +611,7 @@ struct ThreadMilling_Tests {
             #expect(radius < previousRadius, "Test Failed: pass \(index) should engage closer in than the previous pass")
             previousRadius = radius
         }
-        #expect(abs(previousRadius - finalMillRadius) < 1e-9, "Test Failed: the final pass should land exactly on the target diameter")
+        #expect(previousRadius ~= finalMillRadius, "Test Failed: the final pass should land exactly on the target diameter")
     }
 
     @Test("A single radial pass lands directly on the target diameter, independent of the existing hole size")

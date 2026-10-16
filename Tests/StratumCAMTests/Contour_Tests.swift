@@ -71,10 +71,10 @@ struct Contour_Tests {
         let box = bbox(toolpaths[0].passes[0].waypoints)
 
         // 10x10 square, 3mm tool radius -> outside toolpath bbox expands to [-3, 13] on both axes.
-        #expect(abs(box.minX - (-3.0)) < 1e-5, "Test Failed: outside offset minX mismatch")
-        #expect(abs(box.maxX - 13.0) < 1e-5, "Test Failed: outside offset maxX mismatch")
-        #expect(abs(box.minY - (-3.0)) < 1e-5, "Test Failed: outside offset minY mismatch")
-        #expect(abs(box.maxY - 13.0) < 1e-5, "Test Failed: outside offset maxY mismatch")
+        #expect(box.minX ~= -3.0, "Test Failed: outside offset minX mismatch")
+        #expect(box.maxX ~= 13.0, "Test Failed: outside offset maxX mismatch")
+        #expect(box.minY ~= -3.0, "Test Failed: outside offset minY mismatch")
+        #expect(box.maxY ~= 13.0, "Test Failed: outside offset maxY mismatch")
     }
 
     @Test("Inside profile offsets the toolpath toward the contour center")
@@ -93,10 +93,10 @@ struct Contour_Tests {
         let box = bbox(toolpaths[0].passes[0].waypoints)
 
         // 10x10 square, 3mm tool radius -> inside toolpath bbox shrinks to [3, 7] on both axes.
-        #expect(abs(box.minX - 3.0) < 1e-5, "Test Failed: inside offset minX mismatch")
-        #expect(abs(box.maxX - 7.0) < 1e-5, "Test Failed: inside offset maxX mismatch")
-        #expect(abs(box.minY - 3.0) < 1e-5, "Test Failed: inside offset minY mismatch")
-        #expect(abs(box.maxY - 7.0) < 1e-5, "Test Failed: inside offset maxY mismatch")
+        #expect(box.minX ~= 3.0, "Test Failed: inside offset minX mismatch")
+        #expect(box.maxX ~= 7.0, "Test Failed: inside offset maxX mismatch")
+        #expect(box.minY ~= 3.0, "Test Failed: inside offset minY mismatch")
+        #expect(box.maxY ~= 7.0, "Test Failed: inside offset maxY mismatch")
     }
 
     // MARK: - Climb vs conventional
@@ -161,14 +161,14 @@ struct Contour_Tests {
         // [0] Rapid above the offset contour's start point (0, -3) @ SafeZ (5.0)
         // [1] Plunge to (0, -3) @ TargetZ (-1.0), no lead-in requested
         let wp0 = waypoints[0]
-        #expect(abs(wp0.position.x - 0.0) < 1e-5 && abs(wp0.position.y - (-3.0)) < 1e-5 && wp0.position.z == 5.0,
+        #expect(wp0.position.x ~= 0.0 && wp0.position.y ~= -3.0 && wp0.position.z == 5.0,
                 "Test Failed: initial rapid move incorrect")
         if case .rapid = wp0.motion {} else {
             Issue.record("Test Failed: first waypoint motion must be .rapid")
         }
 
         let wp1 = waypoints[1]
-        #expect(abs(wp1.position.x - 0.0) < 1e-5 && abs(wp1.position.y - (-3.0)) < 1e-5, "Test Failed: plunge XY mismatch")
+        #expect(wp1.position.x ~= 0.0 && wp1.position.y ~= -3.0, "Test Failed: plunge XY mismatch")
         #expect(wp1.position.z == -1.0, "Test Failed: plunge Z mismatch")
         #expect(wp1.feedRate == 300.0, "Test Failed: plunge feed rate should match settings")
     }
@@ -197,21 +197,21 @@ struct Contour_Tests {
         #expect(waypoints.count >= 4)
 
         let wp0 = waypoints[0]
-        #expect(abs(wp0.position.x - 0.0) < 1e-5 && abs(wp0.position.y - (-3.0)) < 1e-5 && wp0.position.z == 5.0,
+        #expect(wp0.position.x ~= 0.0 && wp0.position.y ~= -3.0 && wp0.position.z == 5.0,
                 "Test Failed: initial rapid move incorrect")
 
         let wp1 = waypoints[1]
-        #expect(abs(wp1.position.x - 0.0) < 1e-5 && abs(wp1.position.y - (-3.0)) < 1e-5 && wp1.position.z == 0.0,
+        #expect(wp1.position.x ~= 0.0 && wp1.position.y ~= -3.0 && wp1.position.z == 0.0,
                 "Test Failed: expected a rapid down to top-of-stock before the ramp starts")
 
         let wp2 = waypoints[2]
-        #expect(abs(wp2.position.x - 0.8660254) < 1e-5 && abs(wp2.position.y - (-3.0)) < 1e-5,
+        #expect(wp2.position.x ~= 0.8660254 && wp2.position.y ~= -3.0,
                 "Test Failed: ramp leg 1 should only travel as far as the 30 degree angle needs, not the whole edge")
-        #expect(abs(wp2.position.z - (-0.5)) < 1e-9, "Test Failed: ramp leg 1 should be partway down, not at full depth")
+        #expect(wp2.position.z ~= -0.5, "Test Failed: ramp leg 1 should be partway down, not at full depth")
 
         let wp3 = waypoints[3]
-        #expect(abs(wp3.position.x - 0.0) < 1e-5 && abs(wp3.position.y - (-3.0)) < 1e-5, "Test Failed: ramp leg 2 XY mismatch")
-        #expect(abs(wp3.position.z - (-1.0)) < 1e-9, "Test Failed: ramp should land exactly at target depth")
+        #expect(wp3.position.x ~= 0.0 && wp3.position.y ~= -3.0, "Test Failed: ramp leg 2 XY mismatch")
+        #expect(wp3.position.z ~= -1.0, "Test Failed: ramp should land exactly at target depth")
     }
 
     @Test("Ramp entry on a later pass starts at the previous pass's depth, not safeZ")
@@ -235,12 +235,12 @@ struct Contour_Tests {
         //     this pass should only cover the fresh -1.0 -> -2.0 stepdown, never re-descend
         //     the whole safeZ -> -2.0 span through material the first pass already opened.
         let wp1 = secondPassWaypoints[1]
-        #expect(abs(wp1.position.z - (-1.0)) < 1e-9,
+        #expect(wp1.position.z ~= -1.0,
                 "Test Failed: second pass ramp should start at the previous pass depth (-1.0), not safeZ")
 
         // No waypoint in this pass's entry should sit at safeZ except the initial travel rapid.
         let landsAtNewTarget = secondPassWaypoints.contains { wp in
-            abs(wp.position.z - (-2.0)) < 1e-9
+            wp.position.z ~= -2.0
         }
         #expect(landsAtNewTarget, "Test Failed: second pass ramp should still land exactly at this pass's target depth")
     }
@@ -289,13 +289,13 @@ struct Contour_Tests {
         let waypoints = toolpaths[0].passes[0].waypoints
 
         let wp0 = waypoints[0]
-        #expect(abs(wp0.position.x - 0.0) < 1e-5 && abs(wp0.position.y - (-3.0)) < 1e-5 && wp0.position.z == 5.0,
+        #expect(wp0.position.x ~= 0.0 && wp0.position.y ~= -3.0 && wp0.position.z == 5.0,
                 "Test Failed: initial rapid move incorrect")
 
         // A helix always completes a whole number of turns, so somewhere in the entry
         // phase it must land back exactly on the offset contour's start point at target depth.
         let landsAtTarget = waypoints.contains { wp in
-            abs(wp.position.x - 0.0) < 1e-6 && abs(wp.position.y - (-3.0)) < 1e-6 && abs(wp.position.z - (-1.0)) < 1e-6
+            wp.position.x ~= 0.0 && wp.position.y ~= -3.0 && wp.position.z ~= -1.0
         }
         #expect(landsAtTarget, "Test Failed: expected helix entry to land back on contour start at target depth")
     }
@@ -328,13 +328,13 @@ struct Contour_Tests {
         #expect(waypoints.count >= 5)
 
         let clamped = waypoints[3]
-        #expect(abs(clamped.position.x - 10.0) < 1e-5, "Test Failed: expected the tab-clamped waypoint at x=10")
-        #expect(abs(clamped.position.z - (-1.5)) < 1e-9, "Test Failed: tab should clamp Z to its remaining-stock floor (-1.5), not full depth")
+        #expect(clamped.position.x ~= 10.0, "Test Failed: expected the tab-clamped waypoint at x=10")
+        #expect(clamped.position.z ~= -1.5, "Test Failed: tab should clamp Z to its remaining-stock floor (-1.5), not full depth")
 
         let unclampedBefore = waypoints[2]
-        #expect(abs(unclampedBefore.position.z - (-3.0)) < 1e-9, "Test Failed: waypoint before the tab should still be at full depth")
+        #expect(unclampedBefore.position.z ~= -3.0, "Test Failed: waypoint before the tab should still be at full depth")
 
         let unclampedAfter = waypoints[4]
-        #expect(abs(unclampedAfter.position.z - (-3.0)) < 1e-9, "Test Failed: waypoint after the tab should return to full depth")
+        #expect(unclampedAfter.position.z ~= -3.0, "Test Failed: waypoint after the tab should return to full depth")
     }
 }

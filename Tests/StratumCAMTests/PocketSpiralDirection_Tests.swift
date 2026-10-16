@@ -87,26 +87,26 @@ struct PocketSpiralDirection_Tests {
         // opposite end from `.outsideIn`, and exactly where the `.spiral` case's own doc
         // comment says `.insideOut` should enter.
         #expect(waypoints[0].position.z == 5.0, "Test Failed: expected the initial rapid at safeZ")
-        #expect(abs(radius(waypoints[1]) - 2.0) < 1e-6, "Test Failed: insideOut plunge should land on the innermost ring's radius")
+        #expect(radius(waypoints[1]) ~= 2.0, "Test Failed: insideOut plunge should land on the innermost ring's radius")
         #expect(waypoints[1].position.z == -1.0, "Test Failed: plunge should land at target depth")
 
         // The opening turn must hold at the innermost radius (2) all the way round --
         // the same "actually sweep the first ring, don't just touch it once" guarantee
         // `.outsideIn` gives its wall ring, just applied to the opposite end here.
-        #expect(abs(radius(waypoints[1 + 18]) - 2.0) < 1e-6, "Test Failed: quarter-way round the opening turn should still be at the innermost radius")
-        #expect(abs(radius(waypoints[1 + 54]) - 2.0) < 1e-6, "Test Failed: three-quarters round the opening turn should still be at the innermost radius")
-        #expect(abs(radius(waypoints[1 + 72]) - 2.0) < 1e-6, "Test Failed: the opening turn should close back on itself at the innermost radius")
+        #expect(radius(waypoints[1 + 18]) ~= 2.0, "Test Failed: quarter-way round the opening turn should still be at the innermost radius")
+        #expect(radius(waypoints[1 + 54]) ~= 2.0, "Test Failed: three-quarters round the opening turn should still be at the innermost radius")
+        #expect(radius(waypoints[1 + 72]) ~= 2.0, "Test Failed: the opening turn should close back on itself at the innermost radius")
 
         // Radius at each subsequent full-turn boundary now grows outward, ring by ring,
         // the mirror image of the outside-in case.
-        #expect(abs(radius(waypoints[1 + 144]) - 4.0) < 1e-6, "Test Failed: end of the first interpolating turn should land exactly on the next ring's radius (4)")
-        #expect(abs(radius(waypoints[1 + 216]) - 6.0) < 1e-6, "Test Failed: end of the second interpolating turn should land exactly on the next ring's radius (6)")
-        #expect(abs(radius(waypoints[1 + 288]) - 8.0) < 1e-6, "Test Failed: end of the third interpolating turn should land exactly on the outermost (wall) ring's radius (8)")
+        #expect(radius(waypoints[1 + 144]) ~= 4.0, "Test Failed: end of the first interpolating turn should land exactly on the next ring's radius (4)")
+        #expect(radius(waypoints[1 + 216]) ~= 6.0, "Test Failed: end of the second interpolating turn should land exactly on the next ring's radius (6)")
+        #expect(radius(waypoints[1 + 288]) ~= 8.0, "Test Failed: end of the third interpolating turn should land exactly on the outermost (wall) ring's radius (8)")
 
         // The final turn holds at the outer wall radius rather than interpolating
         // further -- the single, uninterrupted wall pass `.insideOut`'s own doc comment
         // promises, so nothing re-touches the wall after it.
-        #expect(abs(radius(waypoints[1 + 360]) - 8.0) < 1e-6,
+        #expect(radius(waypoints[1 + 360]) ~= 8.0,
                 "Test Failed: expected the final turn to close on the outer wall radius, not the innermost one")
     }
 

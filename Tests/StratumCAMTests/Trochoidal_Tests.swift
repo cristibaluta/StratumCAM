@@ -55,7 +55,7 @@ struct Trochoidal_Tests {
         // The very first chord starts at the first loop's own start point: 2mm (the
         // loop radius) to the right of the boundary's own start point (0,0).
         let firstChord = segments[0]
-        #expect(abs(firstChord.startPoint.x - 2.0) < 1e-6 && abs(firstChord.startPoint.y - 0.0) < 1e-6,
+        #expect(firstChord.startPoint.x ~= 2.0 && firstChord.startPoint.y ~= 0.0,
                 "Test Failed: expected the first loop to start at (2, 0), got \(firstChord.startPoint)")
 
         // Every point of the first loop should sit exactly `loopRadius` (2mm) from
@@ -64,7 +64,7 @@ struct Trochoidal_Tests {
         let firstLoopChords = segments[0..<stepsPerLoop]
         for chord in firstLoopChords {
             let distance = hypot(chord.endPoint.x - 0.0, chord.endPoint.y - 0.0)
-            #expect(abs(distance - 2.0) < 1e-6,
+            #expect(distance ~= 2.0,
                     "Test Failed: expected every point on the first loop to be 2mm (tool radius) from its center, got \(distance)")
         }
 
@@ -75,7 +75,7 @@ struct Trochoidal_Tests {
         let lastLoopChords = segments.suffix(stepsPerLoop)
         for chord in lastLoopChords {
             let distance = hypot(chord.endPoint.x - 20.0, chord.endPoint.y - 0.0)
-            #expect(abs(distance - 2.0) < 1e-6,
+            #expect(distance ~= 2.0,
                     "Test Failed: expected every point on the last loop to be 2mm from its center at (20, 0), got \(distance)")
         }
 
@@ -84,9 +84,9 @@ struct Trochoidal_Tests {
         // what's actually driving the loop-to-loop advance.
         let connector = segments[stepsPerLoop] // the connector right after loop 0.
         let firstLoopEnd = firstLoopChords.last!.endPoint
-        #expect(abs(connector.startPoint.x - firstLoopEnd.x) < 1e-6 && abs(connector.startPoint.y - firstLoopEnd.y) < 1e-6,
+        #expect(connector.startPoint.x ~= firstLoopEnd.x && connector.startPoint.y ~= firstLoopEnd.y,
                 "Test Failed: expected the connector to start exactly where the previous loop closed")
-        #expect(abs(connector.endPoint.x - 4.0) < 1e-6 && abs(connector.endPoint.y - 0.0) < 1e-6,
+        #expect(connector.endPoint.x ~= 4.0 && connector.endPoint.y ~= 0.0,
                 "Test Failed: expected the second loop to start at (4, 0), 2mm further along than the first")
 
         // Since the advance (2mm) is smaller than the loop diameter (4mm), every

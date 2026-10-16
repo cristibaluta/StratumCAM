@@ -66,7 +66,7 @@ struct PocketEntry_Tests {
         // [0] Rapid above the ring start (3, 3) @ SafeZ -- the ramp itself only needs to
         // handle the safeZ -> target descent since pocketing is still single-pass (1.3).
         let wp0 = waypoints[0]
-        #expect(abs(wp0.position.x - 3.0) < 1e-5 && abs(wp0.position.y - 3.0) < 1e-5 && wp0.position.z == 5.0,
+        #expect(wp0.position.x ~= 3.0 && wp0.position.y ~= 3.0 && wp0.position.z == 5.0,
                 "Test Failed: initial rapid move should be above the ring start corner")
         if case .rapid = wp0.motion {} else {
             Issue.record("Test Failed: first waypoint motion must be .rapid")
@@ -75,7 +75,7 @@ struct PocketEntry_Tests {
         // A ramp always finishes back exactly on the ring's start point at target depth,
         // ready to hand off into the ring trace -- same guarantee `.contour`'s ramp gives.
         let landsAtTarget = waypoints.contains { wp in
-            abs(wp.position.x - 3.0) < 1e-6 && abs(wp.position.y - 3.0) < 1e-6 && abs(wp.position.z - (-1.0)) < 1e-6
+            wp.position.x ~= 3.0 && wp.position.y ~= 3.0 && wp.position.z ~= -1.0
         }
         #expect(landsAtTarget, "Test Failed: expected the ramp to land back on the ring start at target depth")
 
@@ -86,7 +86,7 @@ struct PocketEntry_Tests {
         // The ring itself still gets traced afterwards -- the far corner (17, 7) should
         // appear at full target depth just like the plunge-entry case does.
         let tracesRing = waypoints.contains { wp in
-            abs(wp.position.x - 17.0) < 1e-5 && abs(wp.position.y - 7.0) < 1e-5 && abs(wp.position.z - (-1.0)) < 1e-6
+            wp.position.x ~= 17.0 && wp.position.y ~= 7.0 && wp.position.z ~= -1.0
         }
         #expect(tracesRing, "Test Failed: expected the ring to still be traced after the ramp entry")
 
@@ -141,13 +141,13 @@ struct PocketEntry_Tests {
         let waypoints = toolpaths[0].passes[0].waypoints
 
         let wp0 = waypoints[0]
-        #expect(abs(wp0.position.x - 3.0) < 1e-5 && abs(wp0.position.y - 3.0) < 1e-5 && wp0.position.z == 5.0,
+        #expect(wp0.position.x ~= 3.0 && wp0.position.y ~= 3.0 && wp0.position.z == 5.0,
                 "Test Failed: initial rapid move should be above the ring start corner")
 
         // A helix always completes a whole number of turns, so somewhere in the entry
         // phase it must land back exactly on the ring's start point at target depth.
         let landsAtTarget = waypoints.contains { wp in
-            abs(wp.position.x - 3.0) < 1e-6 && abs(wp.position.y - 3.0) < 1e-6 && abs(wp.position.z - (-1.0)) < 1e-6
+            wp.position.x ~= 3.0 && wp.position.y ~= 3.0 && wp.position.z ~= -1.0
         }
         #expect(landsAtTarget, "Test Failed: expected helix entry to land back on the ring start at target depth")
 
@@ -202,18 +202,18 @@ struct PocketEntry_Tests {
         // Raster's first row starts at the wall-offset boundary's bottom-left corner
         // (3, 3), same wall offset the offsetPattern ring stack starts from.
         let wp0 = waypoints[0]
-        #expect(abs(wp0.position.x - 3.0) < 1e-5 && abs(wp0.position.y - 3.0) < 1e-5 && wp0.position.z == 5.0,
+        #expect(wp0.position.x ~= 3.0 && wp0.position.y ~= 3.0 && wp0.position.z == 5.0,
                 "Test Failed: initial rapid move should be above the first raster row's start")
 
         let landsAtTarget = waypoints.contains { wp in
-            abs(wp.position.x - 3.0) < 1e-6 && abs(wp.position.y - 3.0) < 1e-6 && abs(wp.position.z - (-1.0)) < 1e-6
+            wp.position.x ~= 3.0 && wp.position.y ~= 3.0 && wp.position.z ~= -1.0
         }
         #expect(landsAtTarget, "Test Failed: expected the ramp to land back on the first row's start at target depth")
 
         // The first raster row is still cut afterwards -- (17, 3) should show up at
         // full target depth, same as the un-entered raster case would produce.
         let tracesFirstRow = waypoints.contains { wp in
-            abs(wp.position.x - 17.0) < 1e-5 && abs(wp.position.y - 3.0) < 1e-5 && abs(wp.position.z - (-1.0)) < 1e-6
+            wp.position.x ~= 17.0 && wp.position.y ~= 3.0 && wp.position.z ~= -1.0
         }
         #expect(tracesFirstRow, "Test Failed: expected the first raster row to still be traced after the ramp entry")
     }
@@ -239,7 +239,7 @@ struct PocketEntry_Tests {
         let waypoints = toolpaths[0].passes[0].waypoints
 
         let landsAtTarget = waypoints.contains { wp in
-            abs(wp.position.x - 3.0) < 1e-6 && abs(wp.position.y - 3.0) < 1e-6 && abs(wp.position.z - (-1.0)) < 1e-6
+            wp.position.x ~= 3.0 && wp.position.y ~= 3.0 && wp.position.z ~= -1.0
         }
         #expect(landsAtTarget, "Test Failed: expected helix entry to land back on the first row's start at target depth")
 
@@ -323,7 +323,7 @@ struct PocketEntry_Tests {
         #expect(waypoints.count == 7, "Test Failed: expected the untouched plunge-entry waypoint count")
 
         let wp1 = waypoints[1]
-        #expect(abs(wp1.position.x - 3.0) < 1e-5 && abs(wp1.position.y - 3.0) < 1e-5 && wp1.position.z == -1.0,
+        #expect(wp1.position.x ~= 3.0 && wp1.position.y ~= 3.0 && wp1.position.z == -1.0,
                 "Test Failed: plunge entry should still land straight down on the ring start at full depth")
         if case .linear = wp1.motion {} else {
             Issue.record("Test Failed: plunge entry's second waypoint motion must be .linear")

@@ -55,11 +55,11 @@ struct ZPasses_Tests {
         // The final step should be smaller than stepdown (the leftover remainder),
         // not another full 0.1mm step.
         let finalStepSize = abs(passes[10] - passes[9])
-        #expect(abs(finalStepSize - 0.05) < 1e-9, "Test Failed: final step should be the 0.05mm remainder, got \(finalStepSize)")
+        #expect(finalStepSize ~= 0.05, "Test Failed: final step should be the 0.05mm remainder, got \(finalStepSize)")
 
         // Every pass up to the second-to-last should be a full, monotonically deeper 0.1mm step.
         for i in 1..<(passes.count - 1) {
-            #expect(abs((passes[i] - passes[i - 1]) - (-0.1)) < 1e-9, "Test Failed: intermediate step \(i) should be a full 0.1mm pass")
+            #expect((passes[i] - passes[i - 1]) ~= -0.1, "Test Failed: intermediate step \(i) should be a full 0.1mm pass")
         }
     }
 }

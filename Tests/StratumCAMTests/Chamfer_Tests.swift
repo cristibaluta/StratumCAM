@@ -42,7 +42,7 @@ struct Chamfer_Tests {
         // 90 deg included angle -> 45 deg half-angle -> tan(45) == 1 -> depth == -width
         let depth = params.resolvedDepth(for: tool)
         #expect(depth != nil)
-        #expect(abs(depth! - (-1.0)) < 1e-9, "Test Failed: expected depth -1.0 for width 1.0 at a 90deg V-bit")
+        #expect(depth! ~= -1.0, "Test Failed: expected depth -1.0 for width 1.0 at a 90deg V-bit")
     }
 
     @Test("An explicit depth overrides the width/vAngle calculation")
@@ -126,10 +126,10 @@ struct Chamfer_Tests {
         let box = bbox(toolpaths[0].passes[0].waypoints)
 
         // width 1.0 at 90deg -> horizontal reach 1.0 -> bbox expands to [-1, 11] on both axes.
-        #expect(abs(box.minX - (-1.0)) < 1e-5, "Test Failed: outside chamfer minX mismatch")
-        #expect(abs(box.maxX - 11.0) < 1e-5, "Test Failed: outside chamfer maxX mismatch")
-        #expect(abs(box.minY - (-1.0)) < 1e-5, "Test Failed: outside chamfer minY mismatch")
-        #expect(abs(box.maxY - 11.0) < 1e-5, "Test Failed: outside chamfer maxY mismatch")
+        #expect(box.minX ~= -1.0, "Test Failed: outside chamfer minX mismatch")
+        #expect(box.maxX ~= 11.0, "Test Failed: outside chamfer maxX mismatch")
+        #expect(box.minY ~= -1.0, "Test Failed: outside chamfer minY mismatch")
+        #expect(box.maxY ~= 11.0, "Test Failed: outside chamfer maxY mismatch")
     }
 
     @Test("Inside chamfer offsets the bevel toward the contour center")
@@ -144,10 +144,10 @@ struct Chamfer_Tests {
         let box = bbox(toolpaths[0].passes[0].waypoints)
 
         // width 1.0 at 90deg -> horizontal reach 1.0 -> bbox shrinks to [1, 9] on both axes.
-        #expect(abs(box.minX - 1.0) < 1e-5, "Test Failed: inside chamfer minX mismatch")
-        #expect(abs(box.maxX - 9.0) < 1e-5, "Test Failed: inside chamfer maxX mismatch")
-        #expect(abs(box.minY - 1.0) < 1e-5, "Test Failed: inside chamfer minY mismatch")
-        #expect(abs(box.maxY - 9.0) < 1e-5, "Test Failed: inside chamfer maxY mismatch")
+        #expect(box.minX ~= 1.0, "Test Failed: inside chamfer minX mismatch")
+        #expect(box.maxX ~= 9.0, "Test Failed: inside chamfer maxX mismatch")
+        #expect(box.minY ~= 1.0, "Test Failed: inside chamfer minY mismatch")
+        #expect(box.maxY ~= 9.0, "Test Failed: inside chamfer maxY mismatch")
     }
 
     // MARK: - Direction (locks in the Step 0.1 fix)
@@ -167,13 +167,13 @@ struct Chamfer_Tests {
         // Climb (already-CCW square, no reorientation needed) starts its cut below the
         // bottom edge, at (0, -1).
         let climbPlunge = climbWaypoints[1]
-        #expect(abs(climbPlunge.position.x - 0.0) < 1e-5 && abs(climbPlunge.position.y - (-1.0)) < 1e-5,
+        #expect(climbPlunge.position.x ~= 0.0 && climbPlunge.position.y ~= -1.0,
                 "Test Failed: climb chamfer should plunge at (0, -1)")
 
         // Conventional reverses the square to CW first, so the cut starts left of the
         // left edge instead, at (-1, 0).
         let conventionalPlunge = conventionalWaypoints[1]
-        #expect(abs(conventionalPlunge.position.x - (-1.0)) < 1e-5 && abs(conventionalPlunge.position.y - 0.0) < 1e-5,
+        #expect(conventionalPlunge.position.x ~= -1.0 && conventionalPlunge.position.y ~= 0.0,
                 "Test Failed: conventional chamfer should plunge at (-1, 0)")
     }
 

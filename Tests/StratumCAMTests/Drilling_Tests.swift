@@ -19,6 +19,7 @@ struct Drilling_Tests {
 
     @Test("A single .point entity is recognized as a drill point")
     func testPointEntityIsRecognizedAsDrillPoint() {
+        let engine = SCEngine()
         let contour = SC.Contour(entities: [
             .init(entity: .point(at: DXF.Point(5, 7), layer: "0", color: 7), reversed: false)
         ], isClosed: false)
@@ -26,11 +27,12 @@ struct Drilling_Tests {
         let point = contour.drillPoint
 
         #expect(point != nil, "Test Failed: expected a drill point")
-        #expect(abs(point!.x - 5.0) < 1e-9 && abs(point!.y - 7.0) < 1e-9, "Test Failed: drill point XY mismatch")
+        #expect(point!.x ~= 5.0 && point!.y ~= 7.0, "Test Failed: drill point XY mismatch")
     }
 
     @Test("A single closed circle is recognized as a drill point at its center")
     func testClosedCircleIsRecognizedAsDrillPoint() {
+        let engine = SCEngine()
         let contour = SC.Contour(entities: [
             .init(entity: .circle(center: DXF.Point(3, 4), radius: 2.5, layer: "0", color: 7), reversed: false)
         ], isClosed: true)
@@ -38,11 +40,12 @@ struct Drilling_Tests {
         let point = contour.drillPoint
 
         #expect(point != nil, "Test Failed: expected a drill point")
-        #expect(abs(point!.x - 3.0) < 1e-9 && abs(point!.y - 4.0) < 1e-9, "Test Failed: drill point should be the circle's center")
+        #expect(point!.x ~= 3.0 && point!.y ~= 4.0, "Test Failed: drill point should be the circle's center")
     }
 
     @Test("A circle marked as not closed is not treated as a drill point")
     func testOpenCircleIsNotRecognizedAsDrillPoint() {
+        let engine = SCEngine()
         let contour = SC.Contour(entities: [
             .init(entity: .circle(center: DXF.Point(3, 4), radius: 2.5, layer: "0", color: 7), reversed: false)
         ], isClosed: false)
@@ -52,6 +55,7 @@ struct Drilling_Tests {
 
     @Test("A line is not recognized as a drill point")
     func testLineIsNotRecognizedAsDrillPoint() {
+        let engine = SCEngine()
         let contour = SC.Contour(entities: [
             .init(entity: .line(a: DXF.Point(0, 0), b: DXF.Point(10, 0), layer: "0", color: 7), reversed: false)
         ], isClosed: false)
@@ -61,6 +65,7 @@ struct Drilling_Tests {
 
     @Test("A multi-entity contour is not recognized as a drill point")
     func testMultiEntityContourIsNotRecognizedAsDrillPoint() {
+        let engine = SCEngine()
         let contour = SC.Contour(entities: [
             .init(entity: .line(a: DXF.Point(0, 0), b: DXF.Point(10, 0), layer: "0", color: 7), reversed: false),
             .init(entity: .point(at: DXF.Point(5, 5), layer: "0", color: 7), reversed: false)
@@ -92,7 +97,7 @@ struct Drilling_Tests {
 
         // [0] Rapid to (12, 20) @ SafeZ
         let wp0 = waypoints[0]
-        #expect(abs(wp0.position.x - 12.0) < 1e-9 && abs(wp0.position.y - 20.0) < 1e-9 && wp0.position.z == 5.0,
+        #expect(wp0.position.x ~= 12.0 && wp0.position.y ~= 20.0 && wp0.position.z == 5.0,
                 "Test Failed: initial rapid move incorrect")
         if case .rapid = wp0.motion {} else {
             Issue.record("Test Failed: first waypoint motion must be .rapid")
@@ -100,7 +105,7 @@ struct Drilling_Tests {
 
         // [1] Plunge straight to target depth
         let wp1 = waypoints[1]
-        #expect(abs(wp1.position.x - 12.0) < 1e-9 && abs(wp1.position.y - 20.0) < 1e-9, "Test Failed: plunge XY mismatch")
+        #expect(wp1.position.x ~= 12.0 && wp1.position.y ~= 20.0, "Test Failed: plunge XY mismatch")
         #expect(wp1.position.z == -8.0, "Test Failed: plunge Z mismatch")
         #expect(wp1.feedRate == 200.0, "Test Failed: plunge feed rate should match settings")
         if case .linear = wp1.motion {} else {
@@ -109,7 +114,7 @@ struct Drilling_Tests {
 
         // [2] Retract back to SafeZ
         let wp2 = waypoints[2]
-        #expect(abs(wp2.position.x - 12.0) < 1e-9 && abs(wp2.position.y - 20.0) < 1e-9, "Test Failed: retract XY mismatch")
+        #expect(wp2.position.x ~= 12.0 && wp2.position.y ~= 20.0, "Test Failed: retract XY mismatch")
         #expect(wp2.position.z == 5.0, "Test Failed: retract Z mismatch")
         if case .rapid = wp2.motion {} else {
             Issue.record("Test Failed: retract motion must be .rapid")
@@ -130,7 +135,7 @@ struct Drilling_Tests {
 
         #expect(toolpaths.count == 1, "Test Failed: expected 1 output toolpath")
         let wp1 = toolpaths[0].passes[0].waypoints[1]
-        #expect(abs(wp1.position.x - 1.0) < 1e-9 && abs(wp1.position.y - 2.0) < 1e-9, "Test Failed: drill should plunge at the circle's center")
+        #expect(wp1.position.x ~= 1.0 && wp1.position.y ~= 2.0, "Test Failed: drill should plunge at the circle's center")
         #expect(wp1.position.z == -5.0, "Test Failed: plunge Z mismatch")
     }
 
@@ -154,7 +159,7 @@ struct Drilling_Tests {
         let center = square.closedShapeCenter
 
         #expect(center != nil, "Test Failed: expected a center for a closed square")
-        #expect(abs(center!.x - 10.0) < 1e-9 && abs(center!.y - 5.0) < 1e-9, "Test Failed: expected the bounding-box center of the square")
+        #expect(center!.x ~= 10.0 && center!.y ~= 5.0, "Test Failed: expected the bounding-box center of the square")
     }
 
     @Test("closedShapeCenter is nil for an open contour")
@@ -185,7 +190,7 @@ struct Drilling_Tests {
 
         #expect(toolpaths.count == 1, "Test Failed: expected 1 output toolpath")
         let wp1 = toolpaths[0].passes[0].waypoints[1]
-        #expect(abs(wp1.position.x - 20.0) < 1e-9 && abs(wp1.position.y - 20.0) < 1e-9, "Test Failed: drill should plunge at the square's bounding-box center")
+        #expect(wp1.position.x ~= 20.0 && wp1.position.y ~= 20.0, "Test Failed: drill should plunge at the square's bounding-box center")
         #expect(wp1.position.z == -6.0, "Test Failed: plunge Z mismatch")
     }
 
@@ -300,7 +305,7 @@ struct Drilling_Tests {
 
         // XY stays fixed at the hole location throughout the cycle.
         for wp in waypoints {
-            #expect(abs(wp.position.x - 10.0) < 1e-9 && abs(wp.position.y - 10.0) < 1e-9,
+            #expect(wp.position.x ~= 10.0 && wp.position.y ~= 10.0,
                     "Test Failed: peck cycle should stay at the hole's XY throughout")
         }
     }
@@ -346,7 +351,7 @@ struct Drilling_Tests {
         #expect(toolpaths.count == 1, "Test Failed: expected 1 output toolpath")
         let waypoints = toolpaths[0].passes[0].waypoints
         for wp in waypoints {
-            #expect(abs(wp.position.x - 1.0) < 1e-9 && abs(wp.position.y - 2.0) < 1e-9,
+            #expect(wp.position.x ~= 1.0 && wp.position.y ~= 2.0,
                     "Test Failed: peck cycle should stay at the circle's center")
         }
         #expect(waypoints.last?.position.z == 6.0, "Test Failed: final retract should reach Safe Z")
@@ -434,8 +439,8 @@ struct Drilling_Tests {
             )
 
             #expect(
-                abs(waypoints[1].position.x - expected.0) < 1e-9 &&
-                abs(waypoints[1].position.y - expected.1) < 1e-9,
+                waypoints[1].position.x ~= expected.0 &&
+                waypoints[1].position.y ~= expected.1,
                 "Test Failed: toolpath was assigned to the wrong hole"
             )
 
@@ -573,8 +578,8 @@ struct Drilling_Tests {
 
         for waypoint in second {
             #expect(
-                abs(waypoint.position.x - 20.0) < 1e-9 &&
-                abs(waypoint.position.y - 10.0) < 1e-9,
+                waypoint.position.x ~= 20.0 &&
+                waypoint.position.y ~= 10.0,
                 "Test Failed: second hole peck cycle moved away from its hole center"
             )
         }
@@ -594,8 +599,8 @@ struct Drilling_Tests {
         )
 
         #expect(
-            abs(toolpaths[3].passes[0].waypoints[1].position.x - 10.0) < 1e-9 &&
-            abs(toolpaths[3].passes[0].waypoints[1].position.y - 20.0) < 1e-9,
+            toolpaths[3].passes[0].waypoints[1].position.x ~= 10.0 &&
+            toolpaths[3].passes[0].waypoints[1].position.y ~= 20.0,
             "Test Failed: fourth hole location mismatch"
         )
     }
