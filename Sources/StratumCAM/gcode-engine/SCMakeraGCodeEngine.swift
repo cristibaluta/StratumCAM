@@ -14,37 +14,6 @@ public struct SCMakeraGCodeEngine {
 
     // MARK: - Public types
 
-    /// Tool data the Carvera needs. `SC.OutputToolpath` doesn't carry it, so the caller supplies it per toolpath.
-    public struct Tool {
-        public var number: Int
-        public var diameter: Double
-        public var name: String
-        /// Read by the Carvera post: "TLO:A" (auto), "TLO:M" (manual), "TLO:-14" (fixed offset),
-        /// or free-form `M6` parameters when `Options.toolCommentAsChangeParameters` is on.
-        public var comment: String
-        public var clockwise: Bool
-        public var shaftDiameter: Double?
-        public var manualToolChange: Bool
-
-        public init(number: Int = 1,
-                    diameter: Double = 0,
-                    name: String = "",
-                    comment: String = "",
-                    clockwise: Bool = true,
-                    shaftDiameter: Double? = nil,
-                    manualToolChange: Bool = false) {
-            self.number = number
-            self.diameter = diameter
-            self.name = name
-            self.comment = comment
-            self.clockwise = clockwise
-            self.shaftDiameter = shaftDiameter
-            self.manualToolChange = manualToolChange
-        }
-
-        public static let generic = Tool(name: "StratumCAM tool")
-    }
-
     public struct Options {
 
         /// Mirrors the post's "Manual Tool Change Behavior" property.
@@ -102,12 +71,11 @@ public struct SCMakeraGCodeEngine {
     /// - Parameter settings: kept for API compatibility. The Carvera clearance position is the machine's
     ///   own `G28`, so `settings.safeZ` is not used for the header/footer anymore.
     public func generateGCode(from toolpaths: [SC.OutputToolpath],
-                              settings: SC.MachineSettings,
-                              toolProvider: (SC.OutputToolpath) -> Tool = { _ in .generic }) throws -> String {
+                              settings: SC.MachineSettings) throws -> String {
 
         guard !toolpaths.isEmpty else { throw GenerationError.noToolpaths }
 
-        let tools = toolpaths.map(toolProvider)
+        let tools = toolpaths.map(\.tool)
 
         var writer = Writer(options: options)
         writer.writeHeader(toolpaths: toolpaths, tools: tools)
@@ -208,7 +176,7 @@ public struct SCMakeraGCodeEngine {
 
         // MARK: Header / footer
 
-        mutating func writeHeader(toolpaths: [SC.OutputToolpath], tools: [Tool]) {
+        mutating func writeHeader(toolpaths: [SC.OutputToolpath], tools: [SC.ToolParams]) {
 
             comment(options.programName)
 
@@ -273,8 +241,8 @@ public struct SCMakeraGCodeEngine {
 
         mutating func writeSection(_ toolpath: SC.OutputToolpath,
                                    name: String,
-                                   tool: Tool,
-                                   previousTool: Tool?) throws {
+                                   tool: SC.ToolParams,
+                                   previousTool: SC.ToolParams?) throws {
 
             let isFirst = previousTool == nil
             let insertToolCall = isFirst || previousTool?.number != tool.number
@@ -496,7 +464,7 @@ public struct SCMakeraGCodeEngine {
 
         // MARK: Tool changes
 
-        private mutating func toolChange(_ tool: Tool, previous: Tool?) throws {
+        private mutating func toolChange(_ tool: SC.ToolParams, previous: SC.ToolParams?) throws {
 
             let n = tool.number
             let isFirst = previous == nil
@@ -526,7 +494,7 @@ public struct SCMakeraGCodeEngine {
             }
         }
 
-        private mutating func plainToolChange(_ tool: Tool, removeManualTool: Bool) {
+        private mutating func plainToolChange(_ tool: SC.ToolParams, removeManualTool: Bool) {
 
             if removeManualTool && previousToolChangeWasManual {
                 comment("Manual Tool Removal as a result of previous manual tool change")
@@ -547,7 +515,7 @@ public struct SCMakeraGCodeEngine {
             previousToolChangeWasManual = false
         }
 
-        private mutating func manualToolChange(_ tool: Tool, isFirst: Bool) {
+        private mutating func manualToolChange(_ tool: SC.ToolParams, isFirst: Bool) {
 
             let tlo = Writer.parseTLO(tool.comment)
 
@@ -588,7 +556,7 @@ public struct SCMakeraGCodeEngine {
             }
         }
 
-        private mutating func communityToolChange(_ tool: Tool, previous: Tool?) {
+        private mutating func communityToolChange(_ tool: SC.ToolParams, previous: SC.ToolParams?) {
 
             let n = tool.number
 
