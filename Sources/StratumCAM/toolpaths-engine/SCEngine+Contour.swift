@@ -54,7 +54,10 @@ extension SCEngine {
     /// and `tabs` -- unlike `.engrave`, which just traces the geometry at cutter-center with
     /// a plain vertical plunge.
     ///
-    /// Throws (Step 6.4, same pattern established in 6.2/6.3) at its two failure sites:
+    /// A `leadIn` is only valid with `.plunge`/`.fromOpenEnd` entries (`SC.Error.invalidParameter`
+    /// otherwise); a `leadOut` works with every entry.
+    ///
+    /// Throws (Step 6.4, same pattern established in 6.2/6.3) at its failure sites:
     /// `SC.Error.invalidContour` when the contour linearizes to zero segments -- the input
     /// itself has nothing to build from -- and `SC.Error.geometryCollapsed` when offsetting
     /// an otherwise-valid contour leaves nothing behind (e.g. a tool radius wide enough to
@@ -71,6 +74,21 @@ extension SCEngine {
                               leadOut: SC.LeadInOut?,
                               tabs: [SC.HoldingTab],
                               operation: SC.MachiningOperation) throws -> SC.OutputToolpath {
+
+        // A lead-in is the approach move the tool plunges at. A ramp or helix entry instead
+        // descends *along* the contour (or a helix on its start), so there is no separate
+        // approach to put a lead-in on -- reject the combination rather than silently
+        // dropping the lead-in. (A lead-out has no such conflict and works with every entry.)
+        if leadIn != nil {
+            switch entry {
+                case .ramp:
+                    throw SC.Error.invalidParameter("leadIn: not supported with a ramp entry (the ramp already eases the tool in)")
+                case .helix:
+                    throw SC.Error.invalidParameter("leadIn: not supported with a helix entry (the helix already eases the tool in)")
+                case .plunge, .fromOpenEnd:
+                    break
+            }
+        }
 
         var clock = OffsetTiming.now()
         let totalStart = clock
@@ -266,22 +284,22 @@ extension SCEngine {
         }
         let contourEnd = lastSegment.endPoint
 
-        if entry.isStraightDown {
-            let endTangent = direction(of: lastSegment, atEnd: true)
-            if let (exitPoint, leadOutMove) = resolveLeadOut(leadOut,
-                                                             side: side,
-                                                             contourEnd: contourEnd,
-                                                             tangent: endTangent,
-                                                             segments: segments,
-                                                             z: z) {
-                waypoints.append(leadOutMove)
-                waypoints.append(
-                    SC.Waypoint(position: SIMD3(exitPoint.x, exitPoint.y, settings.safeZ),
-                                motion: .rapid,
-                                feedRate: settings.cutting.feedRate)
-                )
-                return waypoints
-            }
+        // The lead-out only depends on how the cut ends, not on how it began, so it applies
+        // to every entry strategy.
+        let endTangent = direction(of: lastSegment, atEnd: true)
+        if let (exitPoint, leadOutMove) = resolveLeadOut(leadOut,
+                                                         side: side,
+                                                         contourEnd: contourEnd,
+                                                         tangent: endTangent,
+                                                         segments: segments,
+                                                         z: z) {
+            waypoints.append(leadOutMove)
+            waypoints.append(
+                SC.Waypoint(position: SIMD3(exitPoint.x, exitPoint.y, settings.safeZ),
+                            motion: .rapid,
+                            feedRate: settings.cutting.feedRate)
+            )
+            return waypoints
         }
 
         waypoints.append(
@@ -292,7 +310,7 @@ extension SCEngine {
         return waypoints
     }
 
-    // MARK: - Lead-in / lead-out (plunge entry only, see file header)
+    // MARK: - Lead-in / lead-out
 
     /// Resolves where a `.plunge` entry should actually land, and the extra waypoint that
     /// carries the tool from there onto `contourStart`, for a given `LeadInOut` style.
