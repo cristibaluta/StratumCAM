@@ -63,7 +63,7 @@ struct Contour_Tests {
 
         let toolpaths = try engine.generateToolpaths(
             from: [ccwSquareContour()], tool: tool, settings: settings,
-            operation: .contour(side: .outside, direction: .climb, entry: .plunge, leadIn: nil, leadOut: nil, tabs: [])
+            operation: .contour(side: .outside, direction: .conventional, entry: .plunge, leadIn: nil, leadOut: nil, tabs: [])
         )
 
         #expect(toolpaths.count == 1)
@@ -85,7 +85,7 @@ struct Contour_Tests {
 
         let toolpaths = try engine.generateToolpaths(
             from: [ccwSquareContour()], tool: tool, settings: settings,
-            operation: .contour(side: .inside, direction: .climb, entry: .plunge, leadIn: nil, leadOut: nil, tabs: [])
+            operation: .contour(side: .inside, direction: .conventional, entry: .plunge, leadIn: nil, leadOut: nil, tabs: [])
         )
 
         #expect(toolpaths.count == 1)
@@ -100,22 +100,22 @@ struct Contour_Tests {
 
     // MARK: - Climb vs conventional
 
-    @Test("Outside profile with climb direction keeps the CCW winding unchanged")
+    @Test("Outside profile with conventional direction keeps the CCW winding unchanged")
     func testProfileOutsideClimbKeepsCCWWinding() {
         let engine = SCEngine()
         let square = ccwSquareSegments()
 
-        let oriented = engine.orientedForDirection(square, side: .outside, direction: .climb)
+        let oriented = engine.orientedForDirection(square, side: .outside, direction: .conventional)
 
-        #expect(oriented.first == square.first, "Test Failed: climb+outside should not reorient an already-CCW contour")
+        #expect(oriented.first == square.first, "Test Failed: conventional+outside should not reorient an already-CCW contour")
     }
 
-    @Test("Outside profile with conventional direction reverses travel to clockwise")
+    @Test("Outside profile with climb direction reverses travel to clockwise")
     func testProfileOutsideConventionalReversesToClockwise() {
         let engine = SCEngine()
         let square = ccwSquareSegments()
 
-        let oriented = engine.orientedForDirection(square, side: .outside, direction: .conventional)
+        let oriented = engine.orientedForDirection(square, side: .outside, direction: .climb)
 
         guard case let .line(start, end) = oriented.first else {
             Issue.record("Test Failed: expected a line segment")
@@ -125,13 +125,13 @@ struct Contour_Tests {
         #expect(end == CGPoint(x: 0, y: 10), "Test Failed: reversed end mismatch")
     }
 
-    @Test("Inside profile with climb direction reverses travel to clockwise")
+    @Test("Inside profile with conventional direction reverses travel to clockwise")
     func testProfileInsideClimbReversesToClockwise() {
         let engine = SCEngine()
         let square = ccwSquareSegments()
 
         // Inside cuts need the opposite winding from outside cuts for the same climb direction.
-        let oriented = engine.orientedForDirection(square, side: .inside, direction: .climb)
+        let oriented = engine.orientedForDirection(square, side: .inside, direction: .conventional)
 
         guard case let .line(start, end) = oriented.first else {
             Issue.record("Test Failed: expected a line segment")
@@ -152,7 +152,7 @@ struct Contour_Tests {
 
         let toolpaths = try engine.generateToolpaths(
             from: [ccwSquareContour()], tool: tool, settings: settings,
-            operation: .contour(side: .outside, direction: .climb, entry: .plunge, leadIn: nil, leadOut: nil, tabs: [])
+            operation: .contour(side: .outside, direction: .conventional, entry: .plunge, leadIn: nil, leadOut: nil, tabs: [])
         )
 
         let waypoints = toolpaths[0].passes[0].waypoints
@@ -181,7 +181,7 @@ struct Contour_Tests {
 
         let toolpaths = try engine.generateToolpaths(
             from: [ccwSquareContour()], tool: tool, settings: settings,
-            operation: .contour(side: .outside, direction: .climb, entry: .ramp(angleDegrees: 30), leadIn: nil, leadOut: nil, tabs: [])
+            operation: .contour(side: .outside, direction: .conventional, entry: .ramp(angleDegrees: 30), leadIn: nil, leadOut: nil, tabs: [])
         )
 
         let waypoints = toolpaths[0].passes[0].waypoints
@@ -222,7 +222,7 @@ struct Contour_Tests {
 
         let toolpaths = try engine.generateToolpaths(
             from: [ccwSquareContour()], tool: tool, settings: settings,
-            operation: .contour(side: .outside, direction: .climb, entry: .ramp(angleDegrees: 30), leadIn: nil, leadOut: nil, tabs: [])
+            operation: .contour(side: .outside, direction: .conventional, entry: .ramp(angleDegrees: 30), leadIn: nil, leadOut: nil, tabs: [])
         )
 
         #expect(toolpaths[0].passes.count == 2)
@@ -255,7 +255,7 @@ struct Contour_Tests {
 
         let toolpaths = try engine.generateToolpaths(
             from: [ccwSquareContour()], tool: tool, settings: settings,
-            operation: .contour(side: .outside, direction: .climb, entry: .ramp(angleDegrees: 30), leadIn: nil, leadOut: nil, tabs: [])
+            operation: .contour(side: .outside, direction: .conventional, entry: .ramp(angleDegrees: 30), leadIn: nil, leadOut: nil, tabs: [])
         )
 
         let waypoints = toolpaths[0].passes[0].waypoints
@@ -278,7 +278,7 @@ struct Contour_Tests {
         let toolpaths = try engine.generateToolpaths(
             from: [ccwSquareContour()], tool: tool, settings: settings,
             operation: .contour(side: .outside,
-                                direction: .climb,
+                                direction: .conventional,
                                 entry: .helix(radius: 2, rampAngleDegrees: 30),
                                 leadIn: nil,
                                 leadOut: nil,
@@ -311,7 +311,7 @@ struct Contour_Tests {
         let toolpaths = try engine.generateToolpaths(
             from: [fourSegmentLineContour()], tool: tool, settings: settings,
             operation: .contour(side: .onContour,
-                                direction: .climb,
+                                direction: .conventional,
                                 entry: .plunge,
                                 leadIn: nil,
                                 leadOut: nil,

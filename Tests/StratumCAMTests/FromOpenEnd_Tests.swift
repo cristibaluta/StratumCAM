@@ -34,7 +34,7 @@ struct FromOpenEnd_Tests {
     }
 
     private func contourOperation(side: SC.CutSide, entry: SC.EntryStrategy) -> SC.MachiningOperation {
-        .contour(side: side, direction: .climb, entry: entry, leadIn: nil, leadOut: nil, tabs: [])
+        .contour(side: side, direction: .conventional, entry: entry, leadIn: nil, leadOut: nil, tabs: [])
     }
 
     private func passes(_ contour: SC.Contour, _ operation: SC.MachiningOperation, tool: Double = 3) throws -> [SC.ToolpathPass] {
@@ -78,10 +78,10 @@ struct FromOpenEnd_Tests {
     @Test("Contour .fromOpenEnd honors a lead-in like .plunge does")
     func testContourLeadIn() throws {
         let leadIn = SC.LeadInOut(style: .linear(length: 2), feedRate: 400)
-        let open = try passes(rectangle(), .contour(side: .outside, direction: .climb,
+        let open = try passes(rectangle(), .contour(side: .outside, direction: .conventional,
                                                     entry: .fromOpenEnd(stepoverPercentage: 0.5),
                                                     leadIn: leadIn, leadOut: leadIn, tabs: []))
-        let plunge = try passes(rectangle(), .contour(side: .outside, direction: .climb,
+        let plunge = try passes(rectangle(), .contour(side: .outside, direction: .conventional,
                                                       entry: .plunge,
                                                       leadIn: leadIn, leadOut: leadIn, tabs: []))
 
@@ -91,8 +91,8 @@ struct FromOpenEnd_Tests {
     @Test("Pocket .fromOpenEnd matches .plunge instead of starting mid-air")
     func testPocketMatchesPlunge() throws {
         let tool = 6.0
-        let open = try passes(rectangle(), .pocket(direction: .climb, pattern: .offset, entry: .fromOpenEnd(stepoverPercentage: 0.5)), tool: tool)
-        let plunge = try passes(rectangle(), .pocket(direction: .climb, pattern: .offset, entry: .plunge), tool: tool)
+        let open = try passes(rectangle(), .pocket(direction: .conventional, pattern: .offset, entry: .fromOpenEnd(stepoverPercentage: 0.5)), tool: tool)
+        let plunge = try passes(rectangle(), .pocket(direction: .conventional, pattern: .offset, entry: .plunge), tool: tool)
 
         #expect(!open.isEmpty)
         #expect(open.map(\.waypoints) == plunge.map(\.waypoints))

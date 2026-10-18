@@ -70,8 +70,8 @@ extension SCEngine {
 
         // Same climb/conventional winding convention `orientedForDirection` applies to an
         // `.inside` cut (a recess wall, like a pocket wall, is cut from the inside): climb
-        // wants the tool travelling CW around the wall, conventional wants CCW.
-        let isCCW = direction == .conventional
+        // wants the tool travelling CCW around the wall, conventional wants CW.
+        let isCCW = direction == .climb
 
         let stepover = settings.cutting.stepoverPercentage * tool.diameter
         let rings = counterboreRings(center: center, toolRadius: toolRadius, wallRadius: wallRadius, stepover: stepover, isCCW: isCCW)

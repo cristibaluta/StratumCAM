@@ -599,11 +599,11 @@ extension SCEngine {
             }
         }
 
-        // Island walls: outside profile, climb = counter-clockwise.
+        // Island walls: outside profile, climb = clockwise.
         for zone in zones {
             let quarters: [SC.Segment] = (0..<4).map { quarter in
-                let start = -Double.pi / 2 + Double(quarter) * Double.pi / 2
-                return .arc(center: zone.center, radius: zone.radius, startAngle: start, endAngle: start + Double.pi / 2, isCCW: true)
+                let start = -Double.pi / 2 - Double(quarter) * Double.pi / 2
+                return .arc(center: zone.center, radius: zone.radius, startAngle: start, endAngle: start - Double.pi / 2, isCCW: false)
             }
             append(quarters)
         }

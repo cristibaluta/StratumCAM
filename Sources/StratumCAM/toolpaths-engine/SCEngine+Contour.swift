@@ -154,17 +154,17 @@ extension SCEngine {
 
     /// Reorders/reverses the segment chain so it travels the way `direction` requires for
     /// this `side`. Assumes a standard clockwise-rotating spindle (the common case for CNC
-    /// routers/mills): climb milling an `.outside` profile requires travelling CCW around
-    /// the part; climb milling an `.inside` wall (e.g. a pocket boundary) requires
-    /// travelling CW. `.onContour` has no material on one side by definition, so it follows
-    /// the same convention as `.outside` for consistency.
+    /// routers/mills): climb milling keeps the uncut material on the right of the direction
+    /// of travel, so an `.outside` profile is travelled CW around the part, and an `.inside`
+    /// wall (e.g. a pocket boundary) is travelled CCW. `.onContour` has no material on one
+    /// side by definition, so it follows the same convention as `.outside` for consistency.
     func orientedForDirection(_ segments: [SC.Segment], side: SC.CutSide, direction: SC.CutDirection) -> [SC.Segment] {
         let wantsCCW: Bool
         switch side {
             case .outside, .onContour:
-                wantsCCW = direction == .climb
-            case .inside:
                 wantsCCW = direction == .conventional
+            case .inside:
+                wantsCCW = direction == .climb
         }
 
         guard OffsetTools.isCCWWinding(segments) != wantsCCW else {

@@ -36,7 +36,7 @@ struct Chamfer_Tests {
     @Test("Chamfer depth is derived from bevel width and the tool's V-bit angle")
     func testChamferDepthResolvedFromWidthAndVAngle() {
         let tool = SC.ToolParams(type: .vBit, diameter: 6.0, vAngle: 90.0)
-        let params = SC.ChamferParams(width: 1.0, side: .outside, direction: .climb)
+        let params = SC.ChamferParams(width: 1.0, side: .outside, direction: .conventional)
 
         // 90 deg included angle -> 45 deg half-angle -> tan(45) == 1 -> depth == -width
         let depth = params.resolvedDepth(for: tool)
@@ -49,7 +49,7 @@ struct Chamfer_Tests {
         // Use a flat end mill (not a V-bit) to prove the explicit depth bypasses the
         // V-bit requirement entirely, not just the width math.
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 6.0)
-        let params = SC.ChamferParams(width: 5.0, depth: 2.0, side: .outside, direction: .climb)
+        let params = SC.ChamferParams(width: 5.0, depth: 2.0, side: .outside, direction: .conventional)
 
         let depth = params.resolvedDepth(for: tool)
         #expect(depth != nil)
@@ -64,7 +64,7 @@ struct Chamfer_Tests {
     // test asserts the throw rather than an empty result.
     @Test("A non-V-bit tool with no explicit depth resolves to nil and throws toolIncompatible")
     func testChamferNonVBitToolThrowsToolIncompatible() {
-        let params = SC.ChamferParams(width: 1.0, side: .outside, direction: .climb)
+        let params = SC.ChamferParams(width: 1.0, side: .outside, direction: .conventional)
 
         // Direct resolution check.
         let flatTool = SC.ToolParams(type: .flatEndMill, diameter: 6.0)
@@ -95,7 +95,7 @@ struct Chamfer_Tests {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .vBit, diameter: 6.0, vAngle: 90.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -1.0)
-        let params = SC.ChamferParams(width: 1.0, side: .outside, direction: .climb)
+        let params = SC.ChamferParams(width: 1.0, side: .outside, direction: .conventional)
         let emptyContour = SC.Contour(entities: [], isClosed: true)
 
         do {
@@ -115,7 +115,7 @@ struct Chamfer_Tests {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .vBit, diameter: 6.0, vAngle: 90.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -1.0)
-        let params = SC.ChamferParams(width: 1.0, side: .outside, direction: .climb)
+        let params = SC.ChamferParams(width: 1.0, side: .outside, direction: .conventional)
 
         let toolpaths = try engine.generateToolpaths(from: [ccwSquareContour()],
                                                  tool: tool,
@@ -136,7 +136,7 @@ struct Chamfer_Tests {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .vBit, diameter: 6.0, vAngle: 90.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -1.0)
-        let params = SC.ChamferParams(width: 1.0, side: .inside, direction: .climb)
+        let params = SC.ChamferParams(width: 1.0, side: .inside, direction: .conventional)
 
         let toolpaths = try engine.generateToolpaths(from: [ccwSquareContour()], tool: tool, settings: settings, operation: .chamfer(params: params))
         #expect(toolpaths.count == 1)
@@ -157,8 +157,8 @@ struct Chamfer_Tests {
         let tool = SC.ToolParams(type: .vBit, diameter: 6.0, vAngle: 90.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -1.0)
 
-        let climbParams = SC.ChamferParams(width: 1.0, side: .outside, direction: .climb)
-        let conventionalParams = SC.ChamferParams(width: 1.0, side: .outside, direction: .conventional)
+        let climbParams = SC.ChamferParams(width: 1.0, side: .outside, direction: .conventional)
+        let conventionalParams = SC.ChamferParams(width: 1.0, side: .outside, direction: .climb)
 
         let climbWaypoints = try engine.generateToolpaths(from: [ccwSquareContour()], tool: tool, settings: settings, operation: .chamfer(params: climbParams))[0].passes[0].waypoints
         let conventionalWaypoints = try engine.generateToolpaths(from: [ccwSquareContour()], tool: tool, settings: settings, operation: .chamfer(params: conventionalParams))[0].passes[0].waypoints
@@ -190,8 +190,8 @@ struct Chamfer_Tests {
             .init(geometry: .line(a: SIMD2<Double>(0, 10), b: SIMD2<Double>(0, 0)), reversed: false)
         ], isClosed: true)
 
-        let climbParams = SC.ChamferParams(width: 1.0, side: .outside, direction: .climb)
-        let conventionalParams = SC.ChamferParams(width: 1.0, side: .outside, direction: .conventional)
+        let climbParams = SC.ChamferParams(width: 1.0, side: .outside, direction: .conventional)
+        let conventionalParams = SC.ChamferParams(width: 1.0, side: .outside, direction: .climb)
 
         let climbPath = try engine.generateToolpaths(from: [square],
                                                  tool: tool,

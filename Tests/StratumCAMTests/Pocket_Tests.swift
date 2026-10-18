@@ -73,7 +73,7 @@ struct Pocket_Tests {
         let tool = SC.ToolParams(diameter: 4.0)
 
         let baseSegments = ccwRectangleContour().linearizedSegments
-        let oriented = engine.orientedForDirection(baseSegments, side: .inside, direction: .climb)
+        let oriented = engine.orientedForDirection(baseSegments, side: .inside, direction: .conventional)
 
         let rings = engine.pocketRings(from: oriented, tool: tool, stepoverPercentage: 0.5)
 
@@ -111,7 +111,7 @@ struct Pocket_Tests {
             from: [ccwRectangleContour()],
             tool: tool,
             settings: settings,
-            operation: pocketStrategy(direction: .climb)
+            operation: pocketStrategy(direction: .conventional)
         )
 
         #expect(toolpaths.count == 1, "Test Failed: expected 1 pocket toolpath")
@@ -159,7 +159,7 @@ struct Pocket_Tests {
             from: [ccwRectangleContour()],
             tool: tool,
             settings: settings,
-            operation: pocketStrategy(direction: .climb)
+            operation: pocketStrategy(direction: .conventional)
         )
 
         #expect(toolpaths.count == 1, "Test Failed: expected 1 pocket toolpath")
@@ -205,7 +205,7 @@ struct Pocket_Tests {
             from: [roundedRectangleContour()],
             tool: tool,
             settings: settings,
-            operation: pocketStrategy(direction: .climb)
+            operation: pocketStrategy(direction: .conventional)
         )
 
         #expect(toolpaths.count == 1,
@@ -262,14 +262,14 @@ struct Pocket_Tests {
             from: [ccwRectangleContour()],
             tool: tool,
             settings: settings,
-            operation: pocketStrategy(direction: .climb)
+            operation: pocketStrategy(direction: .conventional)
         )[0].passes[0].waypoints
 
         let conventional = try engine.generateToolpaths(
             from: [ccwRectangleContour()],
             tool: tool,
             settings: settings,
-            operation: pocketStrategy(direction: .conventional)
+            operation: pocketStrategy(direction: .climb)
         )[0].passes[0].waypoints
 
         // Both paths start at the same inward corner, but their traversal direction
@@ -339,7 +339,7 @@ struct Pocket_Tests {
                 from: [openContour],
                 tool: tool,
                 settings: settings,
-                operation: pocketStrategy(direction: .climb)
+                operation: pocketStrategy(direction: .conventional)
             )
             Issue.record("Test Failed: expected SC.Error.contourNotClosed to be thrown")
         } catch SC.Error.contourNotClosed {

@@ -62,20 +62,20 @@ struct LargeArcDirection_Tests {
         return false
     }
 
-    @Test("Outside climb is CCW, whichever way the shape was drawn")
+    @Test("Outside climb is CW, whichever way the shape was drawn")
     func testOutsideClimb() throws {
-        #expect(try bigArcIsCCW(side: .outside, direction: .climb, reversed: false))
-        #expect(try bigArcIsCCW(side: .outside, direction: .climb, reversed: true))
+        #expect(try bigArcIsCCW(side: .outside, direction: .conventional, reversed: false))
+        #expect(try bigArcIsCCW(side: .outside, direction: .conventional, reversed: true))
     }
 
-    @Test("Inside climb is CW, whichever way the shape was drawn")
+    @Test("Inside climb is CCW, whichever way the shape was drawn")
     func testInsideClimb() throws {
-        #expect(try !bigArcIsCCW(side: .inside, direction: .climb, reversed: false))
-        #expect(try !bigArcIsCCW(side: .inside, direction: .climb, reversed: true))
+        #expect(try !bigArcIsCCW(side: .inside, direction: .conventional, reversed: false))
+        #expect(try !bigArcIsCCW(side: .inside, direction: .conventional, reversed: true))
     }
 
-    @Test("Inside conventional is CCW")
+    @Test("Inside conventional is CW")
     func testInsideConventional() throws {
-        #expect(try bigArcIsCCW(side: .inside, direction: .conventional, reversed: true))
+        #expect(try bigArcIsCCW(side: .inside, direction: .climb, reversed: true))
     }
 }
