@@ -58,6 +58,9 @@ public struct SCGCodeEngine {
                 )
             }
 
+            // I/J are relative to where the arc starts, i.e. the previous waypoint.
+            var previousPosition: SIMD3<Double>?
+
             for pass in toolpath.passes {
 
                 lines.append("(--- Pass Depth: \(pass.depthZ) ---)")
@@ -79,7 +82,8 @@ public struct SCGCodeEngine {
 
                 for (index, wp) in pass.waypoints.enumerated() {
 
-                    lines.append(formatWaypoint(wp))
+                    lines.append(formatWaypoint(wp, from: previousPosition))
+                    previousPosition = wp.position
 
                     // Dwell is emitted after the final cutting move and before
                     // the final retract. MachineSettings expresses dwell in
@@ -121,7 +125,15 @@ public struct SCGCodeEngine {
         return lines.joined(separator: "\n")
     }
 
-    private func formatWaypoint(_ wp: SC.Waypoint) -> String {
+    /// "-0.000" is valid but noisy; normalize it to "0.000".
+    private func format(_ value: Double, decimals: Int = 3) -> String {
+        let text = String(format: "%.\(decimals)f", value)
+        return text.hasPrefix("-") && Double(text) == 0 ? String(text.dropFirst()) : text
+    }
+
+    /// `start` is the position the move begins from (the previous waypoint). Arc centers are
+    /// absolute, and G02/G03 I/J are offsets from the arc START to the center.
+    private func formatWaypoint(_ wp: SC.Waypoint, from start: SIMD3<Double>?) -> String {
 
         let x = String(format: "%.3f", wp.position.x)
         let y = String(format: "%.3f", wp.position.y)
@@ -137,13 +149,15 @@ public struct SCGCodeEngine {
                 return "G01 X\(x) Y\(y) Z\(z) F\(f)"
 
             case .arcCW(let center):
-                let i = String(format: "%.3f", center.x - wp.position.x)
-                let j = String(format: "%.3f", center.y - wp.position.y)
+                let origin = start ?? wp.position
+                let i = format(Double(center.x) - Double(origin.x))
+                let j = format(Double(center.y) - Double(origin.y))
                 return "G02 X\(x) Y\(y) Z\(z) I\(i) J\(j) F\(f)"
 
             case .arcCCW(let center):
-                let i = String(format: "%.3f", center.x - wp.position.x)
-                let j = String(format: "%.3f", center.y - wp.position.y)
+                let origin = start ?? wp.position
+                let i = format(Double(center.x) - Double(origin.x))
+                let j = format(Double(center.y) - Double(origin.y))
                 return "G03 X\(x) Y\(y) Z\(z) I\(i) J\(j) F\(f)"
         }
     }
