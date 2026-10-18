@@ -7,38 +7,37 @@
 
 import Foundation
 import StratumCAM
-import SwiftDXF
 
 class DemoDrilling: Demo {
 
     private func pointContour(_ x: Double, _ y: Double) -> SC.Contour {
         SC.Contour(entities: [
-            SC.Contour.Chained(entity: .point(at: DXF.Point(x, y), layer: "0", color: 7), reversed: false)
+            SC.Contour.Chained(entity: .point(at: SIMD2<Double>(x, y)), reversed: false)
         ], isClosed: false)
     }
 
     private func circleContour(center: (Double, Double), radius: Double) -> SC.Contour {
         SC.Contour(entities: [
-            SC.Contour.Chained(entity: .circle(center: DXF.Point(center.0, center.1), radius: radius, layer: "0", color: 7), reversed: false)
+            SC.Contour.Chained(entity: .circle(center: SIMD2<Double>(center.0, center.1), radius: radius), reversed: false)
         ], isClosed: true)
     }
 
     private func squareContour(origin: (Double, Double), size: Double) -> SC.Contour {
         let (x, y) = origin
         return SC.Contour(entities: [
-            SC.Contour.Chained(entity: .line(a: DXF.Point(x, y), b: DXF.Point(x + size, y), layer: "0", color: 7), reversed: false),
-            SC.Contour.Chained(entity: .line(a: DXF.Point(x + size, y), b: DXF.Point(x + size, y + size), layer: "0", color: 7), reversed: false),
-            SC.Contour.Chained(entity: .line(a: DXF.Point(x + size, y + size), b: DXF.Point(x, y + size), layer: "0", color: 7), reversed: false),
-            SC.Contour.Chained(entity: .line(a: DXF.Point(x, y + size), b: DXF.Point(x, y), layer: "0", color: 7), reversed: false)
+            SC.Contour.Chained(entity: .line(a: SIMD2<Double>(x, y), b: SIMD2<Double>(x + size, y)), reversed: false),
+            SC.Contour.Chained(entity: .line(a: SIMD2<Double>(x + size, y), b: SIMD2<Double>(x + size, y + size)), reversed: false),
+            SC.Contour.Chained(entity: .line(a: SIMD2<Double>(x + size, y + size), b: SIMD2<Double>(x, y + size)), reversed: false),
+            SC.Contour.Chained(entity: .line(a: SIMD2<Double>(x, y + size), b: SIMD2<Double>(x, y)), reversed: false)
         ], isClosed: true)
     }
 
     private func openBracketContour(origin: (Double, Double), size: Double) -> SC.Contour {
         let (x, y) = origin
         return SC.Contour(entities: [
-            SC.Contour.Chained(entity: .line(a: DXF.Point(x, y), b: DXF.Point(x + size, y), layer: "0", color: 7), reversed: false),
-            SC.Contour.Chained(entity: .line(a: DXF.Point(x + size, y), b: DXF.Point(x + size, y + size), layer: "0", color: 7), reversed: false),
-            SC.Contour.Chained(entity: .line(a: DXF.Point(x + size, y + size), b: DXF.Point(x, y + size), layer: "0", color: 7), reversed: false)
+            SC.Contour.Chained(entity: .line(a: SIMD2<Double>(x, y), b: SIMD2<Double>(x + size, y)), reversed: false),
+            SC.Contour.Chained(entity: .line(a: SIMD2<Double>(x + size, y), b: SIMD2<Double>(x + size, y + size)), reversed: false),
+            SC.Contour.Chained(entity: .line(a: SIMD2<Double>(x + size, y + size), b: SIMD2<Double>(x, y + size)), reversed: false)
         ], isClosed: false)
     }
 

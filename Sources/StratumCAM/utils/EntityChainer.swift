@@ -6,33 +6,32 @@
 //
 
 import Foundation
-import SwiftDXF
 
-/// Converts a list of `DXF.Entity` to `[SC.Contour]`
+/// Converts a list of `SC.Geometry` to `[SC.Contour]`
 public enum EntityChainer {
 
-    public static func chain(_ entities: [DXF.Entity], tolerance: Double = 1e-3) -> [SC.Contour] {
+    public static func chain(_ entities: [SC.Geometry], tolerance: Double = 1e-3) -> [SC.Contour] {
 
         var remaining = entities.map { (entity: $0, used: false) }
         var contours: [SC.Contour] = []
 
-        func endpoints(_ e: DXF.Entity) -> (CGPoint, CGPoint)? {
+        func endpoints(_ e: SC.Geometry) -> (CGPoint, CGPoint)? {
             switch e {
-                case let .line(a, b, _, _):
+                case let .line(a, b):
                     return (a.cgPoint, b.cgPoint)
 
-                case let .polyline(vertices, _, _, _):
+                case let .polyline(vertices, _):
                     guard let f = vertices.first, let l = vertices.last else {
                         return nil
                     }
                     return (f.point.cgPoint, l.point.cgPoint)
 
-                case let .arc(center, r, start, end, _, _):
+                case let .arc(center, r, start, end):
                     let s = CGPoint(x: center.x + r*cos(start * .pi/180), y: center.y + r*sin(start * .pi/180))
                     let e2 = CGPoint(x: center.x + r*cos(end * .pi/180), y: center.y + r*sin(end * .pi/180))
                     return (s, e2)
 
-                default: return nil // circles/points/text/ellipse/dimension: standalone
+                default: return nil // circles/points/ellipses: standalone
             }
         }
 

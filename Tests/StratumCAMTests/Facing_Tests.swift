@@ -6,7 +6,6 @@
 //
 
 import Testing
-import SwiftDXF
 import CoreGraphics
 import simd
 @testable import StratumCAM
@@ -23,10 +22,10 @@ struct Facing_Tests {
     /// A 20x10 CCW rectangle at the origin.
     private func rectangleContour(width: Double = 20, height: Double = 10, originX: Double = 0, originY: Double = 0) -> SC.Contour {
         SC.Contour(entities: [
-            .init(entity: .line(a: DXF.Point(originX, originY), b: DXF.Point(originX + width, originY), layer: "0", color: 7), reversed: false),
-            .init(entity: .line(a: DXF.Point(originX + width, originY), b: DXF.Point(originX + width, originY + height), layer: "0", color: 7), reversed: false),
-            .init(entity: .line(a: DXF.Point(originX + width, originY + height), b: DXF.Point(originX, originY + height), layer: "0", color: 7), reversed: false),
-            .init(entity: .line(a: DXF.Point(originX, originY + height), b: DXF.Point(originX, originY), layer: "0", color: 7), reversed: false)
+            .init(entity: .line(a: SIMD2<Double>(originX, originY), b: SIMD2<Double>(originX + width, originY)), reversed: false),
+            .init(entity: .line(a: SIMD2<Double>(originX + width, originY), b: SIMD2<Double>(originX + width, originY + height)), reversed: false),
+            .init(entity: .line(a: SIMD2<Double>(originX + width, originY + height), b: SIMD2<Double>(originX, originY + height)), reversed: false),
+            .init(entity: .line(a: SIMD2<Double>(originX, originY + height), b: SIMD2<Double>(originX, originY)), reversed: false)
         ], isClosed: true)
     }
 
@@ -168,7 +167,7 @@ struct Facing_Tests {
         let tool = SC.ToolParams(diameter: 6)
         // A single line has zero height -- a degenerate bounding box, not a real footprint.
         let degenerateContour = SC.Contour(entities: [
-            .init(entity: .line(a: DXF.Point(0, 0), b: DXF.Point(20, 0), layer: "0", color: 7), reversed: false)
+            .init(entity: .line(a: SIMD2<Double>(0, 0), b: SIMD2<Double>(20, 0)), reversed: false)
         ], isClosed: false)
 
         #expect(engine.facingScanlines(within: degenerateContour, extensionLength: 0, tool: tool, direction: .climb).isEmpty,
@@ -275,7 +274,7 @@ struct Facing_Tests {
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0),
                                           safeZ: 5.0, targetDepth: 0.5)
         let degenerateContour = SC.Contour(entities: [
-            .init(entity: .line(a: DXF.Point(0, 0), b: DXF.Point(20, 0), layer: "0", color: 7), reversed: false)
+            .init(entity: .line(a: SIMD2<Double>(0, 0), b: SIMD2<Double>(20, 0)), reversed: false)
         ], isClosed: false)
 
         do {

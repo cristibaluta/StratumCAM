@@ -6,7 +6,6 @@
 //
 
 import Testing
-import SwiftDXF
 import simd
 @testable import StratumCAM
 
@@ -26,10 +25,8 @@ struct Engraving_Tests {
                                           safeZ: 5.0,
                                           targetDepth: -0.1)
 
-        let lineEntity = DXF.Entity.line(a: DXF.Point(0, 0),
-                                         b: DXF.Point(10, 0),
-                                         layer: "0",
-                                         color: 7)
+        let lineEntity = SC.Geometry.line(a: SIMD2<Double>(0, 0),
+                                         b: SIMD2<Double>(10, 0))
 
         let contour = SC.Contour(
             entities: [
@@ -102,13 +99,11 @@ struct Engraving_Tests {
                                           safeZ: 5.0,
                                           targetDepth: -0.1)
 
-        let arcEntity = DXF.Entity.arc(
-            center: DXF.Point(10, 5),
+        let arcEntity = SC.Geometry.arc(
+            center: SIMD2<Double>(10, 5),
             radius: 5.0,
             startDeg: 270.0, // Bottom of circle (10, 0)
-            endDeg: 360.0,   // Right side of circle (15, 5)
-            layer: "0",
-            color: 7
+            endDeg: 360.0   // Right side of circle (15, 5)
         )
 
         let contour = SC.Contour(
@@ -182,7 +177,7 @@ struct Engraving_Tests {
                                           safeZ: 5.0,
                                           targetDepth: -1.0)
 
-        let lineEntity = DXF.Entity.line(a: DXF.Point(0, 0), b: DXF.Point(10, 0), layer: "0", color: 7)
+        let lineEntity = SC.Geometry.line(a: SIMD2<Double>(0, 0), b: SIMD2<Double>(10, 0))
 
         let contour = SC.Contour(
             entities: [

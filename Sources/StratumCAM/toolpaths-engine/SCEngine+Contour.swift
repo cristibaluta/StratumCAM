@@ -6,7 +6,6 @@
 //
 
 import Foundation
-import SwiftDXF
 
 extension SCEngine {
 
@@ -561,20 +560,20 @@ extension SC.Contour {
         return segments
     }
 
-    /// Converts a raw DXF entity into normalized CNC path primitives (`Segment`).
+    /// Converts a raw geometry into normalized CNC path primitives (`Segment`).
     /// - Parameters:
-    ///   - entity: The source DXF entity from the contour chain.
+    ///   - entity: The source geometry from the contour chain.
     ///   - reversed: `true` if EntityChainer is walking the entity backwards.
     /// - Returns: An array of linear and circular arc segments representing the cutter motion.
-    public func convert(entity: DXF.Entity, reversed: Bool) -> [SC.Segment] {
+    public func convert(entity: SC.Geometry, reversed: Bool) -> [SC.Segment] {
 
         switch entity {
-            case let .line(a, b, _, _):
+            case let .line(a, b):
                 let start = reversed ? b.cgPoint : a.cgPoint
                 let end = reversed ? a.cgPoint : b.cgPoint
                 return [.line(start: start, end: end)]
 
-            case let .circle(center, radius, _, _):
+            case let .circle(center, radius):
                 let centerPt = center.cgPoint
                 // DXF circles map to 2x 180° arcs to ensure compatibility with standard CNC controllers
                 if reversed {
@@ -589,7 +588,7 @@ extension SC.Contour {
                     ]
                 }
 
-            case let .arc(center, radius, startDeg, endDeg, _, _):
+            case let .arc(center, radius, startDeg, endDeg):
                 let start = startDeg.degreesToRadians
                 var end = endDeg.degreesToRadians
 
@@ -606,11 +605,11 @@ extension SC.Contour {
                     return [.arc(center: centerPt, radius: radius, startAngle: start, endAngle: end, isCCW: true)]
                 }
 
-            case let .polyline(vertices, closed, _, _):
+            case let .polyline(vertices, closed):
                 let ordered = reversed ? reversedPolylineVertices(vertices, closed: closed) : vertices
                 return segmentsFromPolyline(vertices: ordered, closed: closed)
 
-            case let .ellipse(center, majorAxis, ratio, startParam, endParam, _, _):
+            case let .ellipse(center, majorAxis, ratio, startParam, endParam):
                 // Tessellate ellipse into tiny linear segments (G1 moves)
                 return segmentsFromEllipse(
                     center: center.cgPoint,
@@ -621,14 +620,14 @@ extension SC.Contour {
                     reversed: reversed
                 )
 
-            case .point, .text, .dimension:
-                // Non-machinable primitives generate no physical toolpath moves
+            case .point:
+                // A marker has no extent, so it generates no toolpath moves
                 return []
         }
     }
 
     /// Reverses polyline vertex order and flips bulge signs for backward walking.
-    private func reversedPolylineVertices(_ vertices: [DXF.PolyVertex], closed: Bool) -> [DXF.PolyVertex] {
+    private func reversedPolylineVertices(_ vertices: [SC.Geometry.Vertex], closed: Bool) -> [SC.Geometry.Vertex] {
 
         let n = vertices.count
         guard n > 1 else {
@@ -648,11 +647,11 @@ extension SC.Contour {
                 bulge = 0
             }
 
-            return DXF.PolyVertex(vertices[originalIndex].point, bulge: bulge)
+            return SC.Geometry.Vertex(vertices[originalIndex].point, bulge: bulge)
         }
     }
 
-    private func segmentsFromPolyline(vertices: [DXF.PolyVertex], closed: Bool) -> [SC.Segment] {
+    private func segmentsFromPolyline(vertices: [SC.Geometry.Vertex], closed: Bool) -> [SC.Segment] {
         guard vertices.count >= 2 else { return [] }
         var segments: [SC.Segment] = []
 

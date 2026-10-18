@@ -6,7 +6,6 @@
 //
 
 import Testing
-import SwiftDXF
 import CoreGraphics
 import simd
 @testable import StratumCAM
@@ -28,7 +27,7 @@ struct PocketSpiralDirection_Tests {
     /// spiral.
     private func circleContour(radius: Double) -> SC.Contour {
         SC.Contour(entities: [
-            .init(entity: .circle(center: DXF.Point(0, 0), radius: radius, layer: "0", color: 7), reversed: false)
+            .init(entity: .circle(center: SIMD2<Double>(0, 0), radius: radius), reversed: false)
         ], isClosed: true)
     }
 
@@ -37,10 +36,10 @@ struct PocketSpiralDirection_Tests {
     /// regardless of `direction`.
     private func ccwRectangleContour() -> SC.Contour {
         SC.Contour(entities: [
-            .init(entity: .line(a: DXF.Point(0, 0), b: DXF.Point(20, 0), layer: "0", color: 7), reversed: false),
-            .init(entity: .line(a: DXF.Point(20, 0), b: DXF.Point(20, 10), layer: "0", color: 7), reversed: false),
-            .init(entity: .line(a: DXF.Point(20, 10), b: DXF.Point(0, 10), layer: "0", color: 7), reversed: false),
-            .init(entity: .line(a: DXF.Point(0, 10), b: DXF.Point(0, 0), layer: "0", color: 7), reversed: false)
+            .init(entity: .line(a: SIMD2<Double>(0, 0), b: SIMD2<Double>(20, 0)), reversed: false),
+            .init(entity: .line(a: SIMD2<Double>(20, 0), b: SIMD2<Double>(20, 10)), reversed: false),
+            .init(entity: .line(a: SIMD2<Double>(20, 10), b: SIMD2<Double>(0, 10)), reversed: false),
+            .init(entity: .line(a: SIMD2<Double>(0, 10), b: SIMD2<Double>(0, 0)), reversed: false)
         ], isClosed: true)
     }
 

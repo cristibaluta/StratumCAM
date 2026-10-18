@@ -6,7 +6,6 @@
 //
 
 import Testing
-import SwiftDXF
 @testable import StratumCAM
 
 struct GCode_Drilling_Tests {
@@ -33,9 +32,7 @@ struct GCode_Drilling_Tests {
         let contour = SC.Contour(entities: [
             .init(
                 entity: .point(
-                    at: DXF.Point(10, 20),
-                    layer: "0",
-                    color: 7
+                    at: SIMD2<Double>(10, 20)
                 ),
                 reversed: false
             )
@@ -119,9 +116,7 @@ struct GCode_Drilling_Tests {
         let contour = SC.Contour(entities: [
             .init(
                 entity: .point(
-                    at: DXF.Point(5, 6),
-                    layer: "0",
-                    color: 7
+                    at: SIMD2<Double>(5, 6)
                 ),
                 reversed: false
             )
@@ -176,9 +171,7 @@ struct GCode_Drilling_Tests {
         let contour = SC.Contour(entities: [
             .init(
                 entity: .point(
-                    at: DXF.Point(15, 25),
-                    layer: "0",
-                    color: 7
+                    at: SIMD2<Double>(15, 25)
                 ),
                 reversed: false
             )
@@ -223,9 +216,7 @@ struct GCode_Drilling_Tests {
         let contour = SC.Contour(entities: [
             .init(
                 entity: .point(
-                    at: DXF.Point(1, 2),
-                    layer: "0",
-                    color: 7
+                    at: SIMD2<Double>(1, 2)
                 ),
                 reversed: false
             )

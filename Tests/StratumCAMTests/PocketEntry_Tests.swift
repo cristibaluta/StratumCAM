@@ -6,7 +6,6 @@
 //
 
 import Testing
-import SwiftDXF
 import CoreGraphics
 import simd
 @testable import StratumCAM
@@ -26,10 +25,10 @@ struct PocketEntry_Tests {
     /// already relies on.
     private func ccwRectangleContour() -> SC.Contour {
         SC.Contour(entities: [
-            .init(entity: .line(a: DXF.Point(0, 0), b: DXF.Point(20, 0), layer: "0", color: 7), reversed: false),
-            .init(entity: .line(a: DXF.Point(20, 0), b: DXF.Point(20, 10), layer: "0", color: 7), reversed: false),
-            .init(entity: .line(a: DXF.Point(20, 10), b: DXF.Point(0, 10), layer: "0", color: 7), reversed: false),
-            .init(entity: .line(a: DXF.Point(0, 10), b: DXF.Point(0, 0), layer: "0", color: 7), reversed: false)
+            .init(entity: .line(a: SIMD2<Double>(0, 0), b: SIMD2<Double>(20, 0)), reversed: false),
+            .init(entity: .line(a: SIMD2<Double>(20, 0), b: SIMD2<Double>(20, 10)), reversed: false),
+            .init(entity: .line(a: SIMD2<Double>(20, 10), b: SIMD2<Double>(0, 10)), reversed: false),
+            .init(entity: .line(a: SIMD2<Double>(0, 10), b: SIMD2<Double>(0, 0)), reversed: false)
         ], isClosed: true)
     }
 
@@ -256,10 +255,10 @@ struct PocketEntry_Tests {
     /// helix entries spiraled outward through the wall instead of staying inside it.
     private func wideRasterContour() -> SC.Contour {
         SC.Contour(entities: [
-            .init(entity: .line(a: DXF.Point(0, 0), b: DXF.Point(40, 0), layer: "0", color: 7), reversed: false),
-            .init(entity: .line(a: DXF.Point(40, 0), b: DXF.Point(40, 24), layer: "0", color: 7), reversed: false),
-            .init(entity: .line(a: DXF.Point(40, 24), b: DXF.Point(0, 24), layer: "0", color: 7), reversed: false),
-            .init(entity: .line(a: DXF.Point(0, 24), b: DXF.Point(0, 0), layer: "0", color: 7), reversed: false)
+            .init(entity: .line(a: SIMD2<Double>(0, 0), b: SIMD2<Double>(40, 0)), reversed: false),
+            .init(entity: .line(a: SIMD2<Double>(40, 0), b: SIMD2<Double>(40, 24)), reversed: false),
+            .init(entity: .line(a: SIMD2<Double>(40, 24), b: SIMD2<Double>(0, 24)), reversed: false),
+            .init(entity: .line(a: SIMD2<Double>(0, 24), b: SIMD2<Double>(0, 0)), reversed: false)
         ], isClosed: true)
     }
 

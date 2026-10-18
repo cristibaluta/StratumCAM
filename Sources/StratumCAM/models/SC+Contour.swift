@@ -6,18 +6,17 @@
 //
 
 import Foundation
-import SwiftDXF
 
 extension SC {
 
     public struct Contour: Sendable {
 
         public struct Chained: Sendable {
-            public var entity: DXF.Entity
+            public var entity: SC.Geometry
             public var reversed: Bool
 
             // The inits are needed because the app using the lib is not able to init otherwise
-            public init(entity: DXF.Entity, reversed: Bool) {
+            public init(entity: SC.Geometry, reversed: Bool) {
                 self.entity = entity
                 self.reversed = reversed
             }
@@ -53,10 +52,10 @@ extension SC.Contour {
             return nil
         }
         switch self.entities[0].entity {
-            case let .point(at, _, _):
+            case let .point(at):
                 return at.cgPoint
 
-            case let .circle(center, _, _, _):
+            case let .circle(center, _):
                 return isClosed ? center.cgPoint : nil
 
             default:

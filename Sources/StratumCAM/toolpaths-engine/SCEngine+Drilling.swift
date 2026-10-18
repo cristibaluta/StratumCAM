@@ -7,7 +7,6 @@
 
 import Foundation
 import CoreGraphics
-import SwiftDXF
 import simd
 
 extension SCEngine {

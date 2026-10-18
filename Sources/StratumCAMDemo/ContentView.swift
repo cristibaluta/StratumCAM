@@ -9,7 +9,6 @@ import SwiftUI
 import MetalKit
 import simd
 import StratumCAM
-import SwiftDXF
 
 struct ContentView: View {
     @State private var renderBatches: [RenderBatch] = []

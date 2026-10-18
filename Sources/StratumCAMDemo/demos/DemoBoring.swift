@@ -15,7 +15,6 @@
 
 import Foundation
 import StratumCAM
-import SwiftDXF
 
 class DemoBoring: Demo {
 
@@ -28,7 +27,7 @@ class DemoBoring: Demo {
     /// reuses from drilling's `drillPoint(for:)`.
     private func pointContour(_ x: Double, _ y: Double) -> SC.Contour {
         SC.Contour(entities: [
-            SC.Contour.Chained(entity: .point(at: DXF.Point(x, y), layer: "0", color: 7), reversed: false)
+            SC.Contour.Chained(entity: .point(at: SIMD2<Double>(x, y)), reversed: false)
         ], isClosed: false)
     }
 
@@ -60,7 +59,7 @@ class DemoBoring: Demo {
         let settings = SC.MachineSettings(cutting: cutting, safeZ: 6.0, targetDepth: -5.0)
 
         let contour = SC.Contour(entities: [
-            SC.Contour.Chained(entity: .circle(center: DXF.Point(20, 20), radius: 3.0, layer: "0", color: 7), reversed: false)
+            SC.Contour.Chained(entity: .circle(center: SIMD2<Double>(20, 20), radius: 3.0), reversed: false)
         ], isClosed: true)
 
         let operation: SC.MachiningOperation = .boring(targetDiameter: 8.0, dwellTime: nil, shiftRetract: false)

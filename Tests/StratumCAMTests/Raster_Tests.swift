@@ -6,7 +6,6 @@
 //
 
 import Testing
-import SwiftDXF
 import CoreGraphics
 import simd
 @testable import StratumCAM
@@ -21,10 +20,10 @@ struct Raster_Tests {
     /// A 20x10 CCW rectangle.
     private func ccwRectangleContour() -> SC.Contour {
         SC.Contour(entities: [
-            .init(entity: .line(a: DXF.Point(0, 0), b: DXF.Point(20, 0), layer: "0", color: 7), reversed: false),
-            .init(entity: .line(a: DXF.Point(20, 0), b: DXF.Point(20, 10), layer: "0", color: 7), reversed: false),
-            .init(entity: .line(a: DXF.Point(20, 10), b: DXF.Point(0, 10), layer: "0", color: 7), reversed: false),
-            .init(entity: .line(a: DXF.Point(0, 10), b: DXF.Point(0, 0), layer: "0", color: 7), reversed: false)
+            .init(entity: .line(a: SIMD2<Double>(0, 0), b: SIMD2<Double>(20, 0)), reversed: false),
+            .init(entity: .line(a: SIMD2<Double>(20, 0), b: SIMD2<Double>(20, 10)), reversed: false),
+            .init(entity: .line(a: SIMD2<Double>(20, 10), b: SIMD2<Double>(0, 10)), reversed: false),
+            .init(entity: .line(a: SIMD2<Double>(0, 10), b: SIMD2<Double>(0, 0)), reversed: false)
         ], isClosed: true)
     }
 
@@ -35,14 +34,14 @@ struct Raster_Tests {
         let r = 2.0
 
         return SC.Contour(entities: [
-            .init(entity: .line(a: DXF.Point(2, 0), b: DXF.Point(18, 0), layer: "0", color: 7), reversed: false),
-            .init(entity: .arc(center: DXF.Point(18, 2), radius: r, startDeg: -90, endDeg: 0, layer: "0", color: 7), reversed: false),
-            .init(entity: .line(a: DXF.Point(20, 2), b: DXF.Point(20, 8), layer: "0", color: 7), reversed: false),
-            .init(entity: .arc(center: DXF.Point(18, 8), radius: r, startDeg: 0, endDeg: 90, layer: "0", color: 7), reversed: false),
-            .init(entity: .line(a: DXF.Point(18, 10), b: DXF.Point(2, 10), layer: "0", color: 7), reversed: false),
-            .init(entity: .arc(center: DXF.Point(2, 8), radius: r, startDeg: 90, endDeg: 180, layer: "0", color: 7), reversed: false),
-            .init(entity: .line(a: DXF.Point(0, 8), b: DXF.Point(0, 2), layer: "0", color: 7), reversed: false),
-            .init(entity: .arc(center: DXF.Point(2, 2), radius: r, startDeg: 180, endDeg: 270, layer: "0", color: 7), reversed: false)
+            .init(entity: .line(a: SIMD2<Double>(2, 0), b: SIMD2<Double>(18, 0)), reversed: false),
+            .init(entity: .arc(center: SIMD2<Double>(18, 2), radius: r, startDeg: -90, endDeg: 0), reversed: false),
+            .init(entity: .line(a: SIMD2<Double>(20, 2), b: SIMD2<Double>(20, 8)), reversed: false),
+            .init(entity: .arc(center: SIMD2<Double>(18, 8), radius: r, startDeg: 0, endDeg: 90), reversed: false),
+            .init(entity: .line(a: SIMD2<Double>(18, 10), b: SIMD2<Double>(2, 10)), reversed: false),
+            .init(entity: .arc(center: SIMD2<Double>(2, 8), radius: r, startDeg: 90, endDeg: 180), reversed: false),
+            .init(entity: .line(a: SIMD2<Double>(0, 8), b: SIMD2<Double>(0, 2)), reversed: false),
+            .init(entity: .arc(center: SIMD2<Double>(2, 2), radius: r, startDeg: 180, endDeg: 270), reversed: false)
         ], isClosed: true)
     }
 
@@ -60,14 +59,14 @@ struct Raster_Tests {
     /// wrong-geometry cut, per its own "assumes exactly one cut span per row" doc note.
     private func staplePolygonContour() -> SC.Contour {
         SC.Contour(entities: [
-            .init(entity: .line(a: DXF.Point(0, 0), b: DXF.Point(20, 0), layer: "0", color: 7), reversed: false),
-            .init(entity: .line(a: DXF.Point(20, 0), b: DXF.Point(20, 10), layer: "0", color: 7), reversed: false),
-            .init(entity: .line(a: DXF.Point(20, 10), b: DXF.Point(12, 10), layer: "0", color: 7), reversed: false),
-            .init(entity: .line(a: DXF.Point(12, 10), b: DXF.Point(12, 4), layer: "0", color: 7), reversed: false),
-            .init(entity: .line(a: DXF.Point(12, 4), b: DXF.Point(8, 4), layer: "0", color: 7), reversed: false),
-            .init(entity: .line(a: DXF.Point(8, 4), b: DXF.Point(8, 10), layer: "0", color: 7), reversed: false),
-            .init(entity: .line(a: DXF.Point(8, 10), b: DXF.Point(0, 10), layer: "0", color: 7), reversed: false),
-            .init(entity: .line(a: DXF.Point(0, 10), b: DXF.Point(0, 0), layer: "0", color: 7), reversed: false)
+            .init(entity: .line(a: SIMD2<Double>(0, 0), b: SIMD2<Double>(20, 0)), reversed: false),
+            .init(entity: .line(a: SIMD2<Double>(20, 0), b: SIMD2<Double>(20, 10)), reversed: false),
+            .init(entity: .line(a: SIMD2<Double>(20, 10), b: SIMD2<Double>(12, 10)), reversed: false),
+            .init(entity: .line(a: SIMD2<Double>(12, 10), b: SIMD2<Double>(12, 4)), reversed: false),
+            .init(entity: .line(a: SIMD2<Double>(12, 4), b: SIMD2<Double>(8, 4)), reversed: false),
+            .init(entity: .line(a: SIMD2<Double>(8, 4), b: SIMD2<Double>(8, 10)), reversed: false),
+            .init(entity: .line(a: SIMD2<Double>(8, 10), b: SIMD2<Double>(0, 10)), reversed: false),
+            .init(entity: .line(a: SIMD2<Double>(0, 10), b: SIMD2<Double>(0, 0)), reversed: false)
         ], isClosed: true)
     }
 
@@ -314,8 +313,8 @@ struct Raster_Tests {
                                           targetDepth: -1.0)
 
         let openContour = SC.Contour(entities: [
-            .init(entity: .line(a: DXF.Point(0, 0), b: DXF.Point(10, 0), layer: "0", color: 7), reversed: false),
-            .init(entity: .line(a: DXF.Point(10, 0), b: DXF.Point(10, 10), layer: "0", color: 7), reversed: false)
+            .init(entity: .line(a: SIMD2<Double>(0, 0), b: SIMD2<Double>(10, 0)), reversed: false),
+            .init(entity: .line(a: SIMD2<Double>(10, 0), b: SIMD2<Double>(10, 10)), reversed: false)
         ], isClosed: false)
 
         do {

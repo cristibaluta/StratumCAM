@@ -6,7 +6,6 @@
 //
 
 import Testing
-import SwiftDXF
 import CoreGraphics
 import simd
 @testable import StratumCAM
@@ -26,7 +25,7 @@ struct PocketSpiral_Tests {
     /// DXF `.circle` entity (two 180° arcs of matching center/radius).
     private func circleContour(radius: Double) -> SC.Contour {
         SC.Contour(entities: [
-            .init(entity: .circle(center: DXF.Point(0, 0), radius: radius, layer: "0", color: 7), reversed: false)
+            .init(entity: .circle(center: SIMD2<Double>(0, 0), radius: radius), reversed: false)
         ], isClosed: true)
     }
 
@@ -34,10 +33,10 @@ struct PocketSpiral_Tests {
     /// already use. Not circular, so `.spiral` must fall back on it.
     private func ccwRectangleContour() -> SC.Contour {
         SC.Contour(entities: [
-            .init(entity: .line(a: DXF.Point(0, 0), b: DXF.Point(20, 0), layer: "0", color: 7), reversed: false),
-            .init(entity: .line(a: DXF.Point(20, 0), b: DXF.Point(20, 10), layer: "0", color: 7), reversed: false),
-            .init(entity: .line(a: DXF.Point(20, 10), b: DXF.Point(0, 10), layer: "0", color: 7), reversed: false),
-            .init(entity: .line(a: DXF.Point(0, 10), b: DXF.Point(0, 0), layer: "0", color: 7), reversed: false)
+            .init(entity: .line(a: SIMD2<Double>(0, 0), b: SIMD2<Double>(20, 0)), reversed: false),
+            .init(entity: .line(a: SIMD2<Double>(20, 0), b: SIMD2<Double>(20, 10)), reversed: false),
+            .init(entity: .line(a: SIMD2<Double>(20, 10), b: SIMD2<Double>(0, 10)), reversed: false),
+            .init(entity: .line(a: SIMD2<Double>(0, 10), b: SIMD2<Double>(0, 0)), reversed: false)
         ], isClosed: true)
     }
 
@@ -210,14 +209,14 @@ struct PocketSpiral_Tests {
         // A 20x10 rectangle with 2mm corner radii: some segments are arcs, but they
         // don't share one common center/radius the way a plain circle's do.
         let roundedRectangleContour = SC.Contour(entities: [
-            .init(entity: .line(a: DXF.Point(2, 0), b: DXF.Point(18, 0), layer: "0", color: 7), reversed: false),
-            .init(entity: .arc(center: DXF.Point(18, 2), radius: 2.0, startDeg: -90, endDeg: 0, layer: "0", color: 7), reversed: false),
-            .init(entity: .line(a: DXF.Point(20, 2), b: DXF.Point(20, 8), layer: "0", color: 7), reversed: false),
-            .init(entity: .arc(center: DXF.Point(18, 8), radius: 2.0, startDeg: 0, endDeg: 90, layer: "0", color: 7), reversed: false),
-            .init(entity: .line(a: DXF.Point(18, 10), b: DXF.Point(2, 10), layer: "0", color: 7), reversed: false),
-            .init(entity: .arc(center: DXF.Point(2, 8), radius: 2.0, startDeg: 90, endDeg: 180, layer: "0", color: 7), reversed: false),
-            .init(entity: .line(a: DXF.Point(0, 8), b: DXF.Point(0, 2), layer: "0", color: 7), reversed: false),
-            .init(entity: .arc(center: DXF.Point(2, 2), radius: 2.0, startDeg: 180, endDeg: 270, layer: "0", color: 7), reversed: false)
+            .init(entity: .line(a: SIMD2<Double>(2, 0), b: SIMD2<Double>(18, 0)), reversed: false),
+            .init(entity: .arc(center: SIMD2<Double>(18, 2), radius: 2.0, startDeg: -90, endDeg: 0), reversed: false),
+            .init(entity: .line(a: SIMD2<Double>(20, 2), b: SIMD2<Double>(20, 8)), reversed: false),
+            .init(entity: .arc(center: SIMD2<Double>(18, 8), radius: 2.0, startDeg: 0, endDeg: 90), reversed: false),
+            .init(entity: .line(a: SIMD2<Double>(18, 10), b: SIMD2<Double>(2, 10)), reversed: false),
+            .init(entity: .arc(center: SIMD2<Double>(2, 8), radius: 2.0, startDeg: 90, endDeg: 180), reversed: false),
+            .init(entity: .line(a: SIMD2<Double>(0, 8), b: SIMD2<Double>(0, 2)), reversed: false),
+            .init(entity: .arc(center: SIMD2<Double>(2, 2), radius: 2.0, startDeg: 180, endDeg: 270), reversed: false)
         ], isClosed: true)
 
         let spiralWaypoints = try engine.generateToolpaths(

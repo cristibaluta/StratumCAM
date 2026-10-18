@@ -7,7 +7,6 @@
 
 import Foundation
 import StratumCAM
-import SwiftDXF
 
 class DemoEngraving: Demo {
 
@@ -18,10 +17,8 @@ class DemoEngraving: Demo {
         let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 0.1)
         let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: 0.1)
 
-        let lineEntity = DXF.Entity.line(a: DXF.Point(0, 0),
-                                         b: DXF.Point(20, 0),
-                                         layer: "0",
-                                         color: 7)
+        let lineEntity = SC.Geometry.line(a: SIMD2<Double>(0, 0),
+                                         b: SIMD2<Double>(20, 0))
         let contour = SC.Contour(
             entities: [
                 SC.Contour.Chained(entity: lineEntity, reversed: false)
@@ -38,10 +35,8 @@ class DemoEngraving: Demo {
         let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 0.1)
         let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: 1)
 
-        let lineEntity = DXF.Entity.line(a: DXF.Point(0, 0),
-                                         b: DXF.Point(20, 0),
-                                         layer: "0",
-                                         color: 7)
+        let lineEntity = SC.Geometry.line(a: SIMD2<Double>(0, 0),
+                                         b: SIMD2<Double>(20, 0))
         let contour = SC.Contour(
             entities: [
                 SC.Contour.Chained(entity: lineEntity, reversed: false)
@@ -64,22 +59,18 @@ class DemoEngraving: Demo {
         let radius = 5.0
 
         // Lower hump: sweeps from (0, 0) to (0, 10), bulging right through (radius, 5).
-        let lowerArc = DXF.Entity.arc(center: DXF.Point(0, radius),
+        let lowerArc = SC.Geometry.arc(center: SIMD2<Double>(0, radius),
                                       radius: radius,
                                       startDeg: 270.0,
-                                      endDeg: 90.0,
-                                      layer: "0",
-                                      color: 7)
+                                      endDeg: 90.0)
 
         // Upper hump: sweeps from (0, 10) to (0, 20), bulging left through (-radius, 15).
         // Defined the same way as the lower arc but reversed, so it continues on
         // from where the lower arc ends while curving the opposite way.
-        let upperArc = DXF.Entity.arc(center: DXF.Point(0, radius * 3),
+        let upperArc = SC.Geometry.arc(center: SIMD2<Double>(0, radius * 3),
                                       radius: radius,
                                       startDeg: 90.0,
-                                      endDeg: 270.0,
-                                      layer: "0",
-                                      color: 7)
+                                      endDeg: 270.0)
 
         let contour = SC.Contour(
             entities: [
@@ -138,18 +129,14 @@ class DemoEngraving: Demo {
         let radius = 5.0
         let cx = xOffset + 5.0
 
-        let lowerArc = DXF.Entity.arc(center: DXF.Point(cx, radius),
+        let lowerArc = SC.Geometry.arc(center: SIMD2<Double>(cx, radius),
                                       radius: radius,
                                       startDeg: 270.0,
-                                      endDeg: 90.0,
-                                      layer: "0",
-                                      color: 7)
-        let upperArc = DXF.Entity.arc(center: DXF.Point(cx, radius * 3),
+                                      endDeg: 90.0)
+        let upperArc = SC.Geometry.arc(center: SIMD2<Double>(cx, radius * 3),
                                       radius: radius,
                                       startDeg: 90.0,
-                                      endDeg: 270.0,
-                                      layer: "0",
-                                      color: 7)
+                                      endDeg: 270.0)
 
         return [
             SC.Contour(entities: [
@@ -212,8 +199,8 @@ class DemoEngraving: Demo {
 
     // MARK: - Stroke helpers
 
-    private func line(_ x1: Double, _ y1: Double, _ x2: Double, _ y2: Double) -> DXF.Entity {
-        .line(a: DXF.Point(x1, y1), b: DXF.Point(x2, y2), layer: "0", color: 7)
+    private func line(_ x1: Double, _ y1: Double, _ x2: Double, _ y2: Double) -> SC.Geometry {
+        .line(a: SIMD2<Double>(x1, y1), b: SIMD2<Double>(x2, y2))
     }
 
     /// Wraps a single straight line as a one-entity, open `SC.Contour`.

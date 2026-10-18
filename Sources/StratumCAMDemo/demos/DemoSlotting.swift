@@ -7,7 +7,6 @@
 
 import Foundation
 import StratumCAM
-import SwiftDXF
 
 class DemoSlotting: Demo {
 
@@ -24,10 +23,10 @@ class DemoSlotting: Demo {
     /// boundary-recognition coverage.
     private func rectangleBoundaryContour(length: Double, width: Double) -> SC.Contour {
         SC.Contour(entities: [
-            SC.Contour.Chained(entity: .line(a: DXF.Point(0, 0), b: DXF.Point(length, 0), layer: "0", color: 7), reversed: false),
-            SC.Contour.Chained(entity: .line(a: DXF.Point(length, 0), b: DXF.Point(length, width), layer: "0", color: 7), reversed: false),
-            SC.Contour.Chained(entity: .line(a: DXF.Point(length, width), b: DXF.Point(0, width), layer: "0", color: 7), reversed: false),
-            SC.Contour.Chained(entity: .line(a: DXF.Point(0, width), b: DXF.Point(0, 0), layer: "0", color: 7), reversed: false)
+            SC.Contour.Chained(entity: .line(a: SIMD2<Double>(0, 0), b: SIMD2<Double>(length, 0)), reversed: false),
+            SC.Contour.Chained(entity: .line(a: SIMD2<Double>(length, 0), b: SIMD2<Double>(length, width)), reversed: false),
+            SC.Contour.Chained(entity: .line(a: SIMD2<Double>(length, width), b: SIMD2<Double>(0, width)), reversed: false),
+            SC.Contour.Chained(entity: .line(a: SIMD2<Double>(0, width), b: SIMD2<Double>(0, 0)), reversed: false)
         ], isClosed: true)
     }
 
@@ -39,9 +38,9 @@ class DemoSlotting: Demo {
     /// `Slotting_Tests.swift` uses for open-ended boundary recognition.
     private func openEndedSlotBoundaryContour(length: Double, width: Double) -> SC.Contour {
         SC.Contour(entities: [
-            SC.Contour.Chained(entity: .line(a: DXF.Point(0, 0), b: DXF.Point(length, 0), layer: "0", color: 7), reversed: false),
-            SC.Contour.Chained(entity: .line(a: DXF.Point(length, 0), b: DXF.Point(length, width), layer: "0", color: 7), reversed: false),
-            SC.Contour.Chained(entity: .line(a: DXF.Point(length, width), b: DXF.Point(0, width), layer: "0", color: 7), reversed: false)
+            SC.Contour.Chained(entity: .line(a: SIMD2<Double>(0, 0), b: SIMD2<Double>(length, 0)), reversed: false),
+            SC.Contour.Chained(entity: .line(a: SIMD2<Double>(length, 0), b: SIMD2<Double>(length, width)), reversed: false),
+            SC.Contour.Chained(entity: .line(a: SIMD2<Double>(length, width), b: SIMD2<Double>(0, width)), reversed: false)
         ], isClosed: false)
     }
 
@@ -56,8 +55,8 @@ class DemoSlotting: Demo {
     /// `Slotting_Tests.swift` will use for both-ends-open boundary recognition.
     private func bothEndsOpenSlotBoundaryContour(length: Double, width: Double) -> SC.Contour {
         SC.Contour(entities: [
-            SC.Contour.Chained(entity: .line(a: DXF.Point(0, 0), b: DXF.Point(length, 0), layer: "0", color: 7), reversed: false),
-            SC.Contour.Chained(entity: .line(a: DXF.Point(0, width), b: DXF.Point(length, width), layer: "0", color: 7), reversed: false)
+            SC.Contour.Chained(entity: .line(a: SIMD2<Double>(0, 0), b: SIMD2<Double>(length, 0)), reversed: false),
+            SC.Contour.Chained(entity: .line(a: SIMD2<Double>(0, width), b: SIMD2<Double>(length, width)), reversed: false)
         ], isClosed: false)
     }
 

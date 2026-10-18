@@ -1,5 +1,4 @@
 import Testing
-import SwiftDXF
 import CoreGraphics
 @testable import StratumCAM
 
@@ -14,10 +13,10 @@ struct Pocket2_Tests {
         let height = 24.0
 
         let contour = SC.Contour(entities: [
-            .init(entity: .line(a: DXF.Point(0, 0), b: DXF.Point(width, 0), layer: "0", color: 7), reversed: false),
-            .init(entity: .line(a: DXF.Point(width, 0), b: DXF.Point(width, height), layer: "0", color: 7), reversed: false),
-            .init(entity: .line(a: DXF.Point(width, height), b: DXF.Point(0, height), layer: "0", color: 7), reversed: false),
-            .init(entity: .line(a: DXF.Point(0, height), b: DXF.Point(0, 0), layer: "0", color: 7), reversed: false)
+            .init(entity: .line(a: SIMD2<Double>(0, 0), b: SIMD2<Double>(width, 0)), reversed: false),
+            .init(entity: .line(a: SIMD2<Double>(width, 0), b: SIMD2<Double>(width, height)), reversed: false),
+            .init(entity: .line(a: SIMD2<Double>(width, height), b: SIMD2<Double>(0, height)), reversed: false),
+            .init(entity: .line(a: SIMD2<Double>(0, height), b: SIMD2<Double>(0, 0)), reversed: false)
         ], isClosed: true)
 
         let baseSegments = contour.linearizedSegments
@@ -45,10 +44,10 @@ struct Pocket2_Tests {
         let height = 24.0
 
         let contour = SC.Contour(entities: [
-            .init(entity: .line(a: DXF.Point(0, 0), b: DXF.Point(width, 0), layer: "0", color: 7), reversed: false),
-            .init(entity: .line(a: DXF.Point(width, 0), b: DXF.Point(width, height), layer: "0", color: 7), reversed: false),
-            .init(entity: .line(a: DXF.Point(width, height), b: DXF.Point(0, height), layer: "0", color: 7), reversed: false),
-            .init(entity: .line(a: DXF.Point(0, height), b: DXF.Point(0, 0), layer: "0", color: 7), reversed: false)
+            .init(entity: .line(a: SIMD2<Double>(0, 0), b: SIMD2<Double>(width, 0)), reversed: false),
+            .init(entity: .line(a: SIMD2<Double>(width, 0), b: SIMD2<Double>(width, height)), reversed: false),
+            .init(entity: .line(a: SIMD2<Double>(width, height), b: SIMD2<Double>(0, height)), reversed: false),
+            .init(entity: .line(a: SIMD2<Double>(0, height), b: SIMD2<Double>(0, 0)), reversed: false)
         ], isClosed: true)
 
         let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4)

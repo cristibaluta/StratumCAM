@@ -9,7 +9,6 @@ import Foundation
 import MetalKit
 import simd
 import StratumCAM
-import SwiftDXF
 
 class Demo {
 

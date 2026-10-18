@@ -7,7 +7,6 @@
 
 import Foundation
 import StratumCAM
-import SwiftDXF
 
 class DemoContour: Demo {
 
@@ -19,10 +18,10 @@ class DemoContour: Demo {
     private func ccwSquareContour() -> SC.Contour {
         SC.Contour(
             entities: [
-                SC.Contour.Chained(entity: .line(a: DXF.Point(0, 0), b: DXF.Point(10, 0), layer: "0", color: 7), reversed: false),
-                SC.Contour.Chained(entity: .line(a: DXF.Point(10, 0), b: DXF.Point(10, 10), layer: "0", color: 7), reversed: false),
-                SC.Contour.Chained(entity: .line(a: DXF.Point(10, 10), b: DXF.Point(0, 10), layer: "0", color: 7), reversed: false),
-                SC.Contour.Chained(entity: .line(a: DXF.Point(0, 10), b: DXF.Point(0, 0), layer: "0", color: 7), reversed: false)
+                SC.Contour.Chained(entity: .line(a: SIMD2<Double>(0, 0), b: SIMD2<Double>(10, 0)), reversed: false),
+                SC.Contour.Chained(entity: .line(a: SIMD2<Double>(10, 0), b: SIMD2<Double>(10, 10)), reversed: false),
+                SC.Contour.Chained(entity: .line(a: SIMD2<Double>(10, 10), b: SIMD2<Double>(0, 10)), reversed: false),
+                SC.Contour.Chained(entity: .line(a: SIMD2<Double>(0, 10), b: SIMD2<Double>(0, 0)), reversed: false)
             ],
             isClosed: true
         )
@@ -31,10 +30,10 @@ class DemoContour: Demo {
     private func ccwRectangleContour(width: Double, height: Double) -> SC.Contour {
         SC.Contour(
             entities: [
-                SC.Contour.Chained(entity: .line(a: DXF.Point(0, 0), b: DXF.Point(width, 0), layer: "0", color: 7), reversed: false),
-                SC.Contour.Chained(entity: .line(a: DXF.Point(width, 0), b: DXF.Point(width, height), layer: "0", color: 7), reversed: false),
-                SC.Contour.Chained(entity: .line(a: DXF.Point(width, height), b: DXF.Point(0, height), layer: "0", color: 7), reversed: false),
-                SC.Contour.Chained(entity: .line(a: DXF.Point(0, height), b: DXF.Point(0, 0), layer: "0", color: 7), reversed: false)
+                SC.Contour.Chained(entity: .line(a: SIMD2<Double>(0, 0), b: SIMD2<Double>(width, 0)), reversed: false),
+                SC.Contour.Chained(entity: .line(a: SIMD2<Double>(width, 0), b: SIMD2<Double>(width, height)), reversed: false),
+                SC.Contour.Chained(entity: .line(a: SIMD2<Double>(width, height), b: SIMD2<Double>(0, height)), reversed: false),
+                SC.Contour.Chained(entity: .line(a: SIMD2<Double>(0, height), b: SIMD2<Double>(0, 0)), reversed: false)
             ],
             isClosed: true
         )
@@ -45,10 +44,10 @@ class DemoContour: Demo {
     private func fourSegmentLineContour() -> SC.Contour {
         SC.Contour(
             entities: [
-                SC.Contour.Chained(entity: .line(a: DXF.Point(0, 0), b: DXF.Point(5, 0), layer: "0", color: 7), reversed: false),
-                SC.Contour.Chained(entity: .line(a: DXF.Point(5, 0), b: DXF.Point(10, 0), layer: "0", color: 7), reversed: false),
-                SC.Contour.Chained(entity: .line(a: DXF.Point(10, 0), b: DXF.Point(15, 0), layer: "0", color: 7), reversed: false),
-                SC.Contour.Chained(entity: .line(a: DXF.Point(15, 0), b: DXF.Point(20, 0), layer: "0", color: 7), reversed: false)
+                SC.Contour.Chained(entity: .line(a: SIMD2<Double>(0, 0), b: SIMD2<Double>(5, 0)), reversed: false),
+                SC.Contour.Chained(entity: .line(a: SIMD2<Double>(5, 0), b: SIMD2<Double>(10, 0)), reversed: false),
+                SC.Contour.Chained(entity: .line(a: SIMD2<Double>(10, 0), b: SIMD2<Double>(15, 0)), reversed: false),
+                SC.Contour.Chained(entity: .line(a: SIMD2<Double>(15, 0), b: SIMD2<Double>(20, 0)), reversed: false)
             ],
             isClosed: false
         )
@@ -211,46 +210,46 @@ class DemoContour: Demo {
     /// with the side flipped: a single symmetric notch pair doesn't reproduce both.
     private func narrowNeckPendantContour(notchFoldsTowardCenterline: Bool) -> SC.Contour {
         // Main body.
-        let bodyCenter = DXF.Point(0, 0)
+        let bodyCenter = SIMD2<Double>(0, 0)
         let bodyRadius = 25.0
         // Junction points where the neck meets the body sit at +/-10 degrees either
         // side of straight up (90 degrees), i.e. a 20-degree-wide gap at the top.
-        let bodyArc = DXF.Entity.arc(center: bodyCenter, radius: bodyRadius, startDeg: 100, endDeg: 440, layer: "0", color: 7)
+        let bodyArc = SC.Geometry.arc(center: bodyCenter, radius: bodyRadius, startDeg: 100, endDeg: 440)
 
         // Loop (the keyring hole) sitting above the body.
-        let loopCenter = DXF.Point(0, 60)
+        let loopCenter = SIMD2<Double>(0, 60)
         let loopRadius = 9.0
         // Junction points where the neck meets the loop sit at +/-10 degrees either
         // side of straight down (270 degrees), i.e. a 20-degree-wide gap at the bottom.
-        let loopArc = DXF.Entity.arc(center: loopCenter, radius: loopRadius, startDeg: 280, endDeg: 620, layer: "0", color: 7)
+        let loopArc = SC.Geometry.arc(center: loopCenter, radius: loopRadius, startDeg: 280, endDeg: 620)
 
         // Left neck: body junction -> notch -> loop junction. notchLeft1 is the same
         // in both variants; only notchLeft2 moves, to fold the ~178-degree hairpin one
         // way or the other.
-        let bodyLeft = DXF.Point(-4.341, 24.620)
-        let notchLeft1 = DXF.Point(-7.278, 29.273)
-        let notchLeft2 = notchFoldsTowardCenterline ? DXF.Point(-6.039, 27.454) : DXF.Point(-6.169, 27.372)
-        let loopLeft = DXF.Point(-1.563, 51.137)
+        let bodyLeft = SIMD2<Double>(-4.341, 24.620)
+        let notchLeft1 = SIMD2<Double>(-7.278, 29.273)
+        let notchLeft2 = notchFoldsTowardCenterline ? SIMD2<Double>(-6.039, 27.454) : SIMD2<Double>(-6.169, 27.372)
+        let loopLeft = SIMD2<Double>(-1.563, 51.137)
 
         // Right neck: mirror image, walked in the opposite direction (loop -> body)
         // so the whole contour reads as one continuous CCW loop.
-        let loopRight = DXF.Point(1.563, 51.137)
-        let notchRight1 = notchFoldsTowardCenterline ? DXF.Point(6.039, 27.454) : DXF.Point(6.169, 27.372)
-        let notchRight2 = DXF.Point(7.278, 29.273)
-        let bodyRight = DXF.Point(4.341, 24.620)
+        let loopRight = SIMD2<Double>(1.563, 51.137)
+        let notchRight1 = notchFoldsTowardCenterline ? SIMD2<Double>(6.039, 27.454) : SIMD2<Double>(6.169, 27.372)
+        let notchRight2 = SIMD2<Double>(7.278, 29.273)
+        let bodyRight = SIMD2<Double>(4.341, 24.620)
 
         return SC.Contour(
             entities: [
                 // Body, the long way around: bodyRight -> ... -> bodyLeft.
                 SC.Contour.Chained(entity: bodyArc, reversed: true),
-                SC.Contour.Chained(entity: .line(a: bodyLeft, b: notchLeft1, layer: "0", color: 7), reversed: false),
-                SC.Contour.Chained(entity: .line(a: notchLeft1, b: notchLeft2, layer: "0", color: 7), reversed: false),
-                SC.Contour.Chained(entity: .line(a: notchLeft2, b: loopLeft, layer: "0", color: 7), reversed: false),
+                SC.Contour.Chained(entity: .line(a: bodyLeft, b: notchLeft1), reversed: false),
+                SC.Contour.Chained(entity: .line(a: notchLeft1, b: notchLeft2), reversed: false),
+                SC.Contour.Chained(entity: .line(a: notchLeft2, b: loopLeft), reversed: false),
                 // Loop, the long way around: loopLeft -> ... -> loopRight.
                 SC.Contour.Chained(entity: loopArc, reversed: true),
-                SC.Contour.Chained(entity: .line(a: loopRight, b: notchRight1, layer: "0", color: 7), reversed: false),
-                SC.Contour.Chained(entity: .line(a: notchRight1, b: notchRight2, layer: "0", color: 7), reversed: false),
-                SC.Contour.Chained(entity: .line(a: notchRight2, b: bodyRight, layer: "0", color: 7), reversed: false)
+                SC.Contour.Chained(entity: .line(a: loopRight, b: notchRight1), reversed: false),
+                SC.Contour.Chained(entity: .line(a: notchRight1, b: notchRight2), reversed: false),
+                SC.Contour.Chained(entity: .line(a: notchRight2, b: bodyRight), reversed: false)
             ],
             isClosed: true
         )

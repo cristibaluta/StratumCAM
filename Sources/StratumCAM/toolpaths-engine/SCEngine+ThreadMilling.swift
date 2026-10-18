@@ -7,7 +7,6 @@
 
 import Foundation
 import CoreGraphics
-import SwiftDXF
 import simd
 
 extension SCEngine {
@@ -35,7 +34,7 @@ extension SCEngine {
             return nil
         }
 
-        guard case let .circle(center, radius, _, _) = contour.entities[0].entity else {
+        guard case let .circle(center, radius) = contour.entities[0].entity else {
             return nil
         }
 

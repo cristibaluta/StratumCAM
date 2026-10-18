@@ -6,7 +6,6 @@
 //
 
 import Testing
-import SwiftDXF
 import CoreGraphics
 import simd
 @testable import StratumCAM
@@ -30,7 +29,7 @@ struct Slotting_Tests {
     /// back on itself the way a pocket boundary does.
     private func straightLineContour() -> SC.Contour {
         SC.Contour(entities: [
-            .init(entity: .line(a: DXF.Point(0, 0), b: DXF.Point(20, 0), layer: "0", color: 7), reversed: false)
+            .init(entity: .line(a: SIMD2<Double>(0, 0), b: SIMD2<Double>(20, 0)), reversed: false)
         ], isClosed: false)
     }
 
@@ -39,8 +38,8 @@ struct Slotting_Tests {
     /// original centerline, not just a single straight run.
     private func lShapedContour() -> SC.Contour {
         SC.Contour(entities: [
-            .init(entity: .line(a: DXF.Point(0, 0), b: DXF.Point(20, 0), layer: "0", color: 7), reversed: false),
-            .init(entity: .line(a: DXF.Point(20, 0), b: DXF.Point(20, 10), layer: "0", color: 7), reversed: false)
+            .init(entity: .line(a: SIMD2<Double>(0, 0), b: SIMD2<Double>(20, 0)), reversed: false),
+            .init(entity: .line(a: SIMD2<Double>(20, 0), b: SIMD2<Double>(20, 10)), reversed: false)
         ], isClosed: false)
     }
 
@@ -358,10 +357,10 @@ struct Slotting_Tests {
     /// leave behind, not its centerline.
     private func rectangleBoundaryContour(length: Double, width: Double) -> SC.Contour {
         SC.Contour(entities: [
-            .init(entity: .line(a: DXF.Point(0, 0), b: DXF.Point(length, 0), layer: "0", color: 7), reversed: false),
-            .init(entity: .line(a: DXF.Point(length, 0), b: DXF.Point(length, width), layer: "0", color: 7), reversed: false),
-            .init(entity: .line(a: DXF.Point(length, width), b: DXF.Point(0, width), layer: "0", color: 7), reversed: false),
-            .init(entity: .line(a: DXF.Point(0, width), b: DXF.Point(0, 0), layer: "0", color: 7), reversed: false)
+            .init(entity: .line(a: SIMD2<Double>(0, 0), b: SIMD2<Double>(length, 0)), reversed: false),
+            .init(entity: .line(a: SIMD2<Double>(length, 0), b: SIMD2<Double>(length, width)), reversed: false),
+            .init(entity: .line(a: SIMD2<Double>(length, width), b: SIMD2<Double>(0, width)), reversed: false),
+            .init(entity: .line(a: SIMD2<Double>(0, width), b: SIMD2<Double>(0, 0)), reversed: false)
         ], isClosed: true)
     }
 
@@ -430,10 +429,10 @@ struct Slotting_Tests {
         // Same 20mm x 4mm rectangle as the axis-aligned cases, but rotated 90°: long
         // axis now runs along Y instead of X.
         let boundary = SC.Contour(entities: [
-            .init(entity: .line(a: DXF.Point(0, 0), b: DXF.Point(0, 20), layer: "0", color: 7), reversed: false),
-            .init(entity: .line(a: DXF.Point(0, 20), b: DXF.Point(4, 20), layer: "0", color: 7), reversed: false),
-            .init(entity: .line(a: DXF.Point(4, 20), b: DXF.Point(4, 0), layer: "0", color: 7), reversed: false),
-            .init(entity: .line(a: DXF.Point(4, 0), b: DXF.Point(0, 0), layer: "0", color: 7), reversed: false)
+            .init(entity: .line(a: SIMD2<Double>(0, 0), b: SIMD2<Double>(0, 20)), reversed: false),
+            .init(entity: .line(a: SIMD2<Double>(0, 20), b: SIMD2<Double>(4, 20)), reversed: false),
+            .init(entity: .line(a: SIMD2<Double>(4, 20), b: SIMD2<Double>(4, 0)), reversed: false),
+            .init(entity: .line(a: SIMD2<Double>(4, 0), b: SIMD2<Double>(0, 0)), reversed: false)
         ], isClosed: true)
 
         let centerline = engine.rectangleSlotCenterline(fromBoundary: boundary, tool: tool)
@@ -486,10 +485,10 @@ struct Slotting_Tests {
         // A parallelogram (slanted sides), not a rectangle -- opposite sides are
         // equal length, but adjacent sides aren't perpendicular.
         let boundary = SC.Contour(entities: [
-            .init(entity: .line(a: DXF.Point(0, 0), b: DXF.Point(20, 0), layer: "0", color: 7), reversed: false),
-            .init(entity: .line(a: DXF.Point(20, 0), b: DXF.Point(24, 6), layer: "0", color: 7), reversed: false),
-            .init(entity: .line(a: DXF.Point(24, 6), b: DXF.Point(4, 6), layer: "0", color: 7), reversed: false),
-            .init(entity: .line(a: DXF.Point(4, 6), b: DXF.Point(0, 0), layer: "0", color: 7), reversed: false)
+            .init(entity: .line(a: SIMD2<Double>(0, 0), b: SIMD2<Double>(20, 0)), reversed: false),
+            .init(entity: .line(a: SIMD2<Double>(20, 0), b: SIMD2<Double>(24, 6)), reversed: false),
+            .init(entity: .line(a: SIMD2<Double>(24, 6), b: SIMD2<Double>(4, 6)), reversed: false),
+            .init(entity: .line(a: SIMD2<Double>(4, 6), b: SIMD2<Double>(0, 0)), reversed: false)
         ], isClosed: true)
 
         #expect(engine.rectangleSlotCenterline(fromBoundary: boundary, tool: tool) == nil,
@@ -504,10 +503,10 @@ struct Slotting_Tests {
         // 2 straight sides + 2 semicircular caps -- a stadium/rounded-rectangle
         // boundary, not the plain 4-straight-side rectangle this path handles.
         let boundary = SC.Contour(entities: [
-            .init(entity: .line(a: DXF.Point(3, 0), b: DXF.Point(27, 0), layer: "0", color: 7), reversed: false),
-            .init(entity: .arc(center: DXF.Point(27, 3), radius: 3, startDeg: -90, endDeg: 90, layer: "0", color: 7), reversed: false),
-            .init(entity: .line(a: DXF.Point(27, 6), b: DXF.Point(3, 6), layer: "0", color: 7), reversed: false),
-            .init(entity: .arc(center: DXF.Point(3, 3), radius: 3, startDeg: 90, endDeg: 270, layer: "0", color: 7), reversed: false)
+            .init(entity: .line(a: SIMD2<Double>(3, 0), b: SIMD2<Double>(27, 0)), reversed: false),
+            .init(entity: .arc(center: SIMD2<Double>(27, 3), radius: 3, startDeg: -90, endDeg: 90), reversed: false),
+            .init(entity: .line(a: SIMD2<Double>(27, 6), b: SIMD2<Double>(3, 6)), reversed: false),
+            .init(entity: .arc(center: SIMD2<Double>(3, 3), radius: 3, startDeg: 90, endDeg: 270), reversed: false)
         ], isClosed: true)
 
         #expect(engine.rectangleSlotCenterline(fromBoundary: boundary, tool: tool) == nil,
