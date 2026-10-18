@@ -175,7 +175,10 @@ extension SCEngine {
         var waypoints: [SC.Waypoint] = []
 
         switch entry {
-            case .plunge:
+            case .plunge, .fromOpenEnd:
+                // `.fromOpenEnd` outside `.slotting` means "the start is in free air": drop
+                // straight down, same as a plunge. (It used to fall through and emit no entry
+                // moves at all, so the first cutting move started from wherever the tool was.)
                 let (entryPoint, leadInMove) = resolveLeadIn(leadIn,
                                                              side: side,
                                                              contourStart: contourStart,
@@ -246,8 +249,6 @@ extension SCEngine {
                                                               settings: settings)
                 )
 
-            case .fromOpenEnd(stepoverPercentage: _):
-                break
         }
 
         // Trace the contour itself, clamping Z at any holding tabs.
@@ -265,7 +266,7 @@ extension SCEngine {
         }
         let contourEnd = lastSegment.endPoint
 
-        if entry == .plunge {
+        if entry.isStraightDown {
             let endTangent = direction(of: lastSegment, atEnd: true)
             if let (exitPoint, leadOutMove) = resolveLeadOut(leadOut,
                                                              side: side,

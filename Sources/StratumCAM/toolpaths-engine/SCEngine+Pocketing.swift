@@ -156,7 +156,9 @@ extension SCEngine {
         // TODO: this is a mess, the entrypoint should be extracted to separate method and buildWaypoints should be reused
         // Perhaps add also an exitwaypoints?
 
-        guard entry != .plunge else {
+        // `.fromOpenEnd` has no trochoidal feed-in outside `.slotting`; here it means the
+        // start is in free air, so it plunges like `.plunge` does.
+        guard !entry.isStraightDown else {
             return buildWaypoints(for: segments, atZ: z, settings: settings)
         }
 
@@ -214,8 +216,8 @@ extension SCEngine {
                                                               toZ: z,
                                                               settings: settings)
                 )
-            case .fromOpenEnd(stepoverPercentage: _):
-                break;
+            case .fromOpenEnd:
+                break // Handled above via `buildWaypoints`.
         }
 
         // Trace the chained pocket geometry -- mirrors `buildWaypoints`' own trace step.

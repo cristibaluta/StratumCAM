@@ -111,3 +111,17 @@ extension SC {
         case fromOpenEnd(stepoverPercentage: Double)
     }
 }
+
+extension SC.EntryStrategy {
+
+    /// Entries that simply drop straight down at the start point (rapid above it, then feed
+    /// down at the plunge rate). `.fromOpenEnd` only has its own, trochoidal, behaviour in
+    /// `.slotting`; on any other operation it means the start point is in free air, so a
+    /// straight drop is exactly what it asks for.
+    var isStraightDown: Bool {
+        switch self {
+            case .plunge, .fromOpenEnd: return true
+            case .ramp, .helix: return false
+        }
+    }
+}
