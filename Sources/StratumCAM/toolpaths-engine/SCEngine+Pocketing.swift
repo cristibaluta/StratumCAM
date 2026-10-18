@@ -217,7 +217,8 @@ extension SCEngine {
         return SC.OutputToolpath(operation: operation,
                                  tool: tool,
                                  settings: settings,
-                                 passes: passes)
+                                 passes: passes,
+                                 restCorners: restCorners(in: baseSegments, toolRadius: tool.diameter / 2.0))
     }
 
     // MARK: - Pocket entry
