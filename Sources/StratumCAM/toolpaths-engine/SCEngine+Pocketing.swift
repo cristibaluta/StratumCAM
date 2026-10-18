@@ -22,6 +22,24 @@ extension SCEngine {
             throw SC.Error.contourNotClosed
         }
 
+        // Reject entry parameters that the ramp/helix helpers would otherwise silently
+        // turn into a straight plunge.
+        switch entry {
+            case .ramp(let angleDegrees):
+                guard angleDegrees > 0, angleDegrees < 90 else {
+                    throw SC.Error.invalidParameter("entry.ramp.angleDegrees")
+                }
+            case .helix(let radius, let angleDegrees):
+                guard radius > 1e-9 else {
+                    throw SC.Error.invalidParameter("entry.helix.radius")
+                }
+                guard angleDegrees > 0, angleDegrees < 90 else {
+                    throw SC.Error.invalidParameter("entry.helix.rampAngleDegrees")
+                }
+            case .plunge, .fromOpenEnd:
+                break
+        }
+
         let baseSegments = contour.linearizedSegments
         guard !baseSegments.isEmpty else {
             throw SC.Error.invalidContour
@@ -62,7 +80,18 @@ extension SCEngine {
                     throw SC.Error.geometryCollapsed
                 }
 
-                toolpathSegments = chainedRingSegments(rows)
+                // Rows alternate direction, so half of them are inherently conventional.
+                // Close with a wall finishing loop in the requested direction, starting
+                // where the last row ended so the link between them is a no-op.
+                var chained = chainedRingSegments(rows)
+                let orientedWall = orientedForDirection(wallOffset, side: .inside, direction: direction)
+                let finishing = chained.last.map { rotatedLoop(orientedWall, startingAt: $0.endPoint) } ?? orientedWall
+                if let previousEnd = chained.last?.endPoint, let loopStart = finishing.first?.startPoint,
+                   hypot(loopStart.x - previousEnd.x, loopStart.y - previousEnd.y) > 1e-6 {
+                    chained.append(.line(start: previousEnd, end: loopStart))
+                }
+                chained.append(contentsOf: finishing)
+                toolpathSegments = chained
 
             case .spiral(let spiralDirection):
 
@@ -112,7 +141,8 @@ extension SCEngine {
                 toolpathSegments = chained
 
             case .adaptive:
-                fatalError("Not implemented yet")
+                // Not implemented yet -- surface it as an error instead of crashing the caller.
+                throw SC.Error.invalidParameter("pattern: .adaptive is not implemented")
         }
 
         guard !toolpathSegments.isEmpty else {
@@ -464,6 +494,64 @@ extension SCEngine {
         }
 
         return segments
+    }
+
+    // MARK: - Raster wall finishing
+
+    /// Rotates a closed, contiguous loop so it starts at `point` (which should lie on the
+    /// loop), splitting the segment that contains it. Returns `loop` unchanged when `point`
+    /// isn't on it.
+    func rotatedLoop(_ loop: [SC.Segment], startingAt point: CGPoint) -> [SC.Segment] {
+        let tolerance = 1e-4
+        var best: (index: Int, distance: Double)?
+
+        for (index, segment) in loop.enumerated() {
+            let distance: Double
+            switch segment {
+                case .line(let a, let b):
+                    let dx = b.x - a.x, dy = b.y - a.y
+                    let len2 = dx * dx + dy * dy
+                    let t = len2 > 1e-18 ? min(max(((point.x - a.x) * dx + (point.y - a.y) * dy) / len2, 0), 1) : 0
+                    distance = hypot(point.x - (a.x + t * dx), point.y - (a.y + t * dy))
+                case .arc(let c, let r, let startAngle, let endAngle, let isCCW):
+                    let angle = atan2(point.y - c.y, point.x - c.x)
+                    if EngineTools.angleWithinSweep(angle, start: startAngle, end: endAngle, isCCW: isCCW) {
+                        distance = abs(hypot(point.x - c.x, point.y - c.y) - r)
+                    } else {
+                        distance = .greatestFiniteMagnitude
+                    }
+            }
+            if best == nil || distance < best!.distance {
+                best = (index, distance)
+            }
+        }
+
+        guard let found = best, found.distance < tolerance else {
+            return loop
+        }
+
+        let segment = loop[found.index]
+        var head: [SC.Segment] = []   // from `point` to the end of the split segment
+        var tail: [SC.Segment] = []   // from the start of the split segment to `point`
+
+        switch segment {
+            case .line(let a, let b):
+                if hypot(point.x - b.x, point.y - b.y) > 1e-6 { head.append(.line(start: point, end: b)) }
+                if hypot(point.x - a.x, point.y - a.y) > 1e-6 { tail.append(.line(start: a, end: point)) }
+            case .arc(let c, let r, let startAngle, let endAngle, let isCCW):
+                let angle = atan2(point.y - c.y, point.x - c.x)
+                let p = CGPoint(x: c.x + r * cos(angle), y: c.y + r * sin(angle))
+                if hypot(p.x - segment.endPoint.x, p.y - segment.endPoint.y) > 1e-6 {
+                    head.append(.arc(center: c, radius: r, startAngle: angle, endAngle: endAngle, isCCW: isCCW))
+                }
+                if hypot(p.x - segment.startPoint.x, p.y - segment.startPoint.y) > 1e-6 {
+                    tail.append(.arc(center: c, radius: r, startAngle: startAngle, endAngle: angle, isCCW: isCCW))
+                }
+        }
+
+        let after = Array(loop[(found.index + 1)...])
+        let before = Array(loop[..<found.index])
+        return head + after + before + tail
     }
 
     // MARK: - Raster scanline geometry

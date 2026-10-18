@@ -104,9 +104,9 @@ struct Raster_Tests {
 
         // 20x10 rectangle, 2mm tool radius -> wall offset is [2,18]x[2,8] (6mm tall).
         // 2mm stepover -> 4 rows (y=2,4,6,8) + 3 connecting transitions between them.
-        // rapid + plunge + (4 rows + 3 connectors) + retract.
-        #expect(waypoints.count == 10,
-                "Test Failed: expected 10 waypoints for a 4-row raster pass, got \(waypoints.count)")
+        // rapid + plunge + (4 rows + 3 connectors) + 4-edge wall finishing loop + retract.
+        #expect(waypoints.count == 14,
+                "Test Failed: expected 14 waypoints for a 4-row raster pass, got \(waypoints.count)")
 
         #expect(waypoints[0].position.z == 5.0, "Test Failed: expected the initial rapid at safeZ")
         #expect(waypoints[1].position.z == -1.0, "Test Failed: expected a single plunge to targetDepth")
@@ -121,7 +121,7 @@ struct Raster_Tests {
         #expect(box.minY ~= 2.0 && box.maxY ~= 8.0,
                 "Test Failed: raster Y bounds should match the tool-radius wall offset")
 
-        #expect(waypoints[9].position.z == 5.0, "Test Failed: expected the final retract to safeZ")
+        #expect(waypoints[13].position.z == 5.0, "Test Failed: expected the final retract to safeZ")
     }
 
     // MARK: - Direction
@@ -204,9 +204,10 @@ struct Raster_Tests {
 
         // 1.5mm tool radius offset: straight edges move to x=[1.5,18.5]/y=[1.5,8.5],
         // corner arc radius shrinks from 2.0 to 0.5. Span 7.0 / 1.5mm stepover -> 6 rows
-        // at y = 1.5, 3.0, 4.5, 6.0, 7.5, 8.5. rapid + plunge + (6 rows + 5 connectors) + retract.
-        #expect(waypoints.count == 14,
-                "Test Failed: expected 14 waypoints for a 6-row raster pass, got \(waypoints.count)")
+        // at y = 1.5, 3.0, 4.5, 6.0, 7.5, 8.5. rapid + plunge + (6 rows + 5 connectors) + 8-segment
+        // wall finishing loop + retract.
+        #expect(waypoints.count == 22,
+                "Test Failed: expected 22 waypoints for a 6-row raster pass, got \(waypoints.count)")
 
         // The bottom row (y=1.5) sits exactly on the corner arcs' tangent points --
         // narrower than the straight-edge rows above it, because the rounded corners
