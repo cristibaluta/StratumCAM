@@ -54,7 +54,12 @@ struct PocketConcentric_Tests {
     func testRectangleMorphsToWallRectangle() throws {
         let w = try waypoints(width: 40, height: 24, direction: .insideOut)
 
-        #expect(isArc(w[3]), "Test Failed: innermost pass should be rounded (slot with round ends)")
+        // Starts as a perfect circle at the centre (12 mm tall half-height 10, stepover 2 -> radius 2).
+        for i in 1...4 {
+            let p = w[i].position
+            #expect(abs(hypot(Double(p.x) - 20, Double(p.y) - 12) - 2.0) < 1e-6,
+                    "Test Failed: waypoint \(i) should lie on the central circle")
+        }
 
         for p in w.dropFirst().dropLast().map(\.position) {
             #expect(p.x >= 2 - 1e-6 && p.x <= 38 + 1e-6 && p.y >= 2 - 1e-6 && p.y <= 22 + 1e-6,

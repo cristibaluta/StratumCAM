@@ -368,12 +368,14 @@ extension SCEngine {
     // MARK: - Concentric rings morphing from a circle to a rectangle
 
     /// Rings for an axis-aligned rectangular `wallRing`, ordered inside-out, that start as
-    /// a circle at the centre and end as the sharp rectangle:
-    ///   1. Stadium rings (a slot with semicircular ends -- a full circle for a square),
-    ///      radius growing one `stepover` at a time until it touches the long walls.
-    ///   2. Rounded-rectangle rings with the wall's full extents and a corner radius that
+    /// a perfect circle at the centre and end as the sharp rectangle:
+    ///   1. Perfect circles, radius growing one `stepover` at a time until the circle
+    ///      touches the long walls (for a square that already reaches the wall).
+    ///   2. Stadium rings (semicircular ends, lengthening straight core) whose ends advance
+    ///      one `stepover` at a time to the far walls.
+    ///   3. Rounded-rectangle rings with the wall's full extents and a corner radius that
     ///      shrinks to zero, so the corners sharpen gradually.
-    ///   3. The wall rectangle itself.
+    ///   4. The wall rectangle itself.
     /// Every ring starts at the middle of its bottom edge, so the links between rings are
     /// short vertical moves. Returns `nil` when `wallRing` isn't an axis-aligned rectangle.
     func roundedMorphRings(wallRing: [SC.Segment], toolRadius: Double, stepover: Double) -> [[SC.Segment]]? {
@@ -410,11 +412,24 @@ extension SCEngine {
         if let innermost = radii.last, innermost > toolRadius {
             radii.append(innermost / 2)
         }
+        // Perfect circles, growing from the centre until they touch the long walls.
         for r in radii.reversed() {
+            rings.append(roundedRectangleRing(center: center, halfWidth: r, halfHeight: r, cornerRadius: r))
+        }
+
+        // Past that the circle can't grow sideways, so its ends keep advancing along the
+        // long axis one stepover at a time (a stadium with a lengthening straight core)
+        // until the ends reach the far walls.
+        var advance = stepover
+        while advance < coreHalfLength - 1e-6 {
             rings.append(roundedRectangleRing(center: center,
-                                              halfWidth: isWide ? coreHalfLength + r : r,
-                                              halfHeight: isWide ? r : coreHalfLength + r,
-                                              cornerRadius: r))
+                                              halfWidth: isWide ? h + advance : h,
+                                              halfHeight: isWide ? h : h + advance,
+                                              cornerRadius: h))
+            advance += stepover
+        }
+        if coreHalfLength > 1e-6 {
+            rings.append(roundedRectangleRing(center: center, halfWidth: halfWidth, halfHeight: halfHeight, cornerRadius: h))
         }
 
         // 2. Corners sharpening. A corner of radius r sits r * (sqrt(2) - 1) from the
