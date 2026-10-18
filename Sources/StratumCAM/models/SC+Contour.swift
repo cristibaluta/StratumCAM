@@ -25,9 +25,16 @@ extension SC {
         public var entities: [Chained]
         public var isClosed: Bool
 
-        public init(entities: [Chained], isClosed: Bool) {
+        /// Circular islands left standing inside a closed pocket contour. Only the
+        /// `.pocket` operation with the `.concentric` pattern honors them (any other
+        /// pocket pattern throws rather than cutting through an island); every other
+        /// operation ignores them.
+        public var islands: [Contour]
+
+        public init(entities: [Chained], isClosed: Bool, islands: [Contour] = []) {
             self.entities = entities
             self.isClosed = isClosed
+            self.islands = islands
         }
     }
 }

@@ -50,9 +50,11 @@ class Demo {
         // 1. Convert each Contour to 3D simd points
         var rawPoints: [SIMD3<Float>] = []
         for contour in contours {
-            let segments = contour.linearizedSegments
-            let waypoints = engine.buildWaypoints(for: segments, atZ: 0, settings: settings)
-            rawPoints.append(contentsOf: tessellateForRender(waypoints))
+            for outline in [contour] + contour.islands {
+                let segments = outline.linearizedSegments
+                let waypoints = engine.buildWaypoints(for: segments, atZ: 0, settings: settings)
+                rawPoints.append(contentsOf: tessellateForRender(waypoints))
+            }
         }
 
         // 2. Convert Contours to toolpaths then to 3d simd points

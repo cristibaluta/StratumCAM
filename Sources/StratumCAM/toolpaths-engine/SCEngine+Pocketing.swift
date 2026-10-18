@@ -45,10 +45,24 @@ extension SCEngine {
             throw SC.Error.invalidContour
         }
 
+        // Islands would be gouged by any pattern that doesn't know about them, so refuse
+        // instead of silently cutting through.
+        if !contour.islands.isEmpty {
+            guard case .concentric = pattern else {
+                throw SC.Error.invalidParameter("islands are only supported by the .concentric pattern")
+            }
+            guard entry.isStraightDown else {
+                throw SC.Error.invalidParameter("islands require a plunge entry")
+            }
+        }
+
         let toolpathSegments: [SC.Segment]
 
         // The real, closed pocket-wall boundary
         let boundarySegments: [SC.Segment]
+
+        // Set when islands split the toolpath into separately-plunged groups.
+        var islandGroups: [[SC.Segment]]?
 
         switch pattern {
             case .offset:
@@ -82,7 +96,19 @@ extension SCEngine {
                 let insideOutRings = roundedMorphRings(wallRing: rings[0], toolRadius: tool.diameter / 2.0, stepover: stepover)
                     ?? Array(rings.reversed())
 
-                toolpathSegments = chainedRingSegments(ringOrder == .insideOut ? insideOutRings : Array(insideOutRings.reversed()))
+                let orderedRings = ringOrder == .insideOut ? insideOutRings : Array(insideOutRings.reversed())
+
+                if contour.islands.isEmpty {
+                    toolpathSegments = chainedRingSegments(orderedRings)
+                } else {
+                    let zones = try islandZones(contour.islands, toolRadius: tool.diameter / 2.0, wallRing: rings[0])
+                    let groups = islandRingGroups(rings: orderedRings, zones: zones)
+                    guard !groups.isEmpty else {
+                        throw SC.Error.geometryCollapsed
+                    }
+                    islandGroups = groups
+                    toolpathSegments = groups.flatMap { $0 }
+                }
 
             case .raster:
 
@@ -172,12 +198,18 @@ extension SCEngine {
         var passes: [SC.ToolpathPass] = []
         var previousZ = 0.0 // top of stock -- pass 0 ramps/helixes down from here, same convention `.contour` uses.
         for (i, z) in zDepths.enumerated() {
-            let waypoints = buildEntryWaypoints(for: toolpathSegments,
+            let waypoints: [SC.Waypoint]
+            if let groups = islandGroups {
+                // Each group is plunged and retracted on its own so no move crosses an island.
+                waypoints = groups.flatMap { buildWaypoints(for: $0, atZ: z, settings: settings) }
+            } else {
+                waypoints = buildEntryWaypoints(for: toolpathSegments,
                                                 boundary: boundarySegments,
                                                 atZ: z,
                                                 previousZ: previousZ,
                                                 settings: settings,
                                                 entry: entry)
+            }
             passes.append(SC.ToolpathPass(passIndex: i, depthZ: z, waypoints: waypoints))
             previousZ = z
         }
@@ -485,6 +517,293 @@ extension SCEngine {
         line(c.x - a + r, c.y - b, c.x, c.y - b)
 
         return segments
+    }
+
+    // MARK: - Islands
+
+    /// A circle the tool centre must stay outside of: the island's radius plus the tool radius.
+    struct PocketIslandZone {
+        let center: CGPoint
+        let radius: Double
+    }
+
+    /// Turns circular island contours into keep-out zones, validating that they sit inside
+    /// the wall ring and clear of each other (the tool must fit around every island).
+    func islandZones(_ islands: [SC.Contour], toolRadius: Double, wallRing: [SC.Segment]) throws -> [PocketIslandZone] {
+        var zones: [PocketIslandZone] = []
+
+        for island in islands {
+            let segments = island.linearizedSegments
+            guard island.isClosed, case .arc(let center, let radius, _, _, _) = segments.first,
+                  segments.allSatisfy({ segment in
+                      guard case .arc(let c, let r, _, _, _) = segment else {
+                          return false
+                      }
+                      return hypot(c.x - center.x, c.y - center.y) < 1e-6 && abs(r - radius) < 1e-6
+                  }) else {
+                throw SC.Error.invalidParameter("islands must be closed circles")
+            }
+            zones.append(PocketIslandZone(center: center, radius: radius + toolRadius))
+        }
+
+        for (index, zone) in zones.enumerated() {
+            guard pointInside(zone.center, loop: wallRing),
+                  wallRing.allSatisfy({ distance(from: zone.center, to: $0) >= zone.radius - 1e-6 }) else {
+                throw SC.Error.invalidParameter("island too close to the pocket wall for the tool to fit")
+            }
+            for other in zones[(index + 1)...] {
+                guard hypot(zone.center.x - other.center.x, zone.center.y - other.center.y) >= zone.radius + other.radius - 1e-6 else {
+                    throw SC.Error.invalidParameter("islands are closer together than the tool can fit")
+                }
+            }
+        }
+
+        return zones
+    }
+
+    /// Clips every ring against the island zones and chains the results into groups.
+    /// A ring crossing a zone follows the zone's edge on the inside of the ring instead of
+    /// cutting through the island, so each ring stays one closed loop. Each island's own
+    /// wall is finished with a full loop at the end. Consecutive loops are chained with a
+    /// straight link when that link stays clear of every zone; otherwise a new group starts
+    /// (plunged and retracted separately).
+    func islandRingGroups(rings: [[SC.Segment]], zones: [PocketIslandZone]) -> [[SC.Segment]] {
+        var groups: [[SC.Segment]] = []
+        var current: [SC.Segment] = []
+
+        func append(_ loop: [SC.Segment]) {
+            guard let start = loop.first?.startPoint else {
+                return
+            }
+            if let end = current.last?.endPoint {
+                if hypot(start.x - end.x, start.y - end.y) <= 1e-6 {
+                    current.append(contentsOf: loop)
+                    return
+                }
+                let linkCrossesZone = zones.contains { zone in
+                    distance(from: zone.center, to: .line(start: end, end: start)) < zone.radius - 1e-6
+                }
+                if !linkCrossesZone {
+                    current.append(.line(start: end, end: start))
+                    current.append(contentsOf: loop)
+                    return
+                }
+                groups.append(current)
+            }
+            current = loop
+        }
+
+        for ring in rings {
+            if let loop = clippedRingLoop(ring, zones: zones) {
+                append(loop)
+            }
+        }
+
+        // Island walls: outside profile, climb = counter-clockwise.
+        for zone in zones {
+            let quarters: [SC.Segment] = (0..<4).map { quarter in
+                let start = -Double.pi / 2 + Double(quarter) * Double.pi / 2
+                return .arc(center: zone.center, radius: zone.radius, startAngle: start, endAngle: start + Double.pi / 2, isCCW: true)
+            }
+            append(quarters)
+        }
+
+        if !current.isEmpty {
+            groups.append(current)
+        }
+        return groups
+    }
+
+    /// `ring` with the parts inside any zone replaced by the zone's edge (the side lying
+    /// inside the ring). Returns `ring` itself when nothing is clipped, `nil` when the
+    /// whole ring lies inside zones.
+    private func clippedRingLoop(_ ring: [SC.Segment], zones: [PocketIslandZone]) -> [SC.Segment]? {
+        var pieces = ring
+        for zone in zones {
+            pieces = pieces.flatMap { split($0, by: zone) }
+        }
+
+        let kept = pieces.map { piece -> Bool in
+            let middle = midpoint(of: piece)
+            return !zones.contains { hypot(middle.x - $0.center.x, middle.y - $0.center.y) < $0.radius - 1e-6 }
+        }
+
+        if kept.allSatisfy({ $0 }) {
+            return ring
+        }
+        let n = pieces.count
+        guard let startIndex = (0..<n).first(where: { kept[$0] && !kept[($0 + n - 1) % n] }) else {
+            return nil
+        }
+
+        var runs: [[SC.Segment]] = []
+        var offset = 0
+        while offset < n {
+            let index = (startIndex + offset) % n
+            if kept[index] {
+                var run: [SC.Segment] = []
+                while offset < n, kept[(startIndex + offset) % n] {
+                    run.append(pieces[(startIndex + offset) % n])
+                    offset += 1
+                }
+                runs.append(run)
+            } else {
+                offset += 1
+            }
+        }
+
+        var loop: [SC.Segment] = []
+        for (index, run) in runs.enumerated() {
+            loop.append(contentsOf: run)
+            guard let from = run.last?.endPoint, let to = runs[(index + 1) % runs.count].first?.startPoint else {
+                continue
+            }
+            loop.append(contentsOf: connector(from: from, to: to, zones: zones, ring: ring))
+        }
+        return loop
+    }
+
+    /// The path from `from` to `to` (both on one zone's edge): the arc of that edge lying
+    /// inside `ring`, or a straight line if they don't share a zone.
+    private func connector(from: CGPoint, to: CGPoint, zones: [PocketIslandZone], ring: [SC.Segment]) -> [SC.Segment] {
+        guard hypot(from.x - to.x, from.y - to.y) > 1e-6 else {
+            return []
+        }
+
+        func isOnEdge(_ p: CGPoint, _ zone: PocketIslandZone) -> Bool {
+            abs(hypot(p.x - zone.center.x, p.y - zone.center.y) - zone.radius) < 1e-4
+        }
+
+        guard let zone = zones.first(where: { isOnEdge(from, $0) && isOnEdge(to, $0) }) else {
+            return [.line(start: from, end: to)]
+        }
+
+        let startAngle = atan2(from.y - zone.center.y, from.x - zone.center.x)
+        let endAngle = atan2(to.y - zone.center.y, to.x - zone.center.x)
+        let counterClockwise: SC.Segment = .arc(center: zone.center, radius: zone.radius, startAngle: startAngle, endAngle: endAngle, isCCW: true)
+        let clockwise: SC.Segment = .arc(center: zone.center, radius: zone.radius, startAngle: startAngle, endAngle: endAngle, isCCW: false)
+
+        if pointInside(midpoint(of: counterClockwise), loop: ring) {
+            return [counterClockwise]
+        }
+        if pointInside(midpoint(of: clockwise), loop: ring) {
+            return [clockwise]
+        }
+        return [counterClockwise.pathLength <= clockwise.pathLength ? counterClockwise : clockwise]
+    }
+
+    /// Splits `segment` at every point where it crosses the zone's edge.
+    private func split(_ segment: SC.Segment, by zone: PocketIslandZone) -> [SC.Segment] {
+        switch segment {
+            case .line(let a, let b):
+                let dx = b.x - a.x, dy = b.y - a.y
+                let fx = a.x - zone.center.x, fy = a.y - zone.center.y
+                let qa = dx * dx + dy * dy
+                let qb = 2 * (fx * dx + fy * dy)
+                let qc = fx * fx + fy * fy - zone.radius * zone.radius
+                let discriminant = qb * qb - 4 * qa * qc
+                guard qa > 1e-12, discriminant > 0 else {
+                    return [segment]
+                }
+                let root = discriminant.squareRoot()
+                let ts = [(-qb - root) / (2 * qa), (-qb + root) / (2 * qa)]
+                    .filter { $0 > 1e-9 && $0 < 1 - 1e-9 }
+                    .sorted()
+                guard !ts.isEmpty else {
+                    return [segment]
+                }
+                var points: [CGPoint] = [a]
+                points.append(contentsOf: ts.map { CGPoint(x: a.x + $0 * dx, y: a.y + $0 * dy) })
+                points.append(b)
+                var pieces: [SC.Segment] = []
+                for index in 0..<(points.count - 1) {
+                    pieces.append(.line(start: points[index], end: points[index + 1]))
+                }
+                return pieces
+
+            case .arc(let center, let radius, let startAngle, let endAngle, let isCCW):
+                let dx = zone.center.x - center.x, dy = zone.center.y - center.y
+                let d = hypot(dx, dy)
+                guard d > 1e-9, d < radius + zone.radius, d > abs(radius - zone.radius) else {
+                    return [segment]
+                }
+                let along = (radius * radius - zone.radius * zone.radius + d * d) / (2 * d)
+                let heightSquared = radius * radius - along * along
+                guard heightSquared > 1e-12 else {
+                    return [segment]
+                }
+                let height = heightSquared.squareRoot()
+                let ux = dx / d, uy = dy / d
+                let base = CGPoint(x: center.x + along * ux, y: center.y + along * uy)
+                let candidates = [CGPoint(x: base.x - height * uy, y: base.y + height * ux),
+                                  CGPoint(x: base.x + height * uy, y: base.y - height * ux)]
+
+                let total = SC.Segment.sweepAngle(start: startAngle, end: endAngle, isCCW: isCCW)
+                // `sweepAngle` keeps multi-turn differences as they are, so normalise each
+                // crossing's sweep from the arc's start into one turn before comparing.
+                let twoPi = 2 * Double.pi
+                var sweeps: [Double] = []
+                for candidate in candidates {
+                    let angle = atan2(candidate.y - center.y, candidate.x - center.x)
+                    var sweep = SC.Segment.sweepAngle(start: startAngle, end: angle, isCCW: isCCW)
+                    sweep = sweep.truncatingRemainder(dividingBy: twoPi)
+                    if sweep < 0 {
+                        sweep += twoPi
+                    }
+                    if sweep > 1e-9 && sweep < total - 1e-9 {
+                        sweeps.append(sweep)
+                    }
+                }
+                guard !sweeps.isEmpty else {
+                    return [segment]
+                }
+                sweeps.sort()
+
+                // Boundaries expressed relative to `startAngle` so every piece has a plain,
+                // positive sweep in the arc's own direction.
+                let direction: Double = isCCW ? 1 : -1
+                var boundaries: [Double] = [0]
+                boundaries.append(contentsOf: sweeps)
+                boundaries.append(total)
+                var pieces: [SC.Segment] = []
+                for index in 0..<(boundaries.count - 1) {
+                    pieces.append(.arc(center: center,
+                                       radius: radius,
+                                       startAngle: startAngle + direction * boundaries[index],
+                                       endAngle: startAngle + direction * boundaries[index + 1],
+                                       isCCW: isCCW))
+                }
+                return pieces
+        }
+    }
+
+    private func midpoint(of segment: SC.Segment) -> CGPoint {
+        let length = segment.pathLength
+        return pointAlong(segment: segment, distance: length / 2, length: length)
+    }
+
+    /// Even-odd test of `point` against the closed `loop`.
+    private func pointInside(_ point: CGPoint, loop: [SC.Segment]) -> Bool {
+        horizontalIntersections(y: point.y, with: loop).filter { $0 > point.x }.count % 2 == 1
+    }
+
+    /// Shortest distance from `point` to `segment`.
+    private func distance(from point: CGPoint, to segment: SC.Segment) -> Double {
+        switch segment {
+            case .line(let a, let b):
+                let dx = b.x - a.x, dy = b.y - a.y
+                let len2 = dx * dx + dy * dy
+                let t = len2 > 1e-18 ? min(max(((point.x - a.x) * dx + (point.y - a.y) * dy) / len2, 0), 1) : 0
+                return hypot(point.x - (a.x + t * dx), point.y - (a.y + t * dy))
+
+            case .arc(let center, let radius, let startAngle, let endAngle, let isCCW):
+                let angle = atan2(point.y - center.y, point.x - center.x)
+                if EngineTools.angleWithinSweep(angle, start: startAngle, end: endAngle, isCCW: isCCW) {
+                    return abs(hypot(point.x - center.x, point.y - center.y) - radius)
+                }
+                let s = segment.startPoint, e = segment.endPoint
+                return min(hypot(point.x - s.x, point.y - s.y), hypot(point.x - e.x, point.y - e.y))
+        }
     }
 
     // MARK: - Step 2.2b: chaining rings into one continuous pass

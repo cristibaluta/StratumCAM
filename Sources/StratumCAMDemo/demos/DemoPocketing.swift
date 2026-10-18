@@ -111,6 +111,69 @@ class DemoPocketing: Demo {
         return self.run(contour: contour, tool: tool, settings: settings, operation: operation)
     }
 
+    /// The same climb-milled, centre-out 40x24 pocket as
+    /// `demoPocketRectangleConcentricFromCenter()`, with a few pseudo-random round islands
+    /// left standing. Rings that meet an island follow its edge instead of cutting
+    /// through it, and each island wall is finished with its own loop at the end.
+    func demoPocketRectangleConcentricWithIslands() -> Demo.DemoResult {
+        let tool = SC.ToolParams(diameter: 6.0)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -3.0)
+
+        let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .concentric(direction: .insideOut), entry: .plunge)
+
+        var contour = rectangleContour(width: 40, height: 24)
+        contour.islands = randomCircleIslands(count: 3,
+                                              seed: 7,
+                                              toolRadius: tool.diameter / 2.0,
+                                              width: 40,
+                                              height: 24)
+        return self.run(contour: contour, tool: tool, settings: settings, operation: operation)
+    }
+
+    /// Deterministic pseudo-random circular islands inside a `width` x `height` pocket
+    /// whose lower-left corner is the origin. Each island keeps clear of the walls, of
+    /// the other islands (by at least the tool diameter... the tool must fit between
+    /// them) and of the pocket centre, where the centre-out passes begin.
+    private func randomCircleIslands(count: Int, seed: UInt64, toolRadius: Double, width: Double, height: Double) -> [SC.Contour] {
+        var state = seed &* 6364136223846793005 &+ 1442695040888963407
+        func next() -> Double {
+            state = state &* 6364136223846793005 &+ 1442695040888963407
+            return Double(state >> 11) / Double(1 << 53)
+        }
+
+        var placed: [(x: Double, y: Double, radius: Double)] = []
+        var attempts = 0
+        while placed.count < count && attempts < 500 {
+            attempts += 1
+            let radius = 1.5 + next() * 1.5
+            let zone = radius + toolRadius
+            // Tool-centre wall ring is inset by the tool radius; keep the whole zone inside it.
+            let margin = toolRadius + zone + 0.5
+            guard width > 2 * margin, height > 2 * margin else {
+                continue
+            }
+            let x = margin + next() * (width - 2 * margin)
+            let y = margin + next() * (height - 2 * margin)
+
+            guard hypot(x - width / 2, y - height / 2) > zone + toolRadius + 2 else {
+                continue
+            }
+            let clear = placed.allSatisfy { other in
+                hypot(x - other.x, y - other.y) > zone + (other.radius + toolRadius) + 1
+            }
+            if clear {
+                placed.append((x, y, radius))
+            }
+        }
+
+        return placed.map { island in
+            SC.Contour(entities: [
+                SC.Contour.Chained(geometry: .circle(center: SIMD2<Double>(island.x, island.y), radius: island.radius), reversed: false)
+            ], isClosed: true)
+        }
+    }
+
     /// Clears a rounded rectangle, showing the ring stack's corner arcs shrinking
     /// ring by ring until the corner radius collapses to a sharp point -- at which
     /// point that corner just becomes a plain rectangle corner and stepping keeps
