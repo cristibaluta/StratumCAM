@@ -13,10 +13,10 @@ struct Pocket2_Tests {
         let height = 24.0
 
         let contour = SC.Contour(entities: [
-            .init(entity: .line(a: SIMD2<Double>(0, 0), b: SIMD2<Double>(width, 0)), reversed: false),
-            .init(entity: .line(a: SIMD2<Double>(width, 0), b: SIMD2<Double>(width, height)), reversed: false),
-            .init(entity: .line(a: SIMD2<Double>(width, height), b: SIMD2<Double>(0, height)), reversed: false),
-            .init(entity: .line(a: SIMD2<Double>(0, height), b: SIMD2<Double>(0, 0)), reversed: false)
+            .init(geometry: .line(a: SIMD2<Double>(0, 0), b: SIMD2<Double>(width, 0)), reversed: false),
+            .init(geometry: .line(a: SIMD2<Double>(width, 0), b: SIMD2<Double>(width, height)), reversed: false),
+            .init(geometry: .line(a: SIMD2<Double>(width, height), b: SIMD2<Double>(0, height)), reversed: false),
+            .init(geometry: .line(a: SIMD2<Double>(0, height), b: SIMD2<Double>(0, 0)), reversed: false)
         ], isClosed: true)
 
         let baseSegments = contour.linearizedSegments
@@ -44,10 +44,10 @@ struct Pocket2_Tests {
         let height = 24.0
 
         let contour = SC.Contour(entities: [
-            .init(entity: .line(a: SIMD2<Double>(0, 0), b: SIMD2<Double>(width, 0)), reversed: false),
-            .init(entity: .line(a: SIMD2<Double>(width, 0), b: SIMD2<Double>(width, height)), reversed: false),
-            .init(entity: .line(a: SIMD2<Double>(width, height), b: SIMD2<Double>(0, height)), reversed: false),
-            .init(entity: .line(a: SIMD2<Double>(0, height), b: SIMD2<Double>(0, 0)), reversed: false)
+            .init(geometry: .line(a: SIMD2<Double>(0, 0), b: SIMD2<Double>(width, 0)), reversed: false),
+            .init(geometry: .line(a: SIMD2<Double>(width, 0), b: SIMD2<Double>(width, height)), reversed: false),
+            .init(geometry: .line(a: SIMD2<Double>(width, height), b: SIMD2<Double>(0, height)), reversed: false),
+            .init(geometry: .line(a: SIMD2<Double>(0, height), b: SIMD2<Double>(0, 0)), reversed: false)
         ], isClosed: true)
 
         let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4)

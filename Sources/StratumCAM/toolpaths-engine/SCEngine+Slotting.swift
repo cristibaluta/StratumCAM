@@ -538,7 +538,7 @@ extension SCEngine {
         let end = CGPoint(x: center.x + dir.x * halfCenterlineLength, y: center.y + dir.y * halfCenterlineLength)
 
         return SC.Contour(entities: [
-            SC.Contour.Chained(entity: .line(a: SIMD2<Double>(start.x, start.y), b: SIMD2<Double>(end.x, end.y)), reversed: false)
+            SC.Contour.Chained(geometry: .line(a: SIMD2<Double>(start.x, start.y), b: SIMD2<Double>(end.x, end.y)), reversed: false)
         ], isClosed: false)
     }
 
@@ -661,7 +661,7 @@ extension SCEngine {
         let end = CGPoint(x: closedMid.x - dir.x * toolRadius, y: closedMid.y - dir.y * toolRadius)
 
         return SC.Contour(entities: [
-            SC.Contour.Chained(entity: .line(a: SIMD2<Double>(start.x, start.y), b: SIMD2<Double>(end.x, end.y)), reversed: false)
+            SC.Contour.Chained(geometry: .line(a: SIMD2<Double>(start.x, start.y), b: SIMD2<Double>(end.x, end.y)), reversed: false)
         ], isClosed: false)
     }
 
@@ -793,7 +793,7 @@ extension SCEngine {
         let end = CGPoint(x: farMid.x + dir.x * approach, y: farMid.y + dir.y * approach)
 
         return SC.Contour(entities: [
-            SC.Contour.Chained(entity: .line(a: SIMD2<Double>(start.x, start.y), b: SIMD2<Double>(end.x, end.y)), reversed: false)
+            SC.Contour.Chained(geometry: .line(a: SIMD2<Double>(start.x, start.y), b: SIMD2<Double>(end.x, end.y)), reversed: false)
         ], isClosed: false)
     }
 }

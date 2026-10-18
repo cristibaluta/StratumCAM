@@ -17,10 +17,10 @@ class DemoFacing: Demo {
     /// occupies gets faced, not whatever extra stock surrounds it.
     private func rectangleContour(width: Double, height: Double, originX: Double = 0, originY: Double = 0) -> SC.Contour {
         SC.Contour(entities: [
-            .init(entity: .line(a: SIMD2<Double>(originX, originY), b: SIMD2<Double>(originX + width, originY)), reversed: false),
-            .init(entity: .line(a: SIMD2<Double>(originX + width, originY), b: SIMD2<Double>(originX + width, originY + height)), reversed: false),
-            .init(entity: .line(a: SIMD2<Double>(originX + width, originY + height), b: SIMD2<Double>(originX, originY + height)), reversed: false),
-            .init(entity: .line(a: SIMD2<Double>(originX, originY + height), b: SIMD2<Double>(originX, originY)), reversed: false)
+            .init(geometry: .line(a: SIMD2<Double>(originX, originY), b: SIMD2<Double>(originX + width, originY)), reversed: false),
+            .init(geometry: .line(a: SIMD2<Double>(originX + width, originY), b: SIMD2<Double>(originX + width, originY + height)), reversed: false),
+            .init(geometry: .line(a: SIMD2<Double>(originX + width, originY + height), b: SIMD2<Double>(originX, originY + height)), reversed: false),
+            .init(geometry: .line(a: SIMD2<Double>(originX, originY + height), b: SIMD2<Double>(originX, originY)), reversed: false)
         ], isClosed: true)
     }
 

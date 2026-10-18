@@ -24,7 +24,7 @@ struct LargeArcDirection_Tests {
                        .init(SIMD2(0, 0))],
             closed: true
         )
-        return SC.Contour(entities: [.init(entity: shape, reversed: reversed)], isClosed: true)
+        return SC.Contour(entities: [.init(geometry: shape, reversed: reversed)], isClosed: true)
     }
 
     /// Motion of the long (300°-ish) arc in the last pass: `true` = CCW (G03), `false` = CW (G02).

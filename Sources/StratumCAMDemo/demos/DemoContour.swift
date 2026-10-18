@@ -18,10 +18,10 @@ class DemoContour: Demo {
     private func ccwSquareContour() -> SC.Contour {
         SC.Contour(
             entities: [
-                SC.Contour.Chained(entity: .line(a: SIMD2<Double>(0, 0), b: SIMD2<Double>(10, 0)), reversed: false),
-                SC.Contour.Chained(entity: .line(a: SIMD2<Double>(10, 0), b: SIMD2<Double>(10, 10)), reversed: false),
-                SC.Contour.Chained(entity: .line(a: SIMD2<Double>(10, 10), b: SIMD2<Double>(0, 10)), reversed: false),
-                SC.Contour.Chained(entity: .line(a: SIMD2<Double>(0, 10), b: SIMD2<Double>(0, 0)), reversed: false)
+                SC.Contour.Chained(geometry: .line(a: SIMD2<Double>(0, 0), b: SIMD2<Double>(10, 0)), reversed: false),
+                SC.Contour.Chained(geometry: .line(a: SIMD2<Double>(10, 0), b: SIMD2<Double>(10, 10)), reversed: false),
+                SC.Contour.Chained(geometry: .line(a: SIMD2<Double>(10, 10), b: SIMD2<Double>(0, 10)), reversed: false),
+                SC.Contour.Chained(geometry: .line(a: SIMD2<Double>(0, 10), b: SIMD2<Double>(0, 0)), reversed: false)
             ],
             isClosed: true
         )
@@ -30,10 +30,10 @@ class DemoContour: Demo {
     private func ccwRectangleContour(width: Double, height: Double) -> SC.Contour {
         SC.Contour(
             entities: [
-                SC.Contour.Chained(entity: .line(a: SIMD2<Double>(0, 0), b: SIMD2<Double>(width, 0)), reversed: false),
-                SC.Contour.Chained(entity: .line(a: SIMD2<Double>(width, 0), b: SIMD2<Double>(width, height)), reversed: false),
-                SC.Contour.Chained(entity: .line(a: SIMD2<Double>(width, height), b: SIMD2<Double>(0, height)), reversed: false),
-                SC.Contour.Chained(entity: .line(a: SIMD2<Double>(0, height), b: SIMD2<Double>(0, 0)), reversed: false)
+                SC.Contour.Chained(geometry: .line(a: SIMD2<Double>(0, 0), b: SIMD2<Double>(width, 0)), reversed: false),
+                SC.Contour.Chained(geometry: .line(a: SIMD2<Double>(width, 0), b: SIMD2<Double>(width, height)), reversed: false),
+                SC.Contour.Chained(geometry: .line(a: SIMD2<Double>(width, height), b: SIMD2<Double>(0, height)), reversed: false),
+                SC.Contour.Chained(geometry: .line(a: SIMD2<Double>(0, height), b: SIMD2<Double>(0, 0)), reversed: false)
             ],
             isClosed: true
         )
@@ -44,10 +44,10 @@ class DemoContour: Demo {
     private func fourSegmentLineContour() -> SC.Contour {
         SC.Contour(
             entities: [
-                SC.Contour.Chained(entity: .line(a: SIMD2<Double>(0, 0), b: SIMD2<Double>(5, 0)), reversed: false),
-                SC.Contour.Chained(entity: .line(a: SIMD2<Double>(5, 0), b: SIMD2<Double>(10, 0)), reversed: false),
-                SC.Contour.Chained(entity: .line(a: SIMD2<Double>(10, 0), b: SIMD2<Double>(15, 0)), reversed: false),
-                SC.Contour.Chained(entity: .line(a: SIMD2<Double>(15, 0), b: SIMD2<Double>(20, 0)), reversed: false)
+                SC.Contour.Chained(geometry: .line(a: SIMD2<Double>(0, 0), b: SIMD2<Double>(5, 0)), reversed: false),
+                SC.Contour.Chained(geometry: .line(a: SIMD2<Double>(5, 0), b: SIMD2<Double>(10, 0)), reversed: false),
+                SC.Contour.Chained(geometry: .line(a: SIMD2<Double>(10, 0), b: SIMD2<Double>(15, 0)), reversed: false),
+                SC.Contour.Chained(geometry: .line(a: SIMD2<Double>(15, 0), b: SIMD2<Double>(20, 0)), reversed: false)
             ],
             isClosed: false
         )
@@ -241,15 +241,15 @@ class DemoContour: Demo {
         return SC.Contour(
             entities: [
                 // Body, the long way around: bodyRight -> ... -> bodyLeft.
-                SC.Contour.Chained(entity: bodyArc, reversed: true),
-                SC.Contour.Chained(entity: .line(a: bodyLeft, b: notchLeft1), reversed: false),
-                SC.Contour.Chained(entity: .line(a: notchLeft1, b: notchLeft2), reversed: false),
-                SC.Contour.Chained(entity: .line(a: notchLeft2, b: loopLeft), reversed: false),
+                SC.Contour.Chained(geometry: bodyArc, reversed: true),
+                SC.Contour.Chained(geometry: .line(a: bodyLeft, b: notchLeft1), reversed: false),
+                SC.Contour.Chained(geometry: .line(a: notchLeft1, b: notchLeft2), reversed: false),
+                SC.Contour.Chained(geometry: .line(a: notchLeft2, b: loopLeft), reversed: false),
                 // Loop, the long way around: loopLeft -> ... -> loopRight.
-                SC.Contour.Chained(entity: loopArc, reversed: true),
-                SC.Contour.Chained(entity: .line(a: loopRight, b: notchRight1), reversed: false),
-                SC.Contour.Chained(entity: .line(a: notchRight1, b: notchRight2), reversed: false),
-                SC.Contour.Chained(entity: .line(a: notchRight2, b: bodyRight), reversed: false)
+                SC.Contour.Chained(geometry: loopArc, reversed: true),
+                SC.Contour.Chained(geometry: .line(a: loopRight, b: notchRight1), reversed: false),
+                SC.Contour.Chained(geometry: .line(a: notchRight1, b: notchRight2), reversed: false),
+                SC.Contour.Chained(geometry: .line(a: notchRight2, b: bodyRight), reversed: false)
             ],
             isClosed: true
         )
@@ -321,7 +321,7 @@ class DemoContour: Demo {
             closed: true
         )
 
-        return SC.Contour(entities: [SC.Contour.Chained(entity: shape, reversed: reversed)], isClosed: true)
+        return SC.Contour(entities: [SC.Contour.Chained(geometry: shape, reversed: reversed)], isClosed: true)
     }
 
     /// Profiles the outside of the Pac-Man with holding tabs. Tab positions are fractions of the

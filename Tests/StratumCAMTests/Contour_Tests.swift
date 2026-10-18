@@ -28,10 +28,10 @@ struct Contour_Tests {
     /// Same square as a closed `SC.Contour` for full-toolpath tests.
     private func ccwSquareContour() -> SC.Contour {
         SC.Contour(entities: [
-            .init(entity: .line(a: SIMD2<Double>(0, 0), b: SIMD2<Double>(10, 0)), reversed: false),
-            .init(entity: .line(a: SIMD2<Double>(10, 0), b: SIMD2<Double>(10, 10)), reversed: false),
-            .init(entity: .line(a: SIMD2<Double>(10, 10), b: SIMD2<Double>(0, 10)), reversed: false),
-            .init(entity: .line(a: SIMD2<Double>(0, 10), b: SIMD2<Double>(0, 0)), reversed: false)
+            .init(geometry: .line(a: SIMD2<Double>(0, 0), b: SIMD2<Double>(10, 0)), reversed: false),
+            .init(geometry: .line(a: SIMD2<Double>(10, 0), b: SIMD2<Double>(10, 10)), reversed: false),
+            .init(geometry: .line(a: SIMD2<Double>(10, 10), b: SIMD2<Double>(0, 10)), reversed: false),
+            .init(geometry: .line(a: SIMD2<Double>(0, 10), b: SIMD2<Double>(0, 0)), reversed: false)
         ], isClosed: true)
     }
 
@@ -39,10 +39,10 @@ struct Contour_Tests {
     /// exactly on a vertex instead of the middle of a single segment.
     private func fourSegmentLineContour() -> SC.Contour {
         SC.Contour(entities: [
-            .init(entity: .line(a: SIMD2<Double>(0, 0), b: SIMD2<Double>(5, 0)), reversed: false),
-            .init(entity: .line(a: SIMD2<Double>(5, 0), b: SIMD2<Double>(10, 0)), reversed: false),
-            .init(entity: .line(a: SIMD2<Double>(10, 0), b: SIMD2<Double>(15, 0)), reversed: false),
-            .init(entity: .line(a: SIMD2<Double>(15, 0), b: SIMD2<Double>(20, 0)), reversed: false)
+            .init(geometry: .line(a: SIMD2<Double>(0, 0), b: SIMD2<Double>(5, 0)), reversed: false),
+            .init(geometry: .line(a: SIMD2<Double>(5, 0), b: SIMD2<Double>(10, 0)), reversed: false),
+            .init(geometry: .line(a: SIMD2<Double>(10, 0), b: SIMD2<Double>(15, 0)), reversed: false),
+            .init(geometry: .line(a: SIMD2<Double>(15, 0), b: SIMD2<Double>(20, 0)), reversed: false)
         ], isClosed: false)
     }
 

@@ -16,8 +16,8 @@ extension SC {
             public var reversed: Bool
 
             // The inits are needed because the app using the lib is not able to init otherwise
-            public init(entity: SC.Geometry, reversed: Bool) {
-                self.geometry = entity
+            public init(geometry: SC.Geometry, reversed: Bool) {
+                self.geometry = geometry
                 self.reversed = reversed
             }
         }

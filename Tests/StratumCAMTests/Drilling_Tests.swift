@@ -20,7 +20,7 @@ struct Drilling_Tests {
     func testPointEntityIsRecognizedAsDrillPoint() {
         let engine = SCEngine()
         let contour = SC.Contour(entities: [
-            .init(entity: .point(at: SIMD2<Double>(5, 7)), reversed: false)
+            .init(geometry: .point(at: SIMD2<Double>(5, 7)), reversed: false)
         ], isClosed: false)
 
         let point = contour.drillPoint
@@ -33,7 +33,7 @@ struct Drilling_Tests {
     func testClosedCircleIsRecognizedAsDrillPoint() {
         let engine = SCEngine()
         let contour = SC.Contour(entities: [
-            .init(entity: .circle(center: SIMD2<Double>(3, 4), radius: 2.5), reversed: false)
+            .init(geometry: .circle(center: SIMD2<Double>(3, 4), radius: 2.5), reversed: false)
         ], isClosed: true)
 
         let point = contour.drillPoint
@@ -46,7 +46,7 @@ struct Drilling_Tests {
     func testOpenCircleIsNotRecognizedAsDrillPoint() {
         let engine = SCEngine()
         let contour = SC.Contour(entities: [
-            .init(entity: .circle(center: SIMD2<Double>(3, 4), radius: 2.5), reversed: false)
+            .init(geometry: .circle(center: SIMD2<Double>(3, 4), radius: 2.5), reversed: false)
         ], isClosed: false)
 
         #expect(contour.drillPoint == nil, "Test Failed: an unclosed circle should not resolve to a drill point")
@@ -56,7 +56,7 @@ struct Drilling_Tests {
     func testLineIsNotRecognizedAsDrillPoint() {
         let engine = SCEngine()
         let contour = SC.Contour(entities: [
-            .init(entity: .line(a: SIMD2<Double>(0, 0), b: SIMD2<Double>(10, 0)), reversed: false)
+            .init(geometry: .line(a: SIMD2<Double>(0, 0), b: SIMD2<Double>(10, 0)), reversed: false)
         ], isClosed: false)
 
         #expect(contour.drillPoint == nil, "Test Failed: a line should not resolve to a drill point")
@@ -66,8 +66,8 @@ struct Drilling_Tests {
     func testMultiEntityContourIsNotRecognizedAsDrillPoint() {
         let engine = SCEngine()
         let contour = SC.Contour(entities: [
-            .init(entity: .line(a: SIMD2<Double>(0, 0), b: SIMD2<Double>(10, 0)), reversed: false),
-            .init(entity: .point(at: SIMD2<Double>(5, 5)), reversed: false)
+            .init(geometry: .line(a: SIMD2<Double>(0, 0), b: SIMD2<Double>(10, 0)), reversed: false),
+            .init(geometry: .point(at: SIMD2<Double>(5, 5)), reversed: false)
         ], isClosed: false)
 
         #expect(contour.drillPoint == nil, "Test Failed: a multi-entity contour should not resolve to a single drill point")
@@ -82,7 +82,7 @@ struct Drilling_Tests {
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -8.0)
 
         let contour = SC.Contour(entities: [
-            .init(entity: .point(at: SIMD2<Double>(12, 20)), reversed: false)
+            .init(geometry: .point(at: SIMD2<Double>(12, 20)), reversed: false)
         ], isClosed: false)
 
         let toolpaths = try engine.generateToolpaths(from: [contour], tool: tool, settings: settings, operation: .drilling(peckDepth: nil))
@@ -127,7 +127,7 @@ struct Drilling_Tests {
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 250.0, stepdown: 1.0), safeZ: 6.0, targetDepth: -5.0)
 
         let contour = SC.Contour(entities: [
-            .init(entity: .circle(center: SIMD2<Double>(1, 2), radius: 2.0), reversed: false)
+            .init(geometry: .circle(center: SIMD2<Double>(1, 2), radius: 2.0), reversed: false)
         ], isClosed: true)
 
         let toolpaths = try engine.generateToolpaths(from: [contour], tool: tool, settings: settings, operation: .drilling(peckDepth: nil))
@@ -149,10 +149,10 @@ struct Drilling_Tests {
     @Test("closedShapeCenter is the bounding-box center of a closed contour")
     func testClosedShapeCenterIsBoundingBoxCenter() {
         let square = SC.Contour(entities: [
-            .init(entity: .line(a: SIMD2<Double>(0, 0), b: SIMD2<Double>(20, 0)), reversed: false),
-            .init(entity: .line(a: SIMD2<Double>(20, 0), b: SIMD2<Double>(20, 10)), reversed: false),
-            .init(entity: .line(a: SIMD2<Double>(20, 10), b: SIMD2<Double>(0, 10)), reversed: false),
-            .init(entity: .line(a: SIMD2<Double>(0, 10), b: SIMD2<Double>(0, 0)), reversed: false)
+            .init(geometry: .line(a: SIMD2<Double>(0, 0), b: SIMD2<Double>(20, 0)), reversed: false),
+            .init(geometry: .line(a: SIMD2<Double>(20, 0), b: SIMD2<Double>(20, 10)), reversed: false),
+            .init(geometry: .line(a: SIMD2<Double>(20, 10), b: SIMD2<Double>(0, 10)), reversed: false),
+            .init(geometry: .line(a: SIMD2<Double>(0, 10), b: SIMD2<Double>(0, 0)), reversed: false)
         ], isClosed: true)
 
         let center = square.closedShapeCenter
@@ -164,9 +164,9 @@ struct Drilling_Tests {
     @Test("closedShapeCenter is nil for an open contour")
     func testClosedShapeCenterIsNilWhenNotClosed() {
         let openSquare = SC.Contour(entities: [
-            .init(entity: .line(a: SIMD2<Double>(0, 0), b: SIMD2<Double>(20, 0)), reversed: false),
-            .init(entity: .line(a: SIMD2<Double>(20, 0), b: SIMD2<Double>(20, 10)), reversed: false),
-            .init(entity: .line(a: SIMD2<Double>(20, 10), b: SIMD2<Double>(0, 10)), reversed: false)
+            .init(geometry: .line(a: SIMD2<Double>(0, 0), b: SIMD2<Double>(20, 0)), reversed: false),
+            .init(geometry: .line(a: SIMD2<Double>(20, 0), b: SIMD2<Double>(20, 10)), reversed: false),
+            .init(geometry: .line(a: SIMD2<Double>(20, 10), b: SIMD2<Double>(0, 10)), reversed: false)
         ], isClosed: false)
 
         #expect(openSquare.closedShapeCenter == nil, "Test Failed: an open contour has no well-defined center")
@@ -179,10 +179,10 @@ struct Drilling_Tests {
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -6.0)
 
         let square = SC.Contour(entities: [
-            .init(entity: .line(a: SIMD2<Double>(10, 10), b: SIMD2<Double>(30, 10)), reversed: false),
-            .init(entity: .line(a: SIMD2<Double>(30, 10), b: SIMD2<Double>(30, 30)), reversed: false),
-            .init(entity: .line(a: SIMD2<Double>(30, 30), b: SIMD2<Double>(10, 30)), reversed: false),
-            .init(entity: .line(a: SIMD2<Double>(10, 30), b: SIMD2<Double>(10, 10)), reversed: false)
+            .init(geometry: .line(a: SIMD2<Double>(10, 10), b: SIMD2<Double>(30, 10)), reversed: false),
+            .init(geometry: .line(a: SIMD2<Double>(30, 10), b: SIMD2<Double>(30, 30)), reversed: false),
+            .init(geometry: .line(a: SIMD2<Double>(30, 30), b: SIMD2<Double>(10, 30)), reversed: false),
+            .init(geometry: .line(a: SIMD2<Double>(10, 30), b: SIMD2<Double>(10, 10)), reversed: false)
         ], isClosed: true)
 
         let toolpaths = try engine.generateToolpaths(from: [square], tool: tool, settings: settings, operation: .drilling(peckDepth: nil))
@@ -203,9 +203,9 @@ struct Drilling_Tests {
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -6.0)
 
         let openSquare = SC.Contour(entities: [
-            .init(entity: .line(a: SIMD2<Double>(10, 10), b: SIMD2<Double>(30, 10)), reversed: false),
-            .init(entity: .line(a: SIMD2<Double>(30, 10), b: SIMD2<Double>(30, 30)), reversed: false),
-            .init(entity: .line(a: SIMD2<Double>(30, 30), b: SIMD2<Double>(10, 30)), reversed: false)
+            .init(geometry: .line(a: SIMD2<Double>(10, 10), b: SIMD2<Double>(30, 10)), reversed: false),
+            .init(geometry: .line(a: SIMD2<Double>(30, 10), b: SIMD2<Double>(30, 30)), reversed: false),
+            .init(geometry: .line(a: SIMD2<Double>(30, 30), b: SIMD2<Double>(10, 30)), reversed: false)
         ], isClosed: false)
 
         do {
@@ -231,7 +231,7 @@ struct Drilling_Tests {
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -8.0)
 
         let contour = SC.Contour(entities: [
-            .init(entity: .line(a: SIMD2<Double>(0, 0), b: SIMD2<Double>(10, 0)), reversed: false)
+            .init(geometry: .line(a: SIMD2<Double>(0, 0), b: SIMD2<Double>(10, 0)), reversed: false)
         ], isClosed: false)
 
         // do/catch + Issue.record rather than #expect(throws:) -- the exact-value
@@ -258,7 +258,7 @@ struct Drilling_Tests {
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, retractZ: 1.0, targetDepth: 8.0)
 
         let contour = SC.Contour(entities: [
-            .init(entity: .point(at: SIMD2<Double>(10, 10)), reversed: false)
+            .init(geometry: .point(at: SIMD2<Double>(10, 10)), reversed: false)
         ], isClosed: false)
 
         let toolpaths = try engine.generateToolpaths(from: [contour], tool: tool, settings: settings, operation: .drilling(peckDepth: 4.0))
@@ -316,7 +316,7 @@ struct Drilling_Tests {
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, retractZ: 1.0, targetDepth: 10.0)
 
         let contour = SC.Contour(entities: [
-            .init(entity: .point(at: SIMD2<Double>(0, 0)), reversed: false)
+            .init(geometry: .point(at: SIMD2<Double>(0, 0)), reversed: false)
         ], isClosed: false)
 
         let toolpaths = try engine.generateToolpaths(from: [contour], tool: tool, settings: settings, operation: .drilling(peckDepth: 4.0))
@@ -342,7 +342,7 @@ struct Drilling_Tests {
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 250.0, stepdown: 1.0), safeZ: 6.0, retractZ: 1.5, targetDepth: 6.0)
 
         let contour = SC.Contour(entities: [
-            .init(entity: .circle(center: SIMD2<Double>(1, 2), radius: 2.0), reversed: false)
+            .init(geometry: .circle(center: SIMD2<Double>(1, 2), radius: 2.0), reversed: false)
         ], isClosed: true)
 
         let toolpaths = try engine.generateToolpaths(from: [contour], tool: tool, settings: settings, operation: .drilling(peckDepth: 3.0))
@@ -363,7 +363,7 @@ struct Drilling_Tests {
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: 8.0)
 
         let contour = SC.Contour(entities: [
-            .init(entity: .point(at: SIMD2<Double>(0, 0)), reversed: false)
+            .init(geometry: .point(at: SIMD2<Double>(0, 0)), reversed: false)
         ], isClosed: false)
 
         let toolpaths = try engine.generateToolpaths(from: [contour], tool: tool, settings: settings, operation: .drilling(peckDepth: 0.0))
@@ -400,7 +400,7 @@ struct Drilling_Tests {
             SC.Contour(
                 entities: [
                     .init(
-                        entity: .point(
+                        geometry: .point(
                             at: SIMD2<Double>(x, y)
                         ),
                         reversed: false
@@ -488,7 +488,7 @@ struct Drilling_Tests {
             SC.Contour(
                 entities: [
                     .init(
-                        entity: .point(
+                        geometry: .point(
                             at: SIMD2<Double>(x, y)
                         ),
                         reversed: false

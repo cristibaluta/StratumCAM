@@ -24,7 +24,7 @@ struct GCode_Boring_Tests {
         )
 
         let contour = SC.Contour(entities: [
-            .init(entity: .point(at: SIMD2<Double>(10, 20)), reversed: false)
+            .init(geometry: .point(at: SIMD2<Double>(10, 20)), reversed: false)
         ], isClosed: false)
 
         let toolpaths = try SCEngine().generateToolpaths(
@@ -62,7 +62,7 @@ struct GCode_Boring_Tests {
         )
 
         let contour = SC.Contour(entities: [
-            .init(entity: .point(at: SIMD2<Double>(5, 6)), reversed: false)
+            .init(geometry: .point(at: SIMD2<Double>(5, 6)), reversed: false)
         ], isClosed: false)
 
         let toolpaths = try SCEngine().generateToolpaths(
@@ -87,7 +87,7 @@ struct GCode_Boring_Tests {
         )
 
         let contour = SC.Contour(entities: [
-            .init(entity: .point(at: SIMD2<Double>(0, 0)), reversed: false)
+            .init(geometry: .point(at: SIMD2<Double>(0, 0)), reversed: false)
         ], isClosed: false)
 
         let toolpaths = try SCEngine().generateToolpaths(
@@ -129,7 +129,7 @@ struct GCode_Boring_Tests {
         )
 
         let contour = SC.Contour(entities: [
-            .init(entity: .point(at: SIMD2<Double>(5, 6)), reversed: false)
+            .init(geometry: .point(at: SIMD2<Double>(5, 6)), reversed: false)
         ], isClosed: false)
 
         // A zero dwellTime carries no useful instruction for the controller -- same
@@ -157,7 +157,7 @@ struct GCode_Boring_Tests {
 
         let contours = [(0.0, 0.0), (20.0, 0.0)].map { x, y in
             SC.Contour(entities: [
-                .init(entity: .point(at: SIMD2<Double>(x, y)), reversed: false)
+                .init(geometry: .point(at: SIMD2<Double>(x, y)), reversed: false)
             ], isClosed: false)
         }
 

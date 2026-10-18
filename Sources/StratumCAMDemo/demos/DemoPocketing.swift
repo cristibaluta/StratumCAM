@@ -16,10 +16,10 @@ class DemoPocketing: Demo {
     /// `Pocket_Tests.swift`.
     private func rectangleContour(width: Double, height: Double) -> SC.Contour {
         SC.Contour(entities: [
-            SC.Contour.Chained(entity: .line(a: SIMD2<Double>(0, 0), b: SIMD2<Double>(width, 0)), reversed: false),
-            SC.Contour.Chained(entity: .line(a: SIMD2<Double>(width, 0), b: SIMD2<Double>(width, height)), reversed: false),
-            SC.Contour.Chained(entity: .line(a: SIMD2<Double>(width, height), b: SIMD2<Double>(0, height)), reversed: false),
-            SC.Contour.Chained(entity: .line(a: SIMD2<Double>(0, height), b: SIMD2<Double>(0, 0)), reversed: false)
+            SC.Contour.Chained(geometry: .line(a: SIMD2<Double>(0, 0), b: SIMD2<Double>(width, 0)), reversed: false),
+            SC.Contour.Chained(geometry: .line(a: SIMD2<Double>(width, 0), b: SIMD2<Double>(width, height)), reversed: false),
+            SC.Contour.Chained(geometry: .line(a: SIMD2<Double>(width, height), b: SIMD2<Double>(0, height)), reversed: false),
+            SC.Contour.Chained(geometry: .line(a: SIMD2<Double>(0, height), b: SIMD2<Double>(0, 0)), reversed: false)
         ], isClosed: true)
     }
 
@@ -27,14 +27,14 @@ class DemoPocketing: Demo {
     /// fixture shape used by `Pocket_Tests.swift`.
     private func roundedRectangleContour(width: Double, height: Double, cornerRadius r: Double) -> SC.Contour {
         SC.Contour(entities: [
-            SC.Contour.Chained(entity: .line(a: SIMD2<Double>(r, 0), b: SIMD2<Double>(width - r, 0)), reversed: false),
-            SC.Contour.Chained(entity: .arc(center: SIMD2<Double>(width - r, r), radius: r, startDeg: -90, endDeg: 0), reversed: false),
-            SC.Contour.Chained(entity: .line(a: SIMD2<Double>(width, r), b: SIMD2<Double>(width, height - r)), reversed: false),
-            SC.Contour.Chained(entity: .arc(center: SIMD2<Double>(width - r, height - r), radius: r, startDeg: 0, endDeg: 90), reversed: false),
-            SC.Contour.Chained(entity: .line(a: SIMD2<Double>(width - r, height), b: SIMD2<Double>(r, height)), reversed: false),
-            SC.Contour.Chained(entity: .arc(center: SIMD2<Double>(r, height - r), radius: r, startDeg: 90, endDeg: 180), reversed: false),
-            SC.Contour.Chained(entity: .line(a: SIMD2<Double>(0, height - r), b: SIMD2<Double>(0, r)), reversed: false),
-            SC.Contour.Chained(entity: .arc(center: SIMD2<Double>(r, r), radius: r, startDeg: 180, endDeg: 270), reversed: false)
+            SC.Contour.Chained(geometry: .line(a: SIMD2<Double>(r, 0), b: SIMD2<Double>(width - r, 0)), reversed: false),
+            SC.Contour.Chained(geometry: .arc(center: SIMD2<Double>(width - r, r), radius: r, startDeg: -90, endDeg: 0), reversed: false),
+            SC.Contour.Chained(geometry: .line(a: SIMD2<Double>(width, r), b: SIMD2<Double>(width, height - r)), reversed: false),
+            SC.Contour.Chained(geometry: .arc(center: SIMD2<Double>(width - r, height - r), radius: r, startDeg: 0, endDeg: 90), reversed: false),
+            SC.Contour.Chained(geometry: .line(a: SIMD2<Double>(width - r, height), b: SIMD2<Double>(r, height)), reversed: false),
+            SC.Contour.Chained(geometry: .arc(center: SIMD2<Double>(r, height - r), radius: r, startDeg: 90, endDeg: 180), reversed: false),
+            SC.Contour.Chained(geometry: .line(a: SIMD2<Double>(0, height - r), b: SIMD2<Double>(0, r)), reversed: false),
+            SC.Contour.Chained(geometry: .arc(center: SIMD2<Double>(r, r), radius: r, startDeg: 180, endDeg: 270), reversed: false)
         ], isClosed: true)
     }
 
@@ -45,14 +45,14 @@ class DemoPocketing: Demo {
     private func staplePolygonContour(scale: Double = 2.0) -> SC.Contour {
         let s = scale
         return SC.Contour(entities: [
-            SC.Contour.Chained(entity: .line(a: SIMD2<Double>(0, 0), b: SIMD2<Double>(20 * s, 0)), reversed: false),
-            SC.Contour.Chained(entity: .line(a: SIMD2<Double>(20 * s, 0), b: SIMD2<Double>(20 * s, 10 * s)), reversed: false),
-            SC.Contour.Chained(entity: .line(a: SIMD2<Double>(20 * s, 10 * s), b: SIMD2<Double>(12 * s, 10 * s)), reversed: false),
-            SC.Contour.Chained(entity: .line(a: SIMD2<Double>(12 * s, 10 * s), b: SIMD2<Double>(12 * s, 4 * s)), reversed: false),
-            SC.Contour.Chained(entity: .line(a: SIMD2<Double>(12 * s, 4 * s), b: SIMD2<Double>(8 * s, 4 * s)), reversed: false),
-            SC.Contour.Chained(entity: .line(a: SIMD2<Double>(8 * s, 4 * s), b: SIMD2<Double>(8 * s, 10 * s)), reversed: false),
-            SC.Contour.Chained(entity: .line(a: SIMD2<Double>(8 * s, 10 * s), b: SIMD2<Double>(0, 10 * s)), reversed: false),
-            SC.Contour.Chained(entity: .line(a: SIMD2<Double>(0, 10 * s), b: SIMD2<Double>(0, 0)), reversed: false)
+            SC.Contour.Chained(geometry: .line(a: SIMD2<Double>(0, 0), b: SIMD2<Double>(20 * s, 0)), reversed: false),
+            SC.Contour.Chained(geometry: .line(a: SIMD2<Double>(20 * s, 0), b: SIMD2<Double>(20 * s, 10 * s)), reversed: false),
+            SC.Contour.Chained(geometry: .line(a: SIMD2<Double>(20 * s, 10 * s), b: SIMD2<Double>(12 * s, 10 * s)), reversed: false),
+            SC.Contour.Chained(geometry: .line(a: SIMD2<Double>(12 * s, 10 * s), b: SIMD2<Double>(12 * s, 4 * s)), reversed: false),
+            SC.Contour.Chained(geometry: .line(a: SIMD2<Double>(12 * s, 4 * s), b: SIMD2<Double>(8 * s, 4 * s)), reversed: false),
+            SC.Contour.Chained(geometry: .line(a: SIMD2<Double>(8 * s, 4 * s), b: SIMD2<Double>(8 * s, 10 * s)), reversed: false),
+            SC.Contour.Chained(geometry: .line(a: SIMD2<Double>(8 * s, 10 * s), b: SIMD2<Double>(0, 10 * s)), reversed: false),
+            SC.Contour.Chained(geometry: .line(a: SIMD2<Double>(0, 10 * s), b: SIMD2<Double>(0, 0)), reversed: false)
         ], isClosed: true)
     }
 
@@ -61,7 +61,7 @@ class DemoPocketing: Demo {
     /// DXF `.circle` entity linearizes: two 180° arcs of matching center/radius).
     private func circleContour(radius: Double) -> SC.Contour {
         SC.Contour(entities: [
-            SC.Contour.Chained(entity: .circle(center: SIMD2<Double>(0, 0), radius: radius), reversed: false)
+            SC.Contour.Chained(geometry: .circle(center: SIMD2<Double>(0, 0), radius: radius), reversed: false)
         ], isClosed: true)
     }
 

@@ -23,7 +23,7 @@ struct LargeArcDemoShape_Tests {
                        .init(SIMD2(0, 0))],
             closed: true
         )
-        return SC.Contour(entities: [.init(entity: shape, reversed: reversed)], isClosed: true)
+        return SC.Contour(entities: [.init(geometry: shape, reversed: reversed)], isClosed: true)
     }
 
     @Test("The 300° arc is measured as 300°, forward and reversed")

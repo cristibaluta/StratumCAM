@@ -12,7 +12,7 @@ public enum EntityChainer {
 
     public static func chain(_ entities: [SC.Geometry], tolerance: Double = 1e-3) -> [SC.Contour] {
 
-        var remaining = entities.map { (entity: $0, used: false) }
+        var remaining = entities.map { (geometry: $0, used: false) }
         var contours: [SC.Contour] = []
 
         func endpoints(_ e: SC.Geometry) -> (CGPoint, CGPoint)? {
@@ -40,11 +40,11 @@ public enum EntityChainer {
         }
 
         for startIndex in remaining.indices {
-            guard !remaining[startIndex].used, let (s0, e0) = endpoints(remaining[startIndex].entity) else {
+            guard !remaining[startIndex].used, let (s0, e0) = endpoints(remaining[startIndex].geometry) else {
                 continue
             }
 
-            var chain: [SC.Contour.Chained] = [SC.Contour.Chained(entity: remaining[startIndex].entity, reversed: false)]
+            var chain: [SC.Contour.Chained] = [SC.Contour.Chained(geometry: remaining[startIndex].geometry, reversed: false)]
             remaining[startIndex].used = true
             var tail = e0
 
@@ -52,17 +52,17 @@ public enum EntityChainer {
             while extended {
                 extended = false
                 for i in remaining.indices where !remaining[i].used {
-                    guard let (a, b) = endpoints(remaining[i].entity) else {
+                    guard let (a, b) = endpoints(remaining[i].geometry) else {
                         continue
                     }
                     if close(tail, a) {
-                        chain.append(SC.Contour.Chained(entity: remaining[i].entity, reversed: false))
+                        chain.append(SC.Contour.Chained(geometry: remaining[i].geometry, reversed: false))
                         remaining[i].used = true
                         tail = b
                         extended = true
                         break
                     } else if close(tail, b) {
-                        chain.append(SC.Contour.Chained(entity: remaining[i].entity, reversed: true))
+                        chain.append(SC.Contour.Chained(geometry: remaining[i].geometry, reversed: true))
                         remaining[i].used = true
                         tail = a
                         extended = true
@@ -78,7 +78,7 @@ public enum EntityChainer {
 
         for i in remaining.indices where !remaining[i].used {
             contours.append(
-                SC.Contour(entities: [SC.Contour.Chained(entity: remaining[i].entity, reversed: false)], isClosed: true)
+                SC.Contour(entities: [SC.Contour.Chained(geometry: remaining[i].geometry, reversed: false)], isClosed: true)
             )
             remaining[i].used = true
         }

@@ -21,7 +21,7 @@ class DemoEngraving: Demo {
                                          b: SIMD2<Double>(20, 0))
         let contour = SC.Contour(
             entities: [
-                SC.Contour.Chained(entity: lineEntity, reversed: false)
+                SC.Contour.Chained(geometry: lineEntity, reversed: false)
             ],
             isClosed: false
         )
@@ -39,7 +39,7 @@ class DemoEngraving: Demo {
                                          b: SIMD2<Double>(20, 0))
         let contour = SC.Contour(
             entities: [
-                SC.Contour.Chained(entity: lineEntity, reversed: false)
+                SC.Contour.Chained(geometry: lineEntity, reversed: false)
             ],
             isClosed: false
         )
@@ -74,8 +74,8 @@ class DemoEngraving: Demo {
 
         let contour = SC.Contour(
             entities: [
-                SC.Contour.Chained(entity: lowerArc, reversed: false),
-                SC.Contour.Chained(entity: upperArc, reversed: true)
+                SC.Contour.Chained(geometry: lowerArc, reversed: false),
+                SC.Contour.Chained(geometry: upperArc, reversed: true)
             ],
             isClosed: false
         )
@@ -140,8 +140,8 @@ class DemoEngraving: Demo {
 
         return [
             SC.Contour(entities: [
-                SC.Contour.Chained(entity: lowerArc, reversed: false),
-                SC.Contour.Chained(entity: upperArc, reversed: true)
+                SC.Contour.Chained(geometry: lowerArc, reversed: false),
+                SC.Contour.Chained(geometry: upperArc, reversed: true)
             ], isClosed: false)
         ]
     }
@@ -159,9 +159,9 @@ class DemoEngraving: Demo {
         let stem = lineContour(xOffset + 0, 0, xOffset + 0, 20)
 
         let bowl = SC.Contour(entities: [
-            SC.Contour.Chained(entity: line(xOffset + 0, 20, xOffset + 8, 20), reversed: false),
-            SC.Contour.Chained(entity: line(xOffset + 8, 20, xOffset + 8, 11), reversed: false),
-            SC.Contour.Chained(entity: line(xOffset + 8, 11, xOffset + 0, 11), reversed: false)
+            SC.Contour.Chained(geometry: line(xOffset + 0, 20, xOffset + 8, 20), reversed: false),
+            SC.Contour.Chained(geometry: line(xOffset + 8, 20, xOffset + 8, 11), reversed: false),
+            SC.Contour.Chained(geometry: line(xOffset + 8, 11, xOffset + 0, 11), reversed: false)
         ], isClosed: false)
 
         let leg = lineContour(xOffset + 0, 11, xOffset + 9, 0)
@@ -172,8 +172,8 @@ class DemoEngraving: Demo {
     /// Two diagonals chained into a peak, plus a separate horizontal crossbar.
     private func letterA(_ xOffset: Double) -> [SC.Contour] {
         let peak = SC.Contour(entities: [
-            SC.Contour.Chained(entity: line(xOffset + 0, 0, xOffset + 5, 20), reversed: false),
-            SC.Contour.Chained(entity: line(xOffset + 5, 20, xOffset + 10, 0), reversed: false)
+            SC.Contour.Chained(geometry: line(xOffset + 0, 0, xOffset + 5, 20), reversed: false),
+            SC.Contour.Chained(geometry: line(xOffset + 5, 20, xOffset + 10, 0), reversed: false)
         ], isClosed: false)
 
         let crossbar = lineContour(xOffset + 2.5, 8, xOffset + 7.5, 8)
@@ -206,7 +206,7 @@ class DemoEngraving: Demo {
     /// Wraps a single straight line as a one-entity, open `SC.Contour`.
     private func lineContour(_ x1: Double, _ y1: Double, _ x2: Double, _ y2: Double) -> SC.Contour {
         SC.Contour(entities: [
-            SC.Contour.Chained(entity: line(x1, y1, x2, y2), reversed: false)
+            SC.Contour.Chained(geometry: line(x1, y1, x2, y2), reversed: false)
         ], isClosed: false)
     }
 
@@ -217,7 +217,7 @@ class DemoEngraving: Demo {
         for i in 0..<(points.count - 1) {
             let (x1, y1) = points[i]
             let (x2, y2) = points[i + 1]
-            entities.append(SC.Contour.Chained(entity: line(xOffset + x1, y1, xOffset + x2, y2), reversed: false))
+            entities.append(SC.Contour.Chained(geometry: line(xOffset + x1, y1, xOffset + x2, y2), reversed: false))
         }
         return SC.Contour(entities: entities, isClosed: false)
     }

@@ -30,7 +30,7 @@ struct Engraving_Tests {
 
         let contour = SC.Contour(
             entities: [
-                SC.Contour.Chained(entity: lineEntity, reversed: false)
+                SC.Contour.Chained(geometry: lineEntity, reversed: false)
             ],
             isClosed: false
         )
@@ -108,7 +108,7 @@ struct Engraving_Tests {
 
         let contour = SC.Contour(
             entities: [
-                SC.Contour.Chained(entity: arcEntity, reversed: false)
+                SC.Contour.Chained(geometry: arcEntity, reversed: false)
             ],
             isClosed: false
         )
@@ -181,7 +181,7 @@ struct Engraving_Tests {
 
         let contour = SC.Contour(
             entities: [
-                SC.Contour.Chained(entity: lineEntity, reversed: false)
+                SC.Contour.Chained(geometry: lineEntity, reversed: false)
             ],
             isClosed: false
         )

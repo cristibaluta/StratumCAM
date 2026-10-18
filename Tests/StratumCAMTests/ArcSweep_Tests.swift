@@ -47,7 +47,7 @@ struct ArcSweep_Tests {
         // passing through angle π -- exactly the seam.
         let bulge = 0.2
         let contour = SC.Contour(
-            entities: [.init(entity: .polyline(vertices: [.init(SIMD2(-10, 1), bulge: bulge),
+            entities: [.init(geometry: .polyline(vertices: [.init(SIMD2(-10, 1), bulge: bulge),
                                                           .init(SIMD2(-10, -1))],
                                                closed: false),
                              reversed: false)],
@@ -66,7 +66,7 @@ struct ArcSweep_Tests {
     func testWindingWithSeamArc() {
         // Down the arc on the left, back up the straight side on the right: CCW.
         let contour = SC.Contour(
-            entities: [.init(entity: .polyline(vertices: [.init(SIMD2(-10, 1), bulge: 0.2),
+            entities: [.init(geometry: .polyline(vertices: [.init(SIMD2(-10, 1), bulge: 0.2),
                                                           .init(SIMD2(-10, -1))],
                                                closed: true),
                              reversed: false)],
@@ -87,7 +87,7 @@ struct ArcSweep_Tests {
                        .init(SIMD2(0, 0))],
             closed: true
         )
-        return SC.Contour(entities: [.init(entity: shape, reversed: reversed)], isClosed: true)
+        return SC.Contour(entities: [.init(geometry: shape, reversed: reversed)], isClosed: true)
     }
 
     @Test("Large-arc demo shape: the 300° arc is measured as 300°, forward and reversed")

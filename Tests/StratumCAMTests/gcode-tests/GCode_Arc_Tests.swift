@@ -45,7 +45,7 @@ struct GCode_Arc_Tests {
     }
 
     private func toolpaths(for arc: SC.Geometry, reversed: Bool) throws -> [SC.OutputToolpath] {
-        let contour = SC.Contour(entities: [.init(entity: arc, reversed: reversed)], isClosed: false)
+        let contour = SC.Contour(entities: [.init(geometry: arc, reversed: reversed)], isClosed: false)
         return try SCEngine().generateToolpaths(from: [contour],
                                                 tool: SC.ToolParams(diameter: 3),
                                                 settings: settings,

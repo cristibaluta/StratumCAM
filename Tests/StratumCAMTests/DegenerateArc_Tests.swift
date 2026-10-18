@@ -59,9 +59,9 @@ struct DegenerateArc_Tests {
         // Arc from 270° to 270° around (10, 5): a zero-length arc at (10, 0), between two lines.
         let contour = SC.Contour(
             entities: [
-                .init(entity: .line(a: SIMD2(0, 0), b: SIMD2(10, 0)), reversed: false),
-                .init(entity: .arc(center: SIMD2(10, 5), radius: 5, startDeg: 270, endDeg: 270), reversed: false),
-                .init(entity: .line(a: SIMD2(10, 0), b: SIMD2(20, 0)), reversed: false)
+                .init(geometry: .line(a: SIMD2(0, 0), b: SIMD2(10, 0)), reversed: false),
+                .init(geometry: .arc(center: SIMD2(10, 5), radius: 5, startDeg: 270, endDeg: 270), reversed: false),
+                .init(geometry: .line(a: SIMD2(10, 0), b: SIMD2(20, 0)), reversed: false)
             ],
             isClosed: false
         )
@@ -74,7 +74,7 @@ struct DegenerateArc_Tests {
     @Test("A bulge on a near-duplicate polyline vertex does not leave a micro arc")
     func testMicroBulgeArcDropped() {
         let contour = SC.Contour(
-            entities: [.init(entity: .polyline(vertices: [.init(SIMD2(0, 0)),
+            entities: [.init(geometry: .polyline(vertices: [.init(SIMD2(0, 0)),
                                                           .init(SIMD2(10, 0), bulge: 1),
                                                           .init(SIMD2(10, 1e-7)),
                                                           .init(SIMD2(10, 10))],
@@ -93,9 +93,9 @@ struct DegenerateArc_Tests {
     func testNoFullCircleFromZeroLengthArc() throws {
         let contour = SC.Contour(
             entities: [
-                .init(entity: .line(a: SIMD2(0, 0), b: SIMD2(10, 0)), reversed: false),
-                .init(entity: .arc(center: SIMD2(10, 5), radius: 5, startDeg: 270, endDeg: 270), reversed: false),
-                .init(entity: .line(a: SIMD2(10, 0), b: SIMD2(20, 0)), reversed: false)
+                .init(geometry: .line(a: SIMD2(0, 0), b: SIMD2(10, 0)), reversed: false),
+                .init(geometry: .arc(center: SIMD2(10, 5), radius: 5, startDeg: 270, endDeg: 270), reversed: false),
+                .init(geometry: .line(a: SIMD2(10, 0), b: SIMD2(20, 0)), reversed: false)
             ],
             isClosed: false
         )

@@ -19,7 +19,7 @@ class DemoCounterbore: Demo {
     /// from drilling's `drillPoint(for:)`.
     private func pointContour(_ x: Double, _ y: Double) -> SC.Contour {
         SC.Contour(entities: [
-            SC.Contour.Chained(entity: .point(at: SIMD2<Double>(x, y)), reversed: false)
+            SC.Contour.Chained(geometry: .point(at: SIMD2<Double>(x, y)), reversed: false)
         ], isClosed: false)
     }
 

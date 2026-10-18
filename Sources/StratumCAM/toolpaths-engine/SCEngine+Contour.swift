@@ -553,7 +553,7 @@ extension SC.Contour {
         var segments: [SC.Segment] = []
 
         for chained in self.entities {
-            let extracted = convert(entity: chained.geometry, reversed: chained.reversed)
+            let extracted = convert(geometry: chained.geometry, reversed: chained.reversed)
             segments.append(contentsOf: extracted)
         }
 
@@ -562,12 +562,12 @@ extension SC.Contour {
 
     /// Converts a raw geometry into normalized CNC path primitives (`Segment`).
     /// - Parameters:
-    ///   - entity: The source geometry from the contour chain.
+    ///   - geometry: The source geometry from the contour chain.
     ///   - reversed: `true` if EntityChainer is walking the entity backwards.
     /// - Returns: An array of linear and circular arc segments representing the cutter motion.
-    public func convert(entity: SC.Geometry, reversed: Bool) -> [SC.Segment] {
+    public func convert(geometry: SC.Geometry, reversed: Bool) -> [SC.Segment] {
 
-        switch entity {
+        switch geometry {
             case let .line(a, b):
                 let start = reversed ? b.cgPoint : a.cgPoint
                 let end = reversed ? a.cgPoint : b.cgPoint

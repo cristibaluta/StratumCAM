@@ -26,7 +26,7 @@ struct Boring_Tests {
                                           targetDepth: -8.0)
 
         let contour = SC.Contour(entities: [
-            .init(entity: .point(at: SIMD2<Double>(12, 20)), reversed: false)
+            .init(geometry: .point(at: SIMD2<Double>(12, 20)), reversed: false)
         ], isClosed: false)
 
         let toolpaths = try engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
@@ -101,7 +101,7 @@ struct Boring_Tests {
                                           targetDepth: -5.0)
 
         let contour = SC.Contour(entities: [
-            .init(entity: .circle(center: SIMD2<Double>(1, 2), radius: 3.0), reversed: false)
+            .init(geometry: .circle(center: SIMD2<Double>(1, 2), radius: 3.0), reversed: false)
         ], isClosed: true)
 
         let toolpaths = try engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
@@ -131,7 +131,7 @@ struct Boring_Tests {
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -8.0)
 
         let contour = SC.Contour(entities: [
-            .init(entity: .line(a: SIMD2<Double>(0, 0), b: SIMD2<Double>(10, 0)), reversed: false)
+            .init(geometry: .line(a: SIMD2<Double>(0, 0), b: SIMD2<Double>(10, 0)), reversed: false)
         ], isClosed: false)
 
         // do/catch rather than #expect(throws:) -- matching Drilling_Tests.swift's own
@@ -157,7 +157,7 @@ struct Boring_Tests {
         let points: [(Double, Double)] = [(0, 0), (10, 0), (10, 10), (0, 10)]
         let contours = points.map { x, y in
             SC.Contour(entities: [
-                .init(entity: .point(at: SIMD2<Double>(x, y)), reversed: false)
+                .init(geometry: .point(at: SIMD2<Double>(x, y)), reversed: false)
             ], isClosed: false)
         }
 
@@ -183,7 +183,7 @@ struct Boring_Tests {
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -8.0)
 
         let contour = SC.Contour(entities: [
-            .init(entity: .point(at: SIMD2<Double>(0, 0)), reversed: false)
+            .init(geometry: .point(at: SIMD2<Double>(0, 0)), reversed: false)
         ], isClosed: false)
 
         let toolpaths = try engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
@@ -208,7 +208,7 @@ struct Boring_Tests {
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -8.0)
 
         let contour = SC.Contour(entities: [
-            .init(entity: .point(at: SIMD2<Double>(0, 0)), reversed: false)
+            .init(geometry: .point(at: SIMD2<Double>(0, 0)), reversed: false)
         ], isClosed: false)
 
         let toolpaths = try engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
@@ -242,7 +242,7 @@ struct Boring_Tests {
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -8.0)
 
         let contour = SC.Contour(entities: [
-            .init(entity: .point(at: SIMD2<Double>(0, 0)), reversed: false)
+            .init(geometry: .point(at: SIMD2<Double>(0, 0)), reversed: false)
         ], isClosed: false)
 
         let toolpaths = try engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
@@ -260,7 +260,7 @@ struct Boring_Tests {
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -8.0)
 
         let contour = SC.Contour(entities: [
-            .init(entity: .point(at: SIMD2<Double>(0, 0)), reversed: false)
+            .init(geometry: .point(at: SIMD2<Double>(0, 0)), reversed: false)
         ], isClosed: false)
 
         let toolpaths = try engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
@@ -280,7 +280,7 @@ struct Boring_Tests {
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1200.0, plungeRate: 150.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -8.0)
 
         let contour = SC.Contour(entities: [
-            .init(entity: .point(at: SIMD2<Double>(0, 0)), reversed: false)
+            .init(geometry: .point(at: SIMD2<Double>(0, 0)), reversed: false)
         ], isClosed: false)
 
         let toolpaths = try engine.generateToolpaths(from: [contour], tool: tool, settings: settings,

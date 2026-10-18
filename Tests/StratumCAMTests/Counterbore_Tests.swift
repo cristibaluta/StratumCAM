@@ -16,7 +16,7 @@ struct Counterbore_Tests {
 
     private func pointContour(x: Double, y: Double) -> SC.Contour {
         SC.Contour(entities: [
-            .init(entity: .point(at: SIMD2<Double>(x, y)), reversed: false)
+            .init(geometry: .point(at: SIMD2<Double>(x, y)), reversed: false)
         ], isClosed: false)
     }
 
@@ -316,7 +316,7 @@ struct Counterbore_Tests {
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 4.0)
 
         let contour = SC.Contour(entities: [
-            .init(entity: .line(a: SIMD2<Double>(0, 0), b: SIMD2<Double>(10, 0)), reversed: false)
+            .init(geometry: .line(a: SIMD2<Double>(0, 0), b: SIMD2<Double>(10, 0)), reversed: false)
         ], isClosed: false)
 
         do {

@@ -19,7 +19,7 @@ class DemoThreadMilling: Demo {
     /// "closed circle marks the feature" shape `tapCircle(for:)` recognizes.
     private func circleContour(center: (Double, Double), diameter: Double) -> SC.Contour {
         SC.Contour(entities: [
-            SC.Contour.Chained(entity: .circle(center: SIMD2<Double>(center.0, center.1),
+            SC.Contour.Chained(geometry: .circle(center: SIMD2<Double>(center.0, center.1),
                                                radius: diameter / 2.0),
                                reversed: false)
         ], isClosed: true)

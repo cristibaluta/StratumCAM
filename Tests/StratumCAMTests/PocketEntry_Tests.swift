@@ -25,10 +25,10 @@ struct PocketEntry_Tests {
     /// already relies on.
     private func ccwRectangleContour() -> SC.Contour {
         SC.Contour(entities: [
-            .init(entity: .line(a: SIMD2<Double>(0, 0), b: SIMD2<Double>(20, 0)), reversed: false),
-            .init(entity: .line(a: SIMD2<Double>(20, 0), b: SIMD2<Double>(20, 10)), reversed: false),
-            .init(entity: .line(a: SIMD2<Double>(20, 10), b: SIMD2<Double>(0, 10)), reversed: false),
-            .init(entity: .line(a: SIMD2<Double>(0, 10), b: SIMD2<Double>(0, 0)), reversed: false)
+            .init(geometry: .line(a: SIMD2<Double>(0, 0), b: SIMD2<Double>(20, 0)), reversed: false),
+            .init(geometry: .line(a: SIMD2<Double>(20, 0), b: SIMD2<Double>(20, 10)), reversed: false),
+            .init(geometry: .line(a: SIMD2<Double>(20, 10), b: SIMD2<Double>(0, 10)), reversed: false),
+            .init(geometry: .line(a: SIMD2<Double>(0, 10), b: SIMD2<Double>(0, 0)), reversed: false)
         ], isClosed: true)
     }
 
@@ -255,10 +255,10 @@ struct PocketEntry_Tests {
     /// helix entries spiraled outward through the wall instead of staying inside it.
     private func wideRasterContour() -> SC.Contour {
         SC.Contour(entities: [
-            .init(entity: .line(a: SIMD2<Double>(0, 0), b: SIMD2<Double>(40, 0)), reversed: false),
-            .init(entity: .line(a: SIMD2<Double>(40, 0), b: SIMD2<Double>(40, 24)), reversed: false),
-            .init(entity: .line(a: SIMD2<Double>(40, 24), b: SIMD2<Double>(0, 24)), reversed: false),
-            .init(entity: .line(a: SIMD2<Double>(0, 24), b: SIMD2<Double>(0, 0)), reversed: false)
+            .init(geometry: .line(a: SIMD2<Double>(0, 0), b: SIMD2<Double>(40, 0)), reversed: false),
+            .init(geometry: .line(a: SIMD2<Double>(40, 0), b: SIMD2<Double>(40, 24)), reversed: false),
+            .init(geometry: .line(a: SIMD2<Double>(40, 24), b: SIMD2<Double>(0, 24)), reversed: false),
+            .init(geometry: .line(a: SIMD2<Double>(0, 24), b: SIMD2<Double>(0, 0)), reversed: false)
         ], isClosed: true)
     }
 

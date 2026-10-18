@@ -28,7 +28,7 @@ let settings = SC.MachineSettings(feedRate: 1000.0,
 let lineEntity = DXF.Entity.line(a: DXF.Point(0, 0), b: DXF.Point(10, 0), layer: "0", color: 7)
 let contour = SC.Contour(
     entities: [
-        SC.Contour.Chained(entity: lineEntity, reversed: false)
+        SC.Contour.Chained(geometry: lineEntity, reversed: false)
     ],
     isClosed: false
 )

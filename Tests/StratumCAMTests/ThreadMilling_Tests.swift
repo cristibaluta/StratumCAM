@@ -38,7 +38,7 @@ struct ThreadMilling_Tests {
     /// `tapCircle(for:)` recognizes.
     private func circleContour(center: (Double, Double), diameter: Double) -> SC.Contour {
         SC.Contour(entities: [
-            .init(entity: .circle(center: SIMD2<Double>(center.0, center.1), radius: diameter / 2.0), reversed: false)
+            .init(geometry: .circle(center: SIMD2<Double>(center.0, center.1), radius: diameter / 2.0), reversed: false)
         ], isClosed: true)
     }
 
@@ -206,7 +206,7 @@ struct ThreadMilling_Tests {
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -2.0)
 
         let contour = SC.Contour(entities: [
-            .init(entity: .point(at: SIMD2<Double>(0, 0)), reversed: false)
+            .init(geometry: .point(at: SIMD2<Double>(0, 0)), reversed: false)
         ], isClosed: false)
 
         do {
@@ -494,7 +494,7 @@ struct ThreadMilling_Tests {
 
         let goodContour = circleContour(center: (0, 0), diameter: 10.0) // hole radius 5.0
         let badContour = SC.Contour(entities: [
-            .init(entity: .point(at: SIMD2<Double>(20, 20)), reversed: false)
+            .init(geometry: .point(at: SIMD2<Double>(20, 20)), reversed: false)
         ], isClosed: false)
 
         do {
@@ -519,7 +519,7 @@ struct ThreadMilling_Tests {
 
         let goodContour = circleContour(center: (0, 0), diameter: 10.0) // hole radius 5.0
         let badContour = SC.Contour(entities: [
-            .init(entity: .point(at: SIMD2<Double>(20, 20)), reversed: false)
+            .init(geometry: .point(at: SIMD2<Double>(20, 20)), reversed: false)
         ], isClosed: false)
 
         let operation: SC.MachiningOperation = .threadMilling(pitch: 1.0, isInternal: true, direction: .rightHand, radialPasses: 1, targetDiameter: 10.0)

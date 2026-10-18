@@ -17,10 +17,10 @@ struct Pocket_Tests {
     /// A 20x10 CCW rectangle.
     private func ccwRectangleContour() -> SC.Contour {
         SC.Contour(entities: [
-            .init(entity: .line(a: SIMD2<Double>(0, 0), b: SIMD2<Double>(20, 0)), reversed: false),
-            .init(entity: .line(a: SIMD2<Double>(20, 0), b: SIMD2<Double>(20, 10)), reversed: false),
-            .init(entity: .line(a: SIMD2<Double>(20, 10), b: SIMD2<Double>(0, 10)), reversed: false),
-            .init(entity: .line(a: SIMD2<Double>(0, 10), b: SIMD2<Double>(0, 0)), reversed: false)
+            .init(geometry: .line(a: SIMD2<Double>(0, 0), b: SIMD2<Double>(20, 0)), reversed: false),
+            .init(geometry: .line(a: SIMD2<Double>(20, 0), b: SIMD2<Double>(20, 10)), reversed: false),
+            .init(geometry: .line(a: SIMD2<Double>(20, 10), b: SIMD2<Double>(0, 10)), reversed: false),
+            .init(geometry: .line(a: SIMD2<Double>(0, 10), b: SIMD2<Double>(0, 0)), reversed: false)
         ], isClosed: true)
     }
 
@@ -32,14 +32,14 @@ struct Pocket_Tests {
         let r = 2.0
 
         return SC.Contour(entities: [
-            .init(entity: .line(a: SIMD2<Double>(2, 0), b: SIMD2<Double>(18, 0)), reversed: false),
-            .init(entity: .arc(center: SIMD2<Double>(18, 2), radius: r, startDeg: -90, endDeg: 0), reversed: false),
-            .init(entity: .line(a: SIMD2<Double>(20, 2), b: SIMD2<Double>(20, 8)), reversed: false),
-            .init(entity: .arc(center: SIMD2<Double>(18, 8), radius: r, startDeg: 0, endDeg: 90), reversed: false),
-            .init(entity: .line(a: SIMD2<Double>(18, 10), b: SIMD2<Double>(2, 10)), reversed: false),
-            .init(entity: .arc(center: SIMD2<Double>(2, 8), radius: r, startDeg: 90, endDeg: 180), reversed: false),
-            .init(entity: .line(a: SIMD2<Double>(0, 8), b: SIMD2<Double>(0, 2)), reversed: false),
-            .init(entity: .arc(center: SIMD2<Double>(2, 2), radius: r, startDeg: 180, endDeg: 270), reversed: false)
+            .init(geometry: .line(a: SIMD2<Double>(2, 0), b: SIMD2<Double>(18, 0)), reversed: false),
+            .init(geometry: .arc(center: SIMD2<Double>(18, 2), radius: r, startDeg: -90, endDeg: 0), reversed: false),
+            .init(geometry: .line(a: SIMD2<Double>(20, 2), b: SIMD2<Double>(20, 8)), reversed: false),
+            .init(geometry: .arc(center: SIMD2<Double>(18, 8), radius: r, startDeg: 0, endDeg: 90), reversed: false),
+            .init(geometry: .line(a: SIMD2<Double>(18, 10), b: SIMD2<Double>(2, 10)), reversed: false),
+            .init(geometry: .arc(center: SIMD2<Double>(2, 8), radius: r, startDeg: 90, endDeg: 180), reversed: false),
+            .init(geometry: .line(a: SIMD2<Double>(0, 8), b: SIMD2<Double>(0, 2)), reversed: false),
+            .init(geometry: .arc(center: SIMD2<Double>(2, 2), radius: r, startDeg: 180, endDeg: 270), reversed: false)
         ], isClosed: true)
     }
 
@@ -322,11 +322,11 @@ struct Pocket_Tests {
                                           targetDepth: -1.0)
 
         let openContour = SC.Contour(entities: [
-            .init(entity: .line(a: SIMD2<Double>(0, 0),
+            .init(geometry: .line(a: SIMD2<Double>(0, 0),
                                 b: SIMD2<Double>(10, 0)),
                   reversed: false),
 
-            .init(entity: .line(a: SIMD2<Double>(10, 0),
+            .init(geometry: .line(a: SIMD2<Double>(10, 0),
                                 b: SIMD2<Double>(10, 10)),
                   reversed: false)
         ], isClosed: false)
