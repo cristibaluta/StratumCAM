@@ -11,6 +11,13 @@ extension SC {
 
     public enum PocketClearingPattern: Sendable, Codable, Equatable {
         case offset
+
+        /// Closed concentric passes spaced one stepover apart, with a selectable order
+        /// (`.insideOut` starts at the centre and finishes with the wall pass).
+        /// On an axis-aligned rectangle the passes start as a circle at the centre and
+        /// gradually sharpen into the rectangle at the wall; other shapes use their plain
+        /// offset rings. Every pass is a closed loop -- no continuous spiral.
+        case concentric(direction: SpiralDirection)
         case raster
         case spiral(direction: SpiralDirection)
         case trochoidal(settings: TrochoidalSettings)
@@ -18,7 +25,7 @@ extension SC {
 
         var strategy: ClearingPattern {
             switch self {
-                case .offset:
+                case .offset, .concentric:
                     return .offset
 
                 case .raster:

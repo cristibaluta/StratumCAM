@@ -97,6 +97,20 @@ class DemoPocketing: Demo {
         return self.run(contour: contour, tool: tool, settings: settings, operation: operation)
     }
 
+    /// Climb-milled 40x24 rectangle cleared with closed concentric passes, starting at
+    /// the centre and stepping outward one stepover at a time, finishing with the wall
+    /// pass. No spiral: every pass is a closed loop.
+    func demoPocketRectangleConcentricFromCenter() -> Demo.DemoResult {
+        let tool = SC.ToolParams(diameter: 6.0)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -3.0)
+
+        let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .concentric(direction: .insideOut), entry: .plunge)
+
+        let contour = rectangleContour(width: 40, height: 24)
+        return self.run(contour: contour, tool: tool, settings: settings, operation: operation)
+    }
+
     /// Clears a rounded rectangle, showing the ring stack's corner arcs shrinking
     /// ring by ring until the corner radius collapses to a sharp point -- at which
     /// point that corner just becomes a plain rectangle corner and stepping keeps

@@ -66,6 +66,24 @@ extension SCEngine {
 
                 toolpathSegments = chainedRingSegments(rings)
 
+            case .concentric(let ringOrder):
+                let oriented = orientedForDirection(baseSegments, side: .inside, direction: direction)
+                boundarySegments = oriented
+
+                let rings = pocketRings(from: oriented, tool: tool, stepoverPercentage: settings.cutting.stepoverPercentage)
+                guard !rings.isEmpty else {
+                    throw SC.Error.geometryCollapsed
+                }
+
+                // Inside-out ring stack. An axis-aligned rectangle gets rings that start as a
+                // circle (or a slot for a long rectangle) at the centre and sharpen into the
+                // rectangle at the wall; any other shape uses its plain offset rings, reversed.
+                let stepover = settings.cutting.stepoverPercentage * tool.diameter
+                let insideOutRings = roundedMorphRings(wallRing: rings[0], toolRadius: tool.diameter / 2.0, stepover: stepover)
+                    ?? Array(rings.reversed())
+
+                toolpathSegments = chainedRingSegments(ringOrder == .insideOut ? insideOutRings : Array(insideOutRings.reversed()))
+
             case .raster:
 
                 let wallOffset = offsetContour(baseSegments, side: .inside, toolRadius: tool.diameter / 2.0, isClosed: true)
@@ -345,6 +363,113 @@ extension SCEngine {
         }
 
         return rings
+    }
+
+    // MARK: - Concentric rings morphing from a circle to a rectangle
+
+    /// Rings for an axis-aligned rectangular `wallRing`, ordered inside-out, that start as
+    /// a circle at the centre and end as the sharp rectangle:
+    ///   1. Stadium rings (a slot with semicircular ends -- a full circle for a square),
+    ///      radius growing one `stepover` at a time until it touches the long walls.
+    ///   2. Rounded-rectangle rings with the wall's full extents and a corner radius that
+    ///      shrinks to zero, so the corners sharpen gradually.
+    ///   3. The wall rectangle itself.
+    /// Every ring starts at the middle of its bottom edge, so the links between rings are
+    /// short vertical moves. Returns `nil` when `wallRing` isn't an axis-aligned rectangle.
+    func roundedMorphRings(wallRing: [SC.Segment], toolRadius: Double, stepover: Double) -> [[SC.Segment]]? {
+        guard wallRing.count == 4, stepover > 1e-6 else {
+            return nil
+        }
+        for segment in wallRing {
+            guard case .line(let a, let b) = segment, abs(a.x - b.x) < 1e-6 || abs(a.y - b.y) < 1e-6 else {
+                return nil
+            }
+        }
+
+        let box = wallRing.boundingBox
+        let center = CGPoint(x: (box.minX + box.maxX) / 2, y: (box.minY + box.maxY) / 2)
+        let halfWidth = (box.maxX - box.minX) / 2
+        let halfHeight = (box.maxY - box.minY) / 2
+        let h = min(halfWidth, halfHeight)
+        guard h > 1e-6 else {
+            return nil
+        }
+        let isWide = halfWidth >= halfHeight
+        let coreHalfLength = abs(halfWidth - halfHeight)
+
+        var rings: [[SC.Segment]] = []
+
+        // 1. Stadium rings, smallest first.
+        var radii: [Double] = []
+        var radius = h
+        while radius > 1e-6 {
+            radii.append(radius)
+            radius -= stepover
+        }
+        // Make sure the tool covers the very centre.
+        if let innermost = radii.last, innermost > toolRadius {
+            radii.append(innermost / 2)
+        }
+        for r in radii.reversed() {
+            rings.append(roundedRectangleRing(center: center,
+                                              halfWidth: isWide ? coreHalfLength + r : r,
+                                              halfHeight: isWide ? r : coreHalfLength + r,
+                                              cornerRadius: r))
+        }
+
+        // 2. Corners sharpening. A corner of radius r sits r * (sqrt(2) - 1) from the
+        // sharp corner along the diagonal, so this step keeps the diagonal gap at `stepover`.
+        let cornerStep = stepover / (2.0.squareRoot() - 1.0)
+        var cornerRadius = h - cornerStep
+        while cornerRadius > 1e-6 {
+            rings.append(roundedRectangleRing(center: center,
+                                              halfWidth: halfWidth,
+                                              halfHeight: halfHeight,
+                                              cornerRadius: cornerRadius))
+            cornerRadius -= cornerStep
+        }
+
+        // 3. The wall rectangle.
+        rings.append(roundedRectangleRing(center: center, halfWidth: halfWidth, halfHeight: halfHeight, cornerRadius: 0))
+
+        // Built counter-clockwise; match the wall ring's winding (climb/conventional).
+        if !OffsetTools.isCCWWinding(wallRing) {
+            rings = rings.map { ring in ring.reversed().map { $0.reversed } }
+        }
+        return rings
+    }
+
+    /// A closed counter-clockwise rounded rectangle starting at the middle of its bottom edge.
+    private func roundedRectangleRing(center c: CGPoint, halfWidth a: Double, halfHeight b: Double, cornerRadius: Double) -> [SC.Segment] {
+        let r = min(max(cornerRadius, 0), min(a, b))
+        var segments: [SC.Segment] = []
+
+        func line(_ x0: Double, _ y0: Double, _ x1: Double, _ y1: Double) {
+            if hypot(x1 - x0, y1 - y0) > 1e-9 {
+                segments.append(.line(start: CGPoint(x: x0, y: y0), end: CGPoint(x: x1, y: y1)))
+            }
+        }
+        func arc(_ cx: Double, _ cy: Double, _ startDegrees: Double) {
+            if r > 1e-9 {
+                segments.append(.arc(center: CGPoint(x: cx, y: cy),
+                                     radius: r,
+                                     startAngle: startDegrees * .pi / 180,
+                                     endAngle: (startDegrees + 90) * .pi / 180,
+                                     isCCW: true))
+            }
+        }
+
+        line(c.x, c.y - b, c.x + a - r, c.y - b)
+        arc(c.x + a - r, c.y - b + r, -90)
+        line(c.x + a, c.y - b + r, c.x + a, c.y + b - r)
+        arc(c.x + a - r, c.y + b - r, 0)
+        line(c.x + a - r, c.y + b, c.x - a + r, c.y + b)
+        arc(c.x - a + r, c.y + b - r, 90)
+        line(c.x - a, c.y + b - r, c.x - a, c.y - b + r)
+        arc(c.x - a + r, c.y - b + r, 180)
+        line(c.x - a + r, c.y - b, c.x, c.y - b)
+
+        return segments
     }
 
     // MARK: - Step 2.2b: chaining rings into one continuous pass
