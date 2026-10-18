@@ -557,7 +557,7 @@ extension SC.Contour {
             segments.append(contentsOf: extracted)
         }
 
-        return segments
+        return segments.removingDegenerate
     }
 
     /// Converts a raw geometry into normalized CNC path primitives (`Segment`).

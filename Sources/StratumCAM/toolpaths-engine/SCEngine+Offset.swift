@@ -41,6 +41,13 @@ extension SCEngine {
     /// - An empty array means the tool doesn't fit anywhere on this contour.
     /// - `.onContour`, a zero radius, and open chains return the exact construction as-is.
     public func offsetContours(_ segments: [SC.Segment], side: SC.CutSide, toolRadius: Double, isClosed: Bool) -> [[SC.Segment]] {
+        // Trimming can collapse an arc to a point; drop those so no zero-length arc (which a
+        // controller would read as a full circle) is ever turned into a waypoint.
+        offsetContoursUncleaned(segments, side: side, toolRadius: toolRadius, isClosed: isClosed)
+            .map { $0.removingDegenerate }
+    }
+
+    private func offsetContoursUncleaned(_ segments: [SC.Segment], side: SC.CutSide, toolRadius: Double, isClosed: Bool) -> [[SC.Segment]] {
         guard side != .onContour, toolRadius > 0, !segments.isEmpty else {
             return [segments]
         }

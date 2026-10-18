@@ -140,6 +140,16 @@ public struct SCGCodeEngine {
         let z = String(format: "%.3f", wp.position.z)
         let f = String(format: "%.1f", wp.feedRate)
 
+        // An arc shorter than the output resolution would be written with the same X/Y as
+        // its start, which a controller reads as a full circle. Write it as a line instead.
+        // (A genuinely coincident start/end, closer than 1e-6, is left alone.)
+        if let start, wp.motion.isArc {
+            let distance = hypot(wp.position.x - start.x, wp.position.y - start.y)
+            if distance >= 1e-6, format(start.x) == x, format(start.y) == y {
+                return "G01 X\(x) Y\(y) Z\(z) F\(f)"
+            }
+        }
+
         switch wp.motion {
 
             case .rapid:

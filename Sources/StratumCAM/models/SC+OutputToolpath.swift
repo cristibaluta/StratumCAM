@@ -66,3 +66,13 @@ extension SC {
     }
 
 }
+
+extension SC.MotionType {
+
+    var isArc: Bool {
+        switch self {
+            case .arcCW, .arcCCW: return true
+            case .rapid, .linear: return false
+        }
+    }
+}

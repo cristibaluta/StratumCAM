@@ -409,6 +409,16 @@ public struct SCMakeraGCodeEngine {
                 return
             }
 
+            // A real arc, but shorter than the output resolution: start and end would be
+            // written with the same X/Y, which a controller reads as a full circle. Write the
+            // (sub-0.001 mm) move as a line instead.
+            if !isFullCircle,
+               Writer.number(end.x) == Writer.number(start.x),
+               Writer.number(end.y) == Writer.number(start.y) {
+                linear(to: end, feed: feed, nextIsMotion: nextIsMotion)
+                return
+            }
+
             // The post forces X, Y, I and J on every arc.
             lastX = nil
             lastY = nil

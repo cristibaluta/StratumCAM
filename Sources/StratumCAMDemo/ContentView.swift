@@ -69,6 +69,9 @@ struct ContentView: View {
                     demoButton("Large Arc 300° - Reversed Inside") {
                         show(DemoContour().demoLargeArcReversedInside())
                     }
+                    demoButton("Square with Junk Arcs (no full circles)") {
+                        show(DemoDegenerateArcs().demoSquareWithJunkArcs())
+                    }
                 }
                 Section("Drilling") {
                     demoButton("Plain Drill") {

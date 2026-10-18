@@ -209,3 +209,29 @@ extension SC.Segment {
         return Self.sweepAngle(start: startAngle, end: endAngle, isCCW: isCCW)
     }
 }
+
+extension SC.Segment {
+
+    /// A segment with no usable extent: a line shorter than 1e-9, or an arc whose length is
+    /// below 1e-6. Zero-length arcs are the dangerous ones -- an arc whose end point equals its
+    /// start point is read by a controller as a full circle, so they must never reach the
+    /// G-code. They come from near-duplicate polyline vertices carrying a bulge, collapsed
+    /// corners after trimming, and so on.
+    var isDegenerate: Bool {
+        switch self {
+            case .line(let start, let end):
+                return hypot(end.x - start.x, end.y - start.y) < 1e-9
+            case .arc:
+                return pathLength < 1e-6
+        }
+    }
+}
+
+extension [SC.Segment] {
+
+    /// The chain without its degenerate segments. Neighbours already meet at the removed
+    /// segment's point, so the chain stays continuous.
+    var removingDegenerate: [SC.Segment] {
+        filter { !$0.isDegenerate }
+    }
+}
