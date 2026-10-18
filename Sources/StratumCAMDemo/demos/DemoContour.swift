@@ -326,8 +326,8 @@ class DemoContour: Demo {
 
     /// Profiles the outside of the Pac-Man with holding tabs. Tab positions are fractions of the
     /// toolpath length, so they only land where expected if the 300° arc is measured as 300°
-    /// (not as the 60° the raw angle difference suggests). One tab sits on the big arc,
-    /// one on the straight mouth edge.
+    /// (not as the 60° the raw angle difference suggests). The two tabs are spread along the
+    /// path, most of which is the big arc.
     func demoLargeArcTabs() -> Demo.DemoResult {
         let tool = SC.ToolParams(diameter: 3.175)
         let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 0.1)
@@ -344,15 +344,17 @@ class DemoContour: Demo {
         return self.run(contour: pacManContour(), tool: tool, settings: settings, operation: operation)
     }
 
-    /// Same shape, walked backwards (CW), cut inside: shows the 300° arc reversed -- the arc is
-    /// now `G02` in the G-code, and it still has to be measured the long way round.
+    /// Same shape, but cut on the inside with climb milling. `.contour` re-orients the chain to
+    /// match `side` + `direction` whatever way the input was drawn (this one is fed in reversed,
+    /// to prove it): an inside climb cut travels CW, so the 300° arc is `G02` here, where the
+    /// outside climb demo above is CCW / `G03`.
     func demoLargeArcReversedInside() -> Demo.DemoResult {
         let tool = SC.ToolParams(diameter: 3.175)
         let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 0.1)
         let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -1.0)
 
         let operation: SC.MachiningOperation = .contour(side: .inside,
-                                                        direction: .conventional,
+                                                        direction: .climb,
                                                         entry: .plunge,
                                                         leadIn: nil,
                                                         leadOut: nil,
