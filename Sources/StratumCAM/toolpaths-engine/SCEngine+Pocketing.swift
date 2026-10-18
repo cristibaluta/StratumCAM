@@ -827,8 +827,8 @@ extension SCEngine {
                 return CGPoint(x: start.x + (end.x - start.x) * t, y: start.y + (end.y - start.y) * t)
 
             case .arc(let center, let radius, let startAngle, let endAngle, let isCCW):
-                let sweep = isCCW ? (endAngle - startAngle) : (startAngle - endAngle)
-                let angle = startAngle + (isCCW ? 1.0 : -1.0) * abs(sweep) * t
+                let sweep = SC.Segment.sweepAngle(start: startAngle, end: endAngle, isCCW: isCCW)
+                let angle = startAngle + (isCCW ? 1.0 : -1.0) * sweep * t
                 return CGPoint(x: center.x + radius * cos(angle), y: center.y + radius * sin(angle))
         }
     }
@@ -880,8 +880,8 @@ extension SCEngine {
 
             case .arc(_, _, let startAngle, let endAngle, let isCCW):
                 let t = distance / length
-                let sweep = isCCW ? (endAngle - startAngle) : (startAngle - endAngle)
-                let angle = startAngle + (isCCW ? 1.0 : -1.0) * abs(sweep) * t
+                let sweep = SC.Segment.sweepAngle(start: startAngle, end: endAngle, isCCW: isCCW)
+                let angle = startAngle + (isCCW ? 1.0 : -1.0) * sweep * t
                 let radialX = cos(angle), radialY = sin(angle)
                 return isCCW ? CGPoint(x: -radialY, y: radialX) : CGPoint(x: radialY, y: -radialX)
         }

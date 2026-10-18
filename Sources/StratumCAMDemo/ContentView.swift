@@ -9,6 +9,7 @@ import SwiftUI
 import MetalKit
 import simd
 import StratumCAM
+import SwiftDXF
 
 struct ContentView: View {
     @State private var renderBatches: [RenderBatch] = []
@@ -61,6 +62,12 @@ struct ContentView: View {
                     }
                     demoButton("Narrow Neck Inside (bug repro)") {
                         show(DemoContour().demoNarrowNeckInside())
+                    }
+                    demoButton("Large Arc 300° - Outside + Tabs") {
+                        show(DemoContour().demoLargeArcTabs())
+                    }
+                    demoButton("Large Arc 300° - Reversed Inside") {
+                        show(DemoContour().demoLargeArcReversedInside())
                     }
                 }
                 Section("Drilling") {

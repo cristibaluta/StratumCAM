@@ -33,8 +33,8 @@ struct OffsetTools {
                     points.append(start)
 
                 case .arc(let center, let radius, let startAngle, let endAngle, let isCCW):
-                    let sweep = isCCW ? (endAngle - startAngle) : (startAngle - endAngle)
-                    let steps = max(1, Int(abs(sweep) / (.pi / 18))) // ~10 deg per sample
+                    let sweep = SC.Segment.sweepAngle(start: startAngle, end: endAngle, isCCW: isCCW)
+                    let steps = max(1, Int(sweep / (.pi / 18))) // ~10 deg per sample
                     for s in 0..<steps {
                         let t = Double(s) / Double(steps)
                         let angle = startAngle + (isCCW ? sweep : -sweep) * t

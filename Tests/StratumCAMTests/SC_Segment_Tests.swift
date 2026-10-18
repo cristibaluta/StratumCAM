@@ -54,7 +54,7 @@ struct PathSegmentPathLengthTests {
             radius: 10,
             startAngle: 0,
             endAngle: .pi / 2,
-            isCCW: false
+            isCCW: true
         )
         let expected: Double = 10 * (.pi / 2)
         #expect(segment.pathLength ~= expected)
@@ -80,7 +80,7 @@ struct PathSegmentPathLengthTests {
             radius: 3,
             startAngle: 0,
             endAngle: 2 * .pi,
-            isCCW: false
+            isCCW: true
         )
         let expected = 3 * (2 * Double.pi)
         #expect(segment.pathLength ~= expected)
@@ -118,7 +118,7 @@ struct PathSegmentPathLengthTests {
             radius: 2,
             startAngle: 0,
             endAngle: 3 * .pi, // 1.5 full turns
-            isCCW: false
+            isCCW: true
         )
         let expected = 2 * (3 * Double.pi)
         #expect(segment.pathLength ~= expected)

@@ -10,7 +10,7 @@ import Foundation
 extension SC {
 
     public enum Segment: Sendable, Equatable {
-        
+
         case line(start: CGPoint,
                   end: CGPoint)
 
@@ -175,10 +175,37 @@ extension SC.Segment {
                 // straight-line distance between two 2D points
                 return hypot(end.x - start.x, end.y - start.y)
 
-            case .arc(_, let radius, let startAngle, let endAngle, _):
-                // Calculates the arc length
-                let sweep = endAngle - startAngle
-                return radius * abs(sweep)
+            case .arc(_, let radius, let startAngle, let endAngle, let isCCW):
+                return radius * Self.sweepAngle(start: startAngle, end: endAngle, isCCW: isCCW)
         }
+    }
+
+    /// The angular extent (radians, always >= 0) travelled from `start` to `end` in the given
+    /// direction. Angles don't need to be ordered or normalized: arcs built from `atan2`
+    /// (bulge arcs, trimmed corners) can have `end < start` for a CCW arc that crosses ±π,
+    /// so a plain `end - start` -- or its absolute value -- measures the wrong way around.
+    ///
+    /// A difference that is already in travel order (>= 0) is used as is, so a deliberate
+    /// multi-turn arc (e.g. `0 -> 3π`) keeps its full length, and `0 -> 2π` stays a full
+    /// circle. A negative difference means the arc wraps the ±π seam and gets whole turns
+    /// added until it's positive. A difference of zero is an empty arc.
+    static func sweepAngle(start: Double, end: Double, isCCW: Bool) -> Double {
+        let raw = isCCW ? end - start : start - end
+        if raw >= 0 {
+            return raw
+        }
+        if raw > -1e-9 {
+            return 0
+        }
+        let twoPi = 2 * Double.pi
+        return raw + twoPi * (-raw / twoPi).rounded(.up)
+    }
+
+    /// Angular extent of an arc segment, `nil` for a line.
+    var arcSweep: Double? {
+        guard case .arc(_, _, let startAngle, let endAngle, let isCCW) = self else {
+            return nil
+        }
+        return Self.sweepAngle(start: startAngle, end: endAngle, isCCW: isCCW)
     }
 }

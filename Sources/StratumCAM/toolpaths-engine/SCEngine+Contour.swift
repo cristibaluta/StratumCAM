@@ -529,8 +529,9 @@ extension SCEngine {
             case .line(let start, let end):
                 return CGPoint(x: start.x + (end.x - start.x) * t, y: start.y + (end.y - start.y) * t)
 
-            case .arc(let center, let radius, let startAngle, let endAngle, _):
-                let angle = startAngle + (endAngle - startAngle) * t
+            case .arc(let center, let radius, let startAngle, let endAngle, let isCCW):
+                let sweep = SC.Segment.sweepAngle(start: startAngle, end: endAngle, isCCW: isCCW)
+                let angle = startAngle + (isCCW ? 1.0 : -1.0) * sweep * t
                 return CGPoint(x: center.x + radius * cos(angle), y: center.y + radius * sin(angle))
         }
     }
@@ -541,8 +542,7 @@ extension SCEngine {
                 return hypot(end.x - start.x, end.y - start.y)
 
             case .arc(_, let radius, let startAngle, let endAngle, let isCCW):
-                let sweep = isCCW ? (endAngle - startAngle) : (startAngle - endAngle)
-                return radius * abs(sweep)
+                return radius * SC.Segment.sweepAngle(start: startAngle, end: endAngle, isCCW: isCCW)
         }
     }
 }

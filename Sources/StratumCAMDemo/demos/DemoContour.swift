@@ -298,4 +298,66 @@ class DemoContour: Demo {
         let contour = narrowNeckPendantContour(notchFoldsTowardCenterline: true)
         return self.run(contour: contour, tool: tool, settings: settings, operation: operation)
     }
+
+    // MARK: - Large arcs
+
+    /// A "Pac-Man": a 300° arc of radius `radius` closed by a 60° wedge back to the center.
+    /// The big arc is a bulge polyline segment (`bulge = tan(300° / 4)`) running CCW from +30°
+    /// to -30°, so it crosses the ±π angle seam in the `atan2` convention (start angle > end
+    /// angle). It exercises arc length, tab placement and winding for sweeps well past 180°.
+    private func pacManContour(radius: Double = 10.0, reversed: Bool = false) -> SC.Contour {
+        let mouth = 30.0 * .pi / 180.0
+        let bulge = tan((300.0 * .pi / 180.0) / 4.0)
+
+        let upper = SIMD2<Double>(radius * cos(mouth), radius * sin(mouth))
+        let lower = SIMD2<Double>(radius * cos(-mouth), radius * sin(-mouth))
+
+        let shape = SC.Geometry.polyline(
+            vertices: [
+                .init(upper, bulge: bulge), // 300° arc, CCW, around the back of the circle
+                .init(lower),
+                .init(SIMD2<Double>(0, 0))
+            ],
+            closed: true
+        )
+
+        return SC.Contour(entities: [SC.Contour.Chained(entity: shape, reversed: reversed)], isClosed: true)
+    }
+
+    /// Profiles the outside of the Pac-Man with holding tabs. Tab positions are fractions of the
+    /// toolpath length, so they only land where expected if the 300° arc is measured as 300°
+    /// (not as the 60° the raw angle difference suggests). One tab sits on the big arc,
+    /// one on the straight mouth edge.
+    func demoLargeArcTabs() -> Demo.DemoResult {
+        let tool = SC.ToolParams(diameter: 3.175)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 0.1)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -3.0)
+
+        let operation: SC.MachiningOperation = .contour(side: .outside,
+                                                        direction: .climb,
+                                                        entry: .plunge,
+                                                        leadIn: nil,
+                                                        leadOut: nil,
+                                                        tabs: [SC.HoldingTab(positionRatio: 0.35, width: 6.0, height: 1.5),
+                                                               SC.HoldingTab(positionRatio: 0.65, width: 6.0, height: 1.5)])
+
+        return self.run(contour: pacManContour(), tool: tool, settings: settings, operation: operation)
+    }
+
+    /// Same shape, walked backwards (CW), cut inside: shows the 300° arc reversed -- the arc is
+    /// now `G02` in the G-code, and it still has to be measured the long way round.
+    func demoLargeArcReversedInside() -> Demo.DemoResult {
+        let tool = SC.ToolParams(diameter: 3.175)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 0.1)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -1.0)
+
+        let operation: SC.MachiningOperation = .contour(side: .inside,
+                                                        direction: .conventional,
+                                                        entry: .plunge,
+                                                        leadIn: nil,
+                                                        leadOut: nil,
+                                                        tabs: [SC.HoldingTab(positionRatio: 0.5, width: 6.0, height: 1.0)])
+
+        return self.run(contour: pacManContour(reversed: true), tool: tool, settings: settings, operation: operation)
+    }
 }
