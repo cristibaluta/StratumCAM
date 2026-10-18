@@ -34,7 +34,7 @@ extension SCEngine {
             return nil
         }
 
-        guard case let .circle(center, radius) = contour.entities[0].entity else {
+        guard case let .circle(center, radius) = contour.entities[0].geometry else {
             return nil
         }
 

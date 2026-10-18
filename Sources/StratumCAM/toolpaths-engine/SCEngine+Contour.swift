@@ -553,7 +553,7 @@ extension SC.Contour {
         var segments: [SC.Segment] = []
 
         for chained in self.entities {
-            let extracted = convert(entity: chained.entity, reversed: chained.reversed)
+            let extracted = convert(entity: chained.geometry, reversed: chained.reversed)
             segments.append(contentsOf: extracted)
         }
 

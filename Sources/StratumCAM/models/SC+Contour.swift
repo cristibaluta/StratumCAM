@@ -12,12 +12,12 @@ extension SC {
     public struct Contour: Sendable {
 
         public struct Chained: Sendable {
-            public var entity: SC.Geometry
+            public var geometry: SC.Geometry
             public var reversed: Bool
 
             // The inits are needed because the app using the lib is not able to init otherwise
             public init(entity: SC.Geometry, reversed: Bool) {
-                self.entity = entity
+                self.geometry = entity
                 self.reversed = reversed
             }
         }
@@ -51,7 +51,7 @@ extension SC.Contour {
         guard self.entities.count == 1 else {
             return nil
         }
-        switch self.entities[0].entity {
+        switch self.entities[0].geometry {
             case let .point(at):
                 return at.cgPoint
 
