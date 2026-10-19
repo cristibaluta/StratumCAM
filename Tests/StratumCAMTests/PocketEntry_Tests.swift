@@ -139,9 +139,10 @@ struct PocketEntry_Tests {
 
         let waypoints = toolpaths[0].passes[0].waypoints
 
+        // The tool comes down over the helix start (inside the ring, near the start
+        // corner), then travels to the corner at depth once the helix has finished.
         let wp0 = waypoints[0]
-        #expect(wp0.position.x ~= 3.0 && wp0.position.y ~= 3.0 && wp0.position.z == 5.0,
-                "Test Failed: initial rapid move should be above the ring start corner")
+        #expect(wp0.position.z == 5.0, "Test Failed: initial rapid move should be at safe Z")
 
         // A helix always completes a whole number of turns, so somewhere in the entry
         // phase it must land back exactly on the ring's start point at target depth.

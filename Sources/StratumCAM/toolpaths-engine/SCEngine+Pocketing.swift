@@ -210,6 +210,21 @@ extension SCEngine {
 
         let zDepths = EngineTools.calculateZPasses(targetDepth: settings.targetDepth, stepdown: settings.cutting.stepdown)
 
+        // Where the tool centre may be (the wall offset by the tool radius) and which way the
+        // cut winds -- only a helix entry needs them, to place its circle inside the pocket.
+        var toolCenterRegion: [SC.Segment] = []
+        var helixIsCCW = true
+        if case .helix = entry {
+            if case .raster = pattern {
+                toolCenterRegion = boundarySegments // already the wall offset
+            } else {
+                toolCenterRegion = offsetContour(boundarySegments, side: .inside, toolRadius: tool.diameter / 2.0, isClosed: true)
+            }
+            if !toolCenterRegion.isEmpty {
+                helixIsCCW = OffsetTools.isCCWWinding(orientedForDirection(toolCenterRegion, side: .inside, direction: direction))
+            }
+        }
+
         var passes: [SC.ToolpathPass] = []
         var previousZ = 0.0 // top of stock -- pass 0 ramps/helixes down from here, same convention `.contour` uses.
         for (i, z) in zDepths.enumerated() {
@@ -223,6 +238,8 @@ extension SCEngine {
                 waypoints = buildEntryWaypoints(for: toolpathSegments,
                                                 boundary: boundarySegments,
                                                 toolRadius: tool.diameter / 2.0,
+                                                toolCenterRegion: toolCenterRegion,
+                                                helixIsCCW: helixIsCCW,
                                                 atZ: z,
                                                 previousZ: previousZ,
                                                 settings: settings,
@@ -275,6 +292,8 @@ extension SCEngine {
     private func buildEntryWaypoints(for segments: [SC.Segment],
                                      boundary: [SC.Segment],
                                      toolRadius: Double,
+                                     toolCenterRegion: [SC.Segment],
+                                     helixIsCCW: Bool,
                                      atZ z: Double,
                                      previousZ: Double,
                                      settings: SC.MachineSettings,
@@ -331,36 +350,45 @@ extension SCEngine {
 
             case .helix(let angleDegrees):
                 // Same reasoning as `.ramp` above.
-                let radius = RampTools.helixRadius(forToolRadius: toolRadius)
-                var helixStart = startPoint
-                let circle = RampTools.leadingCircle(of: segments)
-                var helixRadius = 0.0
-                if let circle {
-                    // Helix around the pocket's own center, at the tool-derived radius, or
-                    // smaller if that is all that fits in the pocket.
+                let desiredRadius = RampTools.helixRadius(forToolRadius: toolRadius)
+
+                // Where the helix goes. In a pocket that starts with a circle around its own
+                // center (inside-out on round shapes) it is centered on that circle, and the
+                // circles it already clears are skipped. Anywhere else, the helix center is
+                // moved in from the start point just enough that the circle stays inside the
+                // pocket, and after the helix the tool travels back to the start point.
+                var helix: (center: CGPoint, radius: Double, startAngle: Double, isCCW: Bool)?
+                var skipsClearedCircles = false
+
+                if let circle = RampTools.leadingCircle(of: segments) {
+                    // At most what fits in the pocket.
                     let clearance = boundary.map { distance(from: circle.center, to: $0) }.min() ?? .infinity
-                    helixRadius = max(1e-6, min(radius, clearance - toolRadius))
-                    helixStart = CGPoint(x: circle.center.x + helixRadius * cos(circle.startAngle),
-                                         y: circle.center.y + helixRadius * sin(circle.startAngle))
-                    if hypot(helixStart.x - startPoint.x, helixStart.y - startPoint.y) > 1e-9 {
-                        waypoints.append(
-                            SC.Waypoint(position: SIMD3(helixStart.x, helixStart.y, settings.safeZ),
-                                        motion: .rapid,
-                                        feedRate: settings.cutting.feedRate)
-                        )
-                    }
+                    let helixRadius = max(1e-6, min(desiredRadius, clearance - toolRadius))
+                    helix = (circle.center, helixRadius, circle.startAngle, circle.isCCW)
+                    skipsClearedCircles = true
+                } else if let fit = fittedHelix(start: startPoint, region: toolCenterRegion, desiredRadius: desiredRadius) {
+                    // Start on the helix circle at the point nearest the pocket's start point.
+                    let angle: Double = atan2(startPoint.y - fit.center.y, startPoint.x - fit.center.x)
+                    helix = (fit.center, fit.radius, angle, helixIsCCW)
                 }
-                waypoints.append(
-                    SC.Waypoint(position: SIMD3(helixStart.x, helixStart.y, previousZ),
-                                motion: .rapid,
-                                feedRate: settings.cutting.feedRate)
-                )
-                if let circle {
+
+                if let helix {
+                    let helixStart = CGPoint(x: helix.center.x + helix.radius * cos(helix.startAngle),
+                                             y: helix.center.y + helix.radius * sin(helix.startAngle))
+                    // Come down over the helix start, not over the pocket's start point.
+                    waypoints[0] = SC.Waypoint(position: SIMD3(helixStart.x, helixStart.y, settings.safeZ),
+                                               motion: .rapid,
+                                               feedRate: settings.cutting.feedRate)
                     waypoints.append(
-                        contentsOf: RampTools.centeredHelixWaypoints(center: circle.center,
-                                                                     radius: helixRadius,
-                                                                     startAngle: circle.startAngle,
-                                                                     isCCW: circle.isCCW,
+                        SC.Waypoint(position: SIMD3(helixStart.x, helixStart.y, previousZ),
+                                    motion: .rapid,
+                                    feedRate: settings.cutting.feedRate)
+                    )
+                    waypoints.append(
+                        contentsOf: RampTools.centeredHelixWaypoints(center: helix.center,
+                                                                     radius: helix.radius,
+                                                                     startAngle: helix.startAngle,
+                                                                     isCCW: helix.isCCW,
                                                                      angleDegrees: angleDegrees,
                                                                      fromZ: previousZ,
                                                                      toZ: z,
@@ -369,17 +397,21 @@ extension SCEngine {
                     // The floor under the last turn is still sloped: one flat full circle at
                     // depth cleans it.
                     waypoints.append(
-                        contentsOf: RampTools.flatCircleWaypoints(center: circle.center,
-                                                                  radius: helixRadius,
-                                                                  startAngle: circle.startAngle,
-                                                                  isCCW: circle.isCCW,
+                        contentsOf: RampTools.flatCircleWaypoints(center: helix.center,
+                                                                  radius: helix.radius,
+                                                                  startAngle: helix.startAngle,
+                                                                  isCCW: helix.isCCW,
                                                                   z: z,
                                                                   feedRate: settings.cutting.feedRate)
                     )
-                    // Rings that lie inside the helix are already cleared: skip them and
-                    // carry on from the first ring beyond it.
-                    traceSegments = RampTools.droppingCircles(upToRadius: helixRadius + 1e-6, from: segments)
-                    if let next = traceSegments.first?.startPoint {
+                    if skipsClearedCircles {
+                        // Rings that lie inside the helix are already cleared: carry on from
+                        // the first ring beyond it.
+                        traceSegments = RampTools.droppingCircles(upToRadius: helix.radius + 1e-6, from: segments)
+                    }
+                    // Travel to where the pocket's own toolpath begins, then trace it.
+                    if let next = traceSegments.first?.startPoint,
+                       hypot(next.x - helixStart.x, next.y - helixStart.y) > 1e-9 {
                         waypoints.append(
                             SC.Waypoint(position: SIMD3(next.x, next.y, z),
                                         motion: .linear,
@@ -387,30 +419,19 @@ extension SCEngine {
                         )
                     }
                 } else {
-                    // Sideways helix at the first ring's start. The tool-derived radius is
-                    // shrunk until the whole helix (tool edge included) stays inside the walls.
-                    let spanLength = hypot(firstSegment.endPoint.x - startPoint.x, firstSegment.endPoint.y - startPoint.y)
-                    let normal = CGPoint(x: -startTangent.y, y: startTangent.x)
-                    var fitted = radius
-                    for _ in 0..<16 {
-                        let tangentPoint = CGPoint(x: startPoint.x + startTangent.x * min(fitted, spanLength),
-                                                   y: startPoint.y + startTangent.y * min(fitted, spanLength))
-                        let offset = OffsetTools.offsetDistance(for: .inside, toolRadius: fitted, segments: boundary)
-                        let helixCenter = CGPoint(x: tangentPoint.x + normal.x * offset,
-                                                  y: tangentPoint.y + normal.y * offset)
-                        let room = boundary.map { distance(from: helixCenter, to: $0) }.min() ?? .infinity
-                        if room >= toolRadius + fitted - 1e-6 {
-                            break
-                        }
-                        fitted *= 0.8
-                    }
+                    // No usable clearance to place a helix in: the legacy sideways helix.
+                    waypoints.append(
+                        SC.Waypoint(position: SIMD3(startPoint.x, startPoint.y, previousZ),
+                                    motion: .rapid,
+                                    feedRate: settings.cutting.feedRate)
+                    )
                     waypoints.append(
                         contentsOf: RampTools.helixEntryWaypoints(contourStart: startPoint,
                                                                   startTangent: startTangent,
                                                                   side: .inside,
                                                                   segments: boundary,
                                                                   firstSegment: firstSegment,
-                                                                  radius: fitted,
+                                                                  radius: desiredRadius,
                                                                   angleDegrees: angleDegrees,
                                                                   fromZ: previousZ,
                                                                   toZ: z,

@@ -125,4 +125,61 @@ struct PocketHelixCentered_Tests {
             }
         }
     }
+
+    // MARK: - Non-circular pocket: helix fitted inside the pocket
+
+    /// 20x10 rectangle, 6mm tool: the tool-centre region is [3,17] x [3,7].
+    private func rectangleHelixWaypoints(targetDepth: Double, pass: Int) throws -> [SC.Waypoint] {
+        let contour = SC.Contour(entities: [
+            .init(geometry: .line(a: SIMD2<Double>(0, 0), b: SIMD2<Double>(20, 0)), reversed: false),
+            .init(geometry: .line(a: SIMD2<Double>(20, 0), b: SIMD2<Double>(20, 10)), reversed: false),
+            .init(geometry: .line(a: SIMD2<Double>(20, 10), b: SIMD2<Double>(0, 10)), reversed: false),
+            .init(geometry: .line(a: SIMD2<Double>(0, 10), b: SIMD2<Double>(0, 0)), reversed: false)
+        ], isClosed: true)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4),
+                                          safeZ: 5.0,
+                                          targetDepth: targetDepth)
+        let toolpaths = try SCEngine().generateToolpaths(
+            from: [contour],
+            tool: SC.ToolParams(diameter: 6.0),
+            settings: settings,
+            operation: .pocket(direction: .climb, pattern: .offset, entry: .helix(rampAngleDegrees: 30))
+        )
+        return toolpaths[0].passes[pass].waypoints
+    }
+
+    @Test("Helix in a narrow rectangle stays inside the tool-center region, whole circle included")
+    func testHelixStaysInsideNarrowPocket() throws {
+        for pass in 0..<2 {
+            let waypoints = try rectangleHelixWaypoints(targetDepth: -2.0, pass: pass)
+            var arcCount = 0
+            for waypoint in waypoints {
+                let p = waypoint.position
+                if waypoint.motion != .rapid || waypoint.position.z < 5.0 - 1e-9 {
+                    #expect(p.x >= 3 - 1e-6 && p.x <= 17 + 1e-6 && p.y >= 3 - 1e-6 && p.y <= 7 + 1e-6, "\(p) leaves the region")
+                }
+                switch waypoint.motion {
+                    case .arcCW(let c), .arcCCW(let c):
+                        arcCount += 1
+                        let r = hypot(Double(p.x) - Double(c.x), Double(p.y) - Double(c.y))
+                        #expect(Double(c.x) - r >= 3 - 1e-6 && Double(c.x) + r <= 17 + 1e-6, "circle leaves the region in x")
+                        #expect(Double(c.y) - r >= 3 - 1e-6 && Double(c.y) + r <= 7 + 1e-6, "circle leaves the region in y")
+                    default:
+                        break
+                }
+            }
+            #expect(arcCount > 0)
+        }
+    }
+
+    @Test("After the helix the tool travels to the start corner at depth, then traces the offsets")
+    func testHelixFinishesBeforeTravellingToStart() throws {
+        let waypoints = try rectangleHelixWaypoints(targetDepth: -1.0, pass: 0)
+        let travel = try #require(waypoints.firstIndex {
+            $0.motion == .linear && abs(Double($0.position.x) - 3) < 1e-6 && abs(Double($0.position.y) - 3) < 1e-6
+                && abs(Double($0.position.z) + 1.0) < 1e-6
+        })
+        let lastArc = try #require(waypoints.lastIndex { isArc($0.motion) })
+        #expect(lastArc < travel, "all helix/cleanup arcs must come before the travel to the start corner")
+    }
 }

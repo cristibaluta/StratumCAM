@@ -294,6 +294,73 @@ extension SCEngine {
         return true
     }
 
+    // MARK: - Helix placement
+
+    /// Where a helix entry that starts at `start` (on the edge of the tool-centre `region`)
+    /// can spiral without leaving the region: the circle's centre is moved inward from
+    /// `start` just far enough that the whole circle, `radius` out in every direction, stays
+    /// inside. The radius is capped at 97% of the biggest circle the region can hold, so a
+    /// narrow pocket still gets a valid (smaller) helix, with some room to spare.
+    ///
+    /// The centre is the closest such point to `start`, found by scanning rays out of `start`
+    /// and refining where each first reaches enough clearance. Returns `nil` when `region`
+    /// has no usable clearance.
+    func fittedHelix(start: CGPoint,
+                     region: [SC.Segment],
+                     desiredRadius: Double) -> (center: CGPoint, radius: Double)? {
+
+        guard !region.isEmpty, desiredRadius > 1e-6,
+              let pole = pocketCenter(wallRing: region, zones: []), pole.radius > 1e-6 else {
+            return nil
+        }
+        let radius = min(desiredRadius, 0.97 * pole.radius)
+
+        func room(_ p: CGPoint) -> Double {
+            clearance(at: p, wallRing: region, zones: [])
+        }
+
+        // `start` itself already has the room (it can't normally, it sits on the edge).
+        if room(start) >= radius {
+            return (start, radius)
+        }
+
+        // The pole has at least `radius` of clearance, so a hit is always within reach of it.
+        let reach = hypot(pole.point.x - start.x, pole.point.y - start.y) + 1e-6
+        let rays = 144
+        let steps = 96
+
+        var best: (center: CGPoint, distance: Double)?
+        for k in 0..<rays {
+            let angle = 2 * Double.pi * Double(k) / Double(rays)
+            let u = CGPoint(x: cos(angle), y: sin(angle))
+            func point(_ t: Double) -> CGPoint {
+                CGPoint(x: start.x + u.x * t, y: start.y + u.y * t)
+            }
+
+            var previous = 0.0
+            for s in 1...steps {
+                let t = reach * Double(s) / Double(steps)
+                if room(point(t)) >= radius {
+                    // Bisect between the last miss and this hit.
+                    var lo = previous, hi = t
+                    for _ in 0..<40 {
+                        let mid = (lo + hi) / 2
+                        if room(point(mid)) >= radius { hi = mid } else { lo = mid }
+                    }
+                    if best == nil || hi < best!.distance {
+                        best = (point(hi), hi)
+                    }
+                    break
+                }
+                previous = t
+            }
+        }
+        guard let best else {
+            return nil
+        }
+        return (best.center, radius)
+    }
+
     // MARK: - Helpers
 
     /// Radii of the concentric circles of an inside-out pocket, smallest first.
