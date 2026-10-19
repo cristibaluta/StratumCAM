@@ -390,14 +390,15 @@ class DemoPocketing: Demo {
     }
 
     /// Circular pocket (radius 20) cleared inside-out with concentric circles and a helix
-    /// entry. The helix is centered on the circle's center (not to the side) with a radius
-    /// of 95% of the tool radius: it spirals down, ends back at its start angle, a flat full
-    /// circle cleans the sloped floor, and the rings inside it are skipped before the rest
-    /// grow outward.
+    /// entry, using the default 25% stepover. The helix is centered on the circle's center
+    /// with a radius of 95% of the tool radius: it spirals down, ends back at its start
+    /// angle, and a flat full circle cleans the sloped floor. The circles then start at that
+    /// same radius and grow one stepover at a time, the last with a shorter step so it lands
+    /// exactly on the wall offset instead of crossing it.
     /// Two Z passes, so the second helix only spans its own fresh stepdown.
     func demoHelixEntryCircle() -> Demo.DemoResult {
         let tool = SC.ToolParams(diameter: 6.0)
-        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.25)
         let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -2.0)
 
         let operation: SC.MachiningOperation = .pocket(direction: .climb,

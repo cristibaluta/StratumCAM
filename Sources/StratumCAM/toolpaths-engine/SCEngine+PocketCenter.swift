@@ -151,19 +151,11 @@ extension SCEngine {
 
         let counterClockwise = OffsetTools.isCCWWinding(wallRing)
 
-        // 1. Circles, smallest first. Spaced exactly one stepover apart counting inwards from
-        //    the biggest one, which is the circle that just touches the wall or an island.
-        var radii: [Double] = []
-        var radius = center.radius
-        while radius > 1e-6 {
-            radii.append(radius)
-            radius -= stepover
-        }
-        // The smallest circle must reach the centre, or an uncut core is left standing.
-        if let innermost = radii.last, innermost > toolRadius {
-            radii.append(innermost / 2)
-        }
-        var stack: [[SC.Segment]] = radii.reversed().map {
+        // 1. Circles, smallest first: the helix-radius circle, then one stepover bigger each
+        //    time, the last (shorter step) being exactly the circle that touches the wall or
+        //    an island. The smallest circle is within the tool radius, so it reaches the centre.
+        let radii = insideOutCircleRadii(maxRadius: center.radius, toolRadius: toolRadius, stepover: stepover)
+        var stack: [[SC.Segment]] = radii.map {
             circleRing(center: center.point, radius: $0, counterClockwise: counterClockwise)
         }
 
@@ -303,6 +295,35 @@ extension SCEngine {
     }
 
     // MARK: - Helpers
+
+    /// Radii of the concentric circles of an inside-out pocket, smallest first.
+    ///
+    /// Built outward, not inward from the wall: the first circle has the helix radius
+    /// (95% of the tool radius, so even a plunge entry has the cutter edge sweep across the
+    /// centre, and a helix entry hands off with no jump), each next one is one `stepover`
+    /// bigger, and the last is exactly `maxRadius` -- it gets the leftover, shorter step so
+    /// it never crosses the boundary. A leftover under a tenth of a stepover is folded into
+    /// the previous step instead of producing a sliver ring.
+    func insideOutCircleRadii(maxRadius: Double, toolRadius: Double, stepover: Double) -> [Double] {
+        let first = min(RampTools.helixRadius(forToolRadius: toolRadius), maxRadius)
+        var radii = [first]
+        guard stepover > 1e-6 else {
+            return radii
+        }
+
+        var radius = first + stepover
+        while radius < maxRadius - 1e-6 {
+            radii.append(radius)
+            radius += stepover
+        }
+        if maxRadius - radii[radii.count - 1] > 1e-6 {
+            if radii.count > 1, maxRadius - radii[radii.count - 1] < 0.1 * stepover {
+                radii.removeLast()
+            }
+            radii.append(maxRadius)
+        }
+        return radii
+    }
 
     /// A full circle as two half-arcs starting at the bottom, so the links between circles
     /// are short vertical moves.

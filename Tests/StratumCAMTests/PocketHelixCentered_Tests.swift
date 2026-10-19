@@ -99,4 +99,30 @@ struct PocketHelixCentered_Tests {
             #expect(hypot(Double(waypoint.position.x), Double(waypoint.position.y)) <= 1.0 + 1e-6)
         }
     }
+
+    @Test("Inside-out circles start at the helix radius and step outward, the last with a shorter step")
+    func testCirclesGrowFromHelixRadiusToWall() throws {
+        let engine = SCEngine()
+        let tool = SC.ToolParams(diameter: 6.0)
+        let stepover = SC.CuttingData().stepoverPercentage * tool.diameter // default 25% -> 1.5
+        let oriented = engine.orientedForDirection(circleContour(radius: 20).linearizedSegments, side: .inside, direction: .climb)
+        let rings = engine.pocketRings(from: oriented, tool: tool, stepoverPercentage: SC.CuttingData().stepoverPercentage)
+        let stack = try #require(engine.centeredRings(offsetRings: rings, zones: [], toolRadius: 3.0, stepover: stepover))
+
+        let radii: [Double] = stack.compactMap {
+            if case .arc(_, let r, _, _, _)? = $0.first { return r }
+            return nil
+        }
+        #expect(radii.count == stack.count)
+        // First circle: 95% of the tool radius. Wall ring (tool-center path): 20 - 3 = 17.
+        #expect(abs(radii[0] - 2.85) < 1e-6)
+        #expect(abs(radii[radii.count - 1] - 17.0) < 1e-3)
+        for k in 1..<radii.count {
+            let step = radii[k] - radii[k - 1]
+            #expect(step > 0 && step <= stepover + 1e-6, "step \(step) at ring \(k)")
+            if k < radii.count - 1 {
+                #expect(abs(step - stepover) < 1e-6, "only the last step may be shorter")
+            }
+        }
+    }
 }

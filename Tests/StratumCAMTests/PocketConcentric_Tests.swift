@@ -41,10 +41,10 @@ struct PocketConcentric_Tests {
     @Test("On a square the innermost pass is a perfect circle")
     func testSquareStartsAsCircle() throws {
         let w = try waypoints(width: 24, height: 24, direction: .insideOut)
-        // Wall ring is [2,22]^2, centre (12,12); innermost circle radius = stepover = 2.
+        // Wall ring is [2,22]^2, centre (12,12); innermost circle radius = 95% of the tool radius = 1.9.
         for i in 1...4 {
             let p = w[i].position
-            #expect(abs(hypot(Double(p.x) - 12, Double(p.y) - 12) - 2.0) < 1e-6,
+            #expect(abs(hypot(Double(p.x) - 12, Double(p.y) - 12) - 1.9) < 1e-6,
                     "Test Failed: waypoint \(i) should lie on the central circle")
         }
         #expect(isArc(w[2]) && isArc(w[3]) && isArc(w[4]) && isArc(w[5]), "Test Failed: first pass should be arcs")
@@ -54,10 +54,10 @@ struct PocketConcentric_Tests {
     func testRectangleMorphsToWallRectangle() throws {
         let w = try waypoints(width: 40, height: 24, direction: .insideOut)
 
-        // Starts as a perfect circle at the centre (12 mm tall half-height 10, stepover 2 -> radius 2).
+        // Starts as a perfect circle at the centre: radius 95% of the tool radius = 1.9.
         for i in 1...4 {
             let p = w[i].position
-            #expect(abs(hypot(Double(p.x) - 20, Double(p.y) - 12) - 2.0) < 1e-6,
+            #expect(abs(hypot(Double(p.x) - 20, Double(p.y) - 12) - 1.9) < 1e-6,
                     "Test Failed: waypoint \(i) should lie on the central circle")
         }
 

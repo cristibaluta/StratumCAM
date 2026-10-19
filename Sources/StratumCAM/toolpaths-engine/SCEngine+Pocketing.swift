@@ -554,19 +554,10 @@ extension SCEngine {
 
         var rings: [[SC.Segment]] = []
 
-        // 1. Stadium rings, smallest first.
-        var radii: [Double] = []
-        var radius = h
-        while radius > 1e-6 {
-            radii.append(radius)
-            radius -= stepover
-        }
-        // Make sure the tool covers the very centre.
-        if let innermost = radii.last, innermost > toolRadius {
-            radii.append(innermost / 2)
-        }
-        // Perfect circles, growing from the centre until they touch the long walls.
-        for r in radii.reversed() {
+        // 1. Perfect circles, smallest first: the helix-radius circle (reaches the centre),
+        //    then one stepover bigger each time, the last (shorter step) touching the long walls.
+        let radii = insideOutCircleRadii(maxRadius: h, toolRadius: toolRadius, stepover: stepover)
+        for r in radii {
             rings.append(roundedRectangleRing(center: center, halfWidth: r, halfHeight: r, cornerRadius: r))
         }
 
