@@ -462,7 +462,10 @@ extension SCEngine {
             advance += stepover
         }
         if coreHalfLength > 1e-6 {
-            rings.append(roundedRectangleRing(center: center, halfWidth: halfWidth, halfHeight: halfHeight, cornerRadius: h))
+            rings.append(roundedRectangleRing(center: center,
+                                              halfWidth: halfWidth,
+                                              halfHeight: halfHeight,
+                                              cornerRadius: h))
         }
 
         // 2. Corners sharpening. A corner of radius r sits r * (sqrt(2) - 1) from the
@@ -478,7 +481,10 @@ extension SCEngine {
         }
 
         // 3. The wall rectangle.
-        rings.append(roundedRectangleRing(center: center, halfWidth: halfWidth, halfHeight: halfHeight, cornerRadius: 0))
+        rings.append(roundedRectangleRing(center: center,
+                                          halfWidth: halfWidth,
+                                          halfHeight: halfHeight,
+                                          cornerRadius: 0))
 
         // Built counter-clockwise; match the wall ring's winding (climb/conventional).
         if !OffsetTools.isCCWWinding(wallRing) {
@@ -604,7 +610,11 @@ extension SCEngine {
         for zone in zones {
             let quarters: [SC.Segment] = (0..<4).map { quarter in
                 let start = -Double.pi / 2 - Double(quarter) * Double.pi / 2
-                return .arc(center: zone.center, radius: zone.radius, startAngle: start, endAngle: start - Double.pi / 2, isCCW: false)
+                return .arc(center: zone.center,
+                            radius: zone.radius,
+                            startAngle: start,
+                            endAngle: start - Double.pi / 2,
+                            isCCW: false)
             }
             append(quarters)
         }
@@ -681,8 +691,16 @@ extension SCEngine {
 
         let startAngle = atan2(from.y - zone.center.y, from.x - zone.center.x)
         let endAngle = atan2(to.y - zone.center.y, to.x - zone.center.x)
-        let counterClockwise: SC.Segment = .arc(center: zone.center, radius: zone.radius, startAngle: startAngle, endAngle: endAngle, isCCW: true)
-        let clockwise: SC.Segment = .arc(center: zone.center, radius: zone.radius, startAngle: startAngle, endAngle: endAngle, isCCW: false)
+        let counterClockwise: SC.Segment = .arc(center: zone.center,
+                                                radius: zone.radius,
+                                                startAngle: startAngle,
+                                                endAngle: endAngle,
+                                                isCCW: true)
+        let clockwise: SC.Segment = .arc(center: zone.center,
+                                         radius: zone.radius,
+                                         startAngle: startAngle,
+                                         endAngle: endAngle,
+                                         isCCW: false)
 
         if pointInside(midpoint(of: counterClockwise), loop: ring) {
             return [counterClockwise]
@@ -767,6 +785,7 @@ extension SCEngine {
                 boundaries.append(contentsOf: sweeps)
                 boundaries.append(total)
                 var pieces: [SC.Segment] = []
+
                 for index in 0..<(boundaries.count - 1) {
                     pieces.append(.arc(center: center,
                                        radius: radius,
@@ -947,6 +966,7 @@ extension SCEngine {
 
         var segments: [SC.Segment] = []
         var previousPoint = point(atStep: 0)
+
         for step in 1...totalSteps {
             let nextPoint = point(atStep: step)
             segments.append(.line(start: previousPoint, end: nextPoint))
@@ -973,6 +993,7 @@ extension SCEngine {
                     let len2 = dx * dx + dy * dy
                     let t = len2 > 1e-18 ? min(max(((point.x - a.x) * dx + (point.y - a.y) * dy) / len2, 0), 1) : 0
                     distance = hypot(point.x - (a.x + t * dx), point.y - (a.y + t * dy))
+
                 case .arc(let c, let r, let startAngle, let endAngle, let isCCW):
                     let angle = atan2(point.y - c.y, point.x - c.x)
                     if EngineTools.angleWithinSweep(angle, start: startAngle, end: endAngle, isCCW: isCCW) {
@@ -996,10 +1017,15 @@ extension SCEngine {
 
         switch segment {
             case .line(let a, let b):
-                if hypot(point.x - b.x, point.y - b.y) > 1e-6 { head.append(.line(start: point, end: b)) }
-                if hypot(point.x - a.x, point.y - a.y) > 1e-6 { tail.append(.line(start: a, end: point)) }
+                if hypot(point.x - b.x, point.y - b.y) > 1e-6 {
+                    head.append(.line(start: point, end: b))
+                }
+                if hypot(point.x - a.x, point.y - a.y) > 1e-6 {
+                    tail.append(.line(start: a, end: point))
+                }
+
             case .arc(let c, let r, let startAngle, let endAngle, let isCCW):
-                let angle = atan2(point.y - c.y, point.x - c.x)
+                let angle: Double = atan2(point.y - c.y, point.x - c.x)
                 let p = CGPoint(x: c.x + r * cos(angle), y: c.y + r * sin(angle))
                 if hypot(p.x - segment.endPoint.x, p.y - segment.endPoint.y) > 1e-6 {
                     head.append(.arc(center: c, radius: r, startAngle: angle, endAngle: endAngle, isCCW: isCCW))
