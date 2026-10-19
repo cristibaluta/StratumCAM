@@ -118,6 +118,9 @@ struct ContentView: View {
                     demoButton("Helix Entry (Multi-pass)") {
                         show(DemoPocketing().demoHelixEntryMultiPass())
                     }
+                    demoButton("Helix Entry (Circle, Centered)") {
+                        show(DemoPocketing().demoHelixEntryCircle())
+                    }
                     Divider()
                     demoButton("Raster Rectangle (Climb)") {
                         show(DemoPocketing().demoRasterRectangle())

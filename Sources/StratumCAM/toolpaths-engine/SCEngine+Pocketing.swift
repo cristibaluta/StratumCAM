@@ -331,23 +331,74 @@ extension SCEngine {
 
             case .helix(let radius, let angleDegrees):
                 // Same reasoning as `.ramp` above.
+                let circle = RampTools.leadingCircle(of: segments)
+                var helixStart = startPoint
+                if let circle {
+                    let r = min(radius, circle.radius)
+                    helixStart = CGPoint(x: circle.center.x + r * cos(circle.startAngle),
+                                         y: circle.center.y + r * sin(circle.startAngle))
+                    if hypot(helixStart.x - startPoint.x, helixStart.y - startPoint.y) > 1e-9 {
+                        // Helix is smaller than the first ring: come down over the helix start.
+                        waypoints.append(
+                            SC.Waypoint(position: SIMD3(helixStart.x, helixStart.y, settings.safeZ),
+                                        motion: .rapid,
+                                        feedRate: settings.cutting.feedRate)
+                        )
+                    }
+                }
                 waypoints.append(
-                    SC.Waypoint(position: SIMD3(startPoint.x, startPoint.y, previousZ),
+                    SC.Waypoint(position: SIMD3(helixStart.x, helixStart.y, previousZ),
                                 motion: .rapid,
                                 feedRate: settings.cutting.feedRate)
                 )
-                waypoints.append(
-                    contentsOf: RampTools.helixEntryWaypoints(contourStart: startPoint,
-                                                              startTangent: startTangent,
-                                                              side: .inside,
-                                                              segments: boundary,
-                                                              firstSegment: firstSegment,
-                                                              radius: radius,
-                                                              angleDegrees: angleDegrees,
-                                                              fromZ: previousZ,
-                                                              toZ: z,
-                                                              settings: settings)
-                )
+                if let circle {
+                    // The pocket starts with a circle around its own center (inside-out
+                    // patterns on round shapes): helix around that center, not to the side.
+                    // Radius: the requested one, capped to the first ring so the helix
+                    // never leaves the ground the first ring covers.
+                    let helixRadius = min(radius, circle.radius)
+                    waypoints.append(
+                        contentsOf: RampTools.centeredHelixWaypoints(center: circle.center,
+                                                                     radius: helixRadius,
+                                                                     startAngle: circle.startAngle,
+                                                                     isCCW: circle.isCCW,
+                                                                     angleDegrees: angleDegrees,
+                                                                     fromZ: previousZ,
+                                                                     toZ: z,
+                                                                     settings: settings)
+                    )
+                    if helixRadius < circle.radius - 1e-6 {
+                        // Smaller than the first ring: flat full circle at depth to clear the
+                        // sloped floor, then straight out to the ring. When the radii match,
+                        // the first ring below is that flat circle.
+                        waypoints.append(
+                            contentsOf: RampTools.flatCircleWaypoints(center: circle.center,
+                                                                      radius: helixRadius,
+                                                                      startAngle: circle.startAngle,
+                                                                      isCCW: circle.isCCW,
+                                                                      z: z,
+                                                                      feedRate: settings.cutting.feedRate)
+                        )
+                        waypoints.append(
+                            SC.Waypoint(position: SIMD3(startPoint.x, startPoint.y, z),
+                                        motion: .linear,
+                                        feedRate: settings.cutting.feedRate)
+                        )
+                    }
+                } else {
+                    waypoints.append(
+                        contentsOf: RampTools.helixEntryWaypoints(contourStart: startPoint,
+                                                                  startTangent: startTangent,
+                                                                  side: .inside,
+                                                                  segments: boundary,
+                                                                  firstSegment: firstSegment,
+                                                                  radius: radius,
+                                                                  angleDegrees: angleDegrees,
+                                                                  fromZ: previousZ,
+                                                                  toZ: z,
+                                                                  settings: settings)
+                    )
+                }
             case .fromOpenEnd:
                 break // Handled above via `buildWaypoints`.
         }

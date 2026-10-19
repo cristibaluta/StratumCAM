@@ -241,4 +241,108 @@ struct RampTools {
 
         return waypoints
     }
+
+    // MARK: - Centered helix (pocket entry)
+
+    /// A full circle at the head of a toolpath: its center, radius, where it starts and
+    /// which way it winds.
+    struct LeadingCircle {
+        let center: CGPoint
+        let radius: Double
+        let startAngle: Double
+        let isCCW: Bool
+    }
+
+    /// The circle the chained `path` begins with, if it begins with one: leading arcs that
+    /// share a center, radius and winding and together sweep a whole turn. This is the
+    /// first ring of an inside-out pocket on a round (or round-cored) shape -- a circle
+    /// centered on the pocket's center.
+    static func leadingCircle(of path: [SC.Segment]) -> LeadingCircle? {
+        guard case .arc(let center, let radius, let startAngle, _, let isCCW)? = path.first,
+              radius > 1e-9 else {
+            return nil
+        }
+        var swept = 0.0
+        for segment in path {
+            guard case .arc(let c, let r, _, _, let ccw) = segment,
+                  hypot(c.x - center.x, c.y - center.y) < 1e-6,
+                  abs(r - radius) < 1e-6,
+                  ccw == isCCW else {
+                break
+            }
+            swept += segment.pathLength / radius
+            if swept >= 2 * .pi - 1e-6 {
+                return LeadingCircle(center: center, radius: radius, startAngle: startAngle, isCCW: isCCW)
+            }
+        }
+        return nil
+    }
+
+    /// Helix whose axis is `center` (the middle of the shape being pocketed), so the
+    /// descent is symmetric around it instead of drifting to one side.
+    ///
+    /// - The tool-center path has `radius`; with `radius` <= tool radius the cutter's edge
+    ///   sweeps across `center`, so no core is left standing.
+    /// - The ramp angle is honored: each turn drops at most `2*pi*radius*tan(angle)`.
+    ///   The number of turns is rounded up and the descent spread evenly, so the helix
+    ///   reaches `toZ` exactly back at `startAngle` -- no partial arc.
+    /// - It does not add the flat cleanup circle itself: the floor under the last turn is
+    ///   still sloped, so the caller follows with a full circle at `toZ` (for pockets that is
+    ///   the first ring, at the same radius).
+    ///
+    /// The tool is expected to already be at `(center + radius at startAngle, fromZ)`.
+    static func centeredHelixWaypoints(center: CGPoint,
+                                       radius: Double,
+                                       startAngle: Double,
+                                       isCCW: Bool,
+                                       angleDegrees: Double,
+                                       fromZ: Double,
+                                       toZ: Double,
+                                       settings: SC.MachineSettings) -> [SC.Waypoint] {
+
+        let totalDrop = fromZ - toZ
+        guard totalDrop > 1e-9, angleDegrees > 0, angleDegrees < 90, radius > 1e-9 else {
+            return [SC.Waypoint(position: SIMD3(center.x + radius * cos(startAngle),
+                                                center.y + radius * sin(startAngle),
+                                                toZ),
+                                motion: .linear,
+                                feedRate: settings.cutting.plungeRate)]
+        }
+
+        let dropPerTurn = 2 * .pi * radius * tan(angleDegrees.degreesToRadians)
+        let turns = max(1, Int((totalDrop / dropPerTurn).rounded(.up)))
+        let stepsPerTurn = 8
+        let stepCount = turns * stepsPerTurn
+        let sweepPerStep = (2 * .pi / Double(stepsPerTurn)) * (isCCW ? 1.0 : -1.0)
+
+        var waypoints: [SC.Waypoint] = []
+        for step in 1...stepCount {
+            let angle = startAngle + sweepPerStep * Double(step)
+            let z = step == stepCount ? toZ : fromZ - totalDrop * Double(step) / Double(stepCount)
+            waypoints.append(
+                SC.Waypoint(position: SIMD3(center.x + radius * cos(angle),
+                                            center.y + radius * sin(angle),
+                                            z),
+                            motion: isCCW ? .arcCCW(center: center) : .arcCW(center: center),
+                            feedRate: settings.cutting.plungeRate)
+            )
+        }
+        return waypoints
+    }
+
+    /// One flat full circle at `z`, in two half arcs, from and back to `startAngle`.
+    static func flatCircleWaypoints(center: CGPoint,
+                                    radius: Double,
+                                    startAngle: Double,
+                                    isCCW: Bool,
+                                    z: Double,
+                                    feedRate: Double) -> [SC.Waypoint] {
+        let sign = isCCW ? 1.0 : -1.0
+        return [1.0, 2.0].map { half in
+            let angle = startAngle + sign * .pi * half
+            return SC.Waypoint(position: SIMD3(center.x + radius * cos(angle), center.y + radius * sin(angle), z),
+                               motion: isCCW ? .arcCCW(center: center) : .arcCW(center: center),
+                               feedRate: feedRate)
+        }
+    }
 }
