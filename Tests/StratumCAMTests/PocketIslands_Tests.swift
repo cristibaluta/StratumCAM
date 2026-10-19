@@ -66,7 +66,21 @@ struct PocketIslands_Tests {
     func testIslandsRejected() throws {
         let contour = pocket(islands: [island(x: 28, y: 12, radius: 2)])
         #expect(throws: SC.Error.self) { try generate(contour, pattern: .offset) }
-        #expect(throws: SC.Error.self) { try generate(contour, entry: .ramp(angleDegrees: 3)) }
+        #expect(throws: SC.Error.self) { try generate(contour, entry: .helix(radius: 1, rampAngleDegrees: 3)) }
+    }
+
+    @Test("Ramp entry is supported with islands, descends along the path and stays out of zones")
+    func testRampEntryWithIslands() throws {
+        let w = try generate(pocket(islands: [island(x: 28, y: 12, radius: 2)]), entry: .ramp(angleDegrees: 3))
+        // Safe-Z rapid, rapid to top of stock, then a descent: never a straight plunge to depth.
+        #expect(w[0].position.z == 5.0)
+        #expect(w[1].position.z == 0.0)
+        #expect(w[2].position.z < 0.0 && w[2].position.z > -1.0)
+        #expect(w.contains { $0.position.z == -1.0 })
+        for p in w where p.motion != .rapid {
+            let d = hypot(p.position.x - 28, p.position.y - 12)
+            #expect(d >= 4.0 - 1e-6)
+        }
     }
 
     @Test("An island too close to the wall, or overlapping another, is rejected")

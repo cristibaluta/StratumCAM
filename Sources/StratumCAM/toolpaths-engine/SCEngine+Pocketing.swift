@@ -51,8 +51,11 @@ extension SCEngine {
             guard case .concentric = pattern else {
                 throw SC.Error.invalidParameter("islands are only supported by the .concentric pattern")
             }
-            guard entry.isStraightDown else {
-                throw SC.Error.invalidParameter("islands require a plunge entry")
+            switch entry {
+                case .plunge, .fromOpenEnd, .ramp:
+                    break
+                case .helix:
+                    throw SC.Error.invalidParameter("islands support plunge and ramp entries only")
             }
         }
 
@@ -215,8 +218,10 @@ extension SCEngine {
         for (i, z) in zDepths.enumerated() {
             let waypoints: [SC.Waypoint]
             if let groups = islandGroups {
-                // Each group is plunged and retracted on its own so no move crosses an island.
-                waypoints = groups.flatMap { buildWaypoints(for: $0, atZ: z, settings: settings) }
+                // Each group is entered and retracted on its own so no move crosses an island.
+                waypoints = groups.flatMap {
+                    buildIslandGroupWaypoints(for: $0, atZ: z, previousZ: previousZ, settings: settings, entry: entry)
+                }
             } else {
                 waypoints = buildEntryWaypoints(for: toolpathSegments,
                                                 boundary: boundarySegments,
@@ -237,6 +242,24 @@ extension SCEngine {
     }
 
     // MARK: - Pocket entry
+
+    /// One island group: plunged as usual, or, for `.ramp`, descended along the group's own
+    /// path (arcs stay arcs) instead of dropping straight down at its start.
+    private func buildIslandGroupWaypoints(for group: [SC.Segment],
+                                           atZ z: Double,
+                                           previousZ: Double,
+                                           settings: SC.MachineSettings,
+                                           entry: SC.EntryStrategy) -> [SC.Waypoint] {
+        var waypoints = buildWaypoints(for: group, atZ: z, settings: settings)
+        guard case .ramp(let angleDegrees) = entry, let start = group.first?.startPoint, waypoints.count > 2 else {
+            return waypoints
+        }
+        // `buildWaypoints` yields [rapid to safeZ, plunge to z, trace..., retract]: swap the plunge.
+        let ramp = [SC.Waypoint(position: SIMD3(start.x, start.y, previousZ), motion: .rapid, feedRate: settings.cutting.feedRate)]
+            + RampTools.pathRampWaypoints(path: group, angleDegrees: angleDegrees, fromZ: previousZ, toZ: z, settings: settings)
+        waypoints.replaceSubrange(1...1, with: ramp)
+        return waypoints
+    }
 
     private func buildEntryWaypoints(for segments: [SC.Segment],
                                      boundary: [SC.Segment],

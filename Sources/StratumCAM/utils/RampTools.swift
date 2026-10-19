@@ -71,6 +71,96 @@ struct RampTools {
         return waypoints
     }
 
+    /// Ramps down while following the toolpath itself: the tool descends along the leading
+    /// part of `path` (lines and arcs alike, so circular moves stay circular in XY and turn
+    /// into helical arcs in XYZ), comes back along the same part, and repeats until
+    /// `angleDegrees` is honored. It ends on the path's start point at `toZ`, ready for the
+    /// normal trace. Since the path is already clear of walls and islands, so is the ramp.
+    static func pathRampWaypoints(path: [SC.Segment],
+                                  angleDegrees: Double,
+                                  fromZ: Double,
+                                  toZ: Double,
+                                  settings: SC.MachineSettings) -> [SC.Waypoint] {
+
+        let totalDrop = fromZ - toZ
+        let pathLength = path.pathLength
+
+        guard let start = path.first?.startPoint else {
+            return []
+        }
+        guard totalDrop > 1e-9, angleDegrees > 0, angleDegrees < 90, pathLength > 1e-9 else {
+            return [SC.Waypoint(position: SIMD3(start.x, start.y, toZ),
+                                motion: .linear,
+                                feedRate: settings.cutting.plungeRate)]
+        }
+
+        let horizontalRunNeeded = totalDrop / tan(angleDegrees.degreesToRadians)
+
+        // Even number of legs (out and back) so the ramp finishes on the path start.
+        var legCount = max(2, Int((horizontalRunNeeded / pathLength).rounded(.up)))
+        if legCount % 2 != 0 { legCount += 1 }
+
+        let legLength = min(pathLength, horizontalRunNeeded / Double(legCount))
+        let dropPerLeg = totalDrop / Double(legCount)
+
+        let forward = prefix(of: path, length: legLength)
+        let backward = forward.reversed().map { $0.reversed }
+
+        var waypoints: [SC.Waypoint] = []
+        for leg in 0..<legCount {
+            let segments = leg % 2 == 0 ? forward : backward
+            let legStartZ = fromZ - dropPerLeg * Double(leg)
+            var travelled = 0.0
+            for (index, segment) in segments.enumerated() {
+                travelled += segment.pathLength
+                let isLastOfRamp = leg == legCount - 1 && index == segments.count - 1
+                let z = isLastOfRamp ? toZ : legStartZ - dropPerLeg * min(1.0, travelled / legLength)
+                switch segment {
+                    case .line(_, let end):
+                        waypoints.append(SC.Waypoint(position: SIMD3(end.x, end.y, z),
+                                                     motion: .linear,
+                                                     feedRate: settings.cutting.plungeRate))
+                    case .arc(let center, let radius, _, let endAngle, let isCCW):
+                        waypoints.append(SC.Waypoint(position: SIMD3(center.x + radius * cos(endAngle),
+                                                                     center.y + radius * sin(endAngle),
+                                                                     z),
+                                                     motion: isCCW ? .arcCCW(center: center) : .arcCW(center: center),
+                                                     feedRate: settings.cutting.plungeRate))
+                }
+            }
+        }
+        return waypoints
+    }
+
+    /// The first `length` of `path` (all of it when it is shorter).
+    private static func prefix(of path: [SC.Segment], length: Double) -> [SC.Segment] {
+        var result: [SC.Segment] = []
+        var remaining = length
+        for segment in path {
+            let segmentLength = segment.pathLength
+            if segmentLength <= remaining + 1e-9 {
+                result.append(segment)
+                remaining -= segmentLength
+                if remaining <= 1e-9 { break }
+                continue
+            }
+            switch segment {
+                case .line(let a, let b):
+                    let t = remaining / segmentLength
+                    result.append(.line(start: a, end: CGPoint(x: a.x + t * (b.x - a.x), y: a.y + t * (b.y - a.y))))
+                case .arc(let center, let radius, let startAngle, _, let isCCW):
+                    let sweep = remaining / radius
+                    result.append(.arc(center: center,
+                                       radius: radius,
+                                       startAngle: startAngle,
+                                       endAngle: startAngle + (isCCW ? sweep : -sweep),
+                                       isCCW: isCCW))
+            }
+            break
+        }
+        return result
+    }
+
     /// Spirals down a circle of `radius`, centered off to the side with no material (so the
     /// tool never gouges the wall while descending), positioned so `contourStart` sits
     /// exactly on the circle. Always completes a whole number of turns, so it lands back on
