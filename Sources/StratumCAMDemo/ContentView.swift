@@ -145,6 +145,9 @@ struct ContentView: View {
                     demoButton("Rectangle (Climb, Center Out, Auto Islands)") {
                         show(DemoPocketing().demoPocketRectangleConcentricAutoIslands())
                     }
+                    demoButton("Rectangle (Climb, Center Out, Shaped Islands)") {
+                        show(DemoPocketing().demoPocketRectangleConcentricShapedIslands())
+                    }
                     demoButton("Rectangle (Conventional)") {
                         show(DemoPocketing().demoPocketRectangleConventional())
                     }

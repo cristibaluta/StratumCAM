@@ -72,7 +72,7 @@ extension SCEngine {
                   inner.box.minY >= outer.box.minY - tol, inner.box.maxY <= outer.box.maxY + tol else {
                 return false
             }
-            return inner.samples.allSatisfy { pointInside($0, loop: outer.segments) }
+            return inner.samples.allSatisfy { isInsideLoop($0, loop: outer.segments) }
         }
 
         // For each shape: every shape that contains it.

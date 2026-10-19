@@ -146,6 +146,36 @@ class DemoPocketing: Demo {
         return self.run(contours: shapes, tool: tool, settings: settings, operation: operation)
     }
 
+    /// A 60x36 pocket with a rectangular island and a triangular one, passed as plain
+    /// shapes in one flat list. Islands don't have to be circles: any closed outline
+    /// inside the pocket is detected and left standing.
+    func demoPocketRectangleConcentricShapedIslands() -> Demo.DemoResult {
+        let tool = SC.ToolParams(diameter: 6.0)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -3.0)
+
+        let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .concentric(direction: .insideOut), entry: .plunge)
+
+        let block = SC.Contour(entities: [
+            SC.Contour.Chained(geometry: .polyline(vertices: [SC.Geometry.Vertex(SIMD2<Double>(10, 12)),
+                                                              SC.Geometry.Vertex(SIMD2<Double>(22, 12)),
+                                                              SC.Geometry.Vertex(SIMD2<Double>(22, 24)),
+                                                              SC.Geometry.Vertex(SIMD2<Double>(10, 24))],
+                                                     closed: true), reversed: false)
+        ], isClosed: true)
+        let triangle = SC.Contour(entities: [
+            SC.Contour.Chained(geometry: .polyline(vertices: [SC.Geometry.Vertex(SIMD2<Double>(36, 10)),
+                                                              SC.Geometry.Vertex(SIMD2<Double>(48, 10)),
+                                                              SC.Geometry.Vertex(SIMD2<Double>(42, 22))],
+                                                     closed: true), reversed: false)
+        ], isClosed: true)
+
+        return self.run(contours: [rectangleContour(width: 60, height: 36), block, triangle],
+                        tool: tool,
+                        settings: settings,
+                        operation: operation)
+    }
+
     /// Deterministic pseudo-random circular islands inside a `width` x `height` pocket
     /// whose lower-left corner is the origin. Each island keeps clear of the walls, of
     /// the other islands (by at least the tool diameter... the tool must fit between
