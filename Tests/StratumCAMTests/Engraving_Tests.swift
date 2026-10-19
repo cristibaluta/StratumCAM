@@ -21,7 +21,7 @@ struct Engraving_Tests {
         let tool = SC.ToolParams(diameter: 3.175)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0,
                                                                     plungeRate: 300.0,
-                                                                    stepdown: 0.1),
+                                                                    stepdown: 0.1, stepoverPercentage: 0.4),
                                           safeZ: 5.0,
                                           targetDepth: -0.1)
 
@@ -95,7 +95,7 @@ struct Engraving_Tests {
         let tool = SC.ToolParams(diameter: 3.175)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0,
                                                                     plungeRate: 300.0,
-                                                                    stepdown: 0.1),
+                                                                    stepdown: 0.1, stepoverPercentage: 0.4),
                                           safeZ: 5.0,
                                           targetDepth: -0.1)
 
@@ -173,7 +173,7 @@ struct Engraving_Tests {
         let tool = SC.ToolParams(diameter: 3.175)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0,
                                                                     plungeRate: 300.0,
-                                                                    stepdown: 0.1),
+                                                                    stepdown: 0.1, stepoverPercentage: 0.4),
                                           safeZ: 5.0,
                                           targetDepth: -1.0)
 

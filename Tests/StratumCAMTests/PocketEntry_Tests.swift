@@ -48,7 +48,7 @@ struct PocketEntry_Tests {
     func testPocketRampEntryLandsOnRingStartAtDepth() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 6.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0),
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4),
                                           safeZ: 5.0,
                                           targetDepth: -1.0)
 
@@ -99,7 +99,7 @@ struct PocketEntry_Tests {
         let tool = SC.ToolParams(diameter: 6.0)
         // A shallow 0.1mm target depth at 30 degrees only needs a fraction of a mm of
         // horizontal travel -- nowhere near the 4mm-tall ring wall it's anchored to.
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 0.1),
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 0.1, stepoverPercentage: 0.4),
                                           safeZ: 5.0,
                                           targetDepth: -0.1)
 
@@ -126,7 +126,7 @@ struct PocketEntry_Tests {
     func testPocketHelixEntryReturnsToRingStartAtDepth() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 6.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0),
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4),
                                           safeZ: 5.0,
                                           targetDepth: -1.0)
 
@@ -159,7 +159,7 @@ struct PocketEntry_Tests {
     func testPocketHelixEntryNeverOvershootsDepth() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 6.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0),
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4),
                                           safeZ: 5.0,
                                           targetDepth: -1.0)
 
@@ -305,7 +305,7 @@ struct PocketEntry_Tests {
     func testPocketPlungeEntryStillStraightDown() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 6.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0),
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4),
                                           safeZ: 5.0,
                                           targetDepth: -1.0)
 

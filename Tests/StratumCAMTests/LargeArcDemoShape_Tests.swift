@@ -42,7 +42,7 @@ struct LargeArcDemoShape_Tests {
 
     @Test("A tab on the 300° arc clamps part of the last pass to the tab floor")
     func testTabsOnLargeArc() throws {
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000, plungeRate: 300, stepdown: 0.5),
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000, plungeRate: 300, stepdown: 0.5, stepoverPercentage: 0.4),
                                           safeZ: 5,
                                           targetDepth: -3)
         let operation: SC.MachiningOperation = .contour(
@@ -68,7 +68,7 @@ struct LargeArcDemoShape_Tests {
 
     @Test("Reversed, inside, conventional profile of the same shape still generates")
     func testReversedInside() throws {
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000, plungeRate: 300, stepdown: 0.5),
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000, plungeRate: 300, stepdown: 0.5, stepoverPercentage: 0.4),
                                           safeZ: 5,
                                           targetDepth: -1)
         let operation: SC.MachiningOperation = .contour(

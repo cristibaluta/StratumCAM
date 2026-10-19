@@ -13,7 +13,7 @@ import Foundation
 
 struct LeadInOutEntry_Tests {
 
-    private let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000, plungeRate: 300, stepdown: 0.5),
+    private let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000, plungeRate: 300, stepdown: 0.5, stepoverPercentage: 0.4),
                                               safeZ: 5,
                                               targetDepth: -1)
 

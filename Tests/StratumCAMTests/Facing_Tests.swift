@@ -180,7 +180,7 @@ struct Facing_Tests {
     func testFacingToolpathIsSinglePassAtTargetDepth() {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 9.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0), safeZ: 5.0, targetDepth: 0.5)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepoverPercentage: 0.4), safeZ: 5.0, targetDepth: 0.5)
         let contour = rectangleContour(width: 20, height: 10)
 
         let toolpaths = try! engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
@@ -215,7 +215,7 @@ struct Facing_Tests {
     func testFacingToolpathHonorsExtensionLength() {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 6.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(), safeZ: 5.0, targetDepth: 1.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(stepoverPercentage: 0.4), safeZ: 5.0, targetDepth: 1.0)
         let contour = rectangleContour(width: 20, height: 10)
 
         let toolpath = try! engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
@@ -234,7 +234,7 @@ struct Facing_Tests {
     func testFacingSweepsOnlyThePassedContour() {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 6.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(), safeZ: 5.0, targetDepth: 1.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(stepoverPercentage: 0.4), safeZ: 5.0, targetDepth: 1.0)
         // A small 10x10 part shape, as if it sat in the corner of a much bigger sheet
         // of stock -- facing should only cover this shape's own footprint.
         let partContour = rectangleContour(width: 10, height: 10)
@@ -254,7 +254,7 @@ struct Facing_Tests {
         let engine = SCEngine()
         let smallTool = SC.ToolParams(diameter: 6.0)
         let bigTool = SC.ToolParams(diameter: 10.0)
-        let settingsA = SC.MachineSettings(cutting: SC.CuttingData(), safeZ: 5.0, targetDepth: 0.5)
+        let settingsA = SC.MachineSettings(cutting: SC.CuttingData(stepoverPercentage: 0.4), safeZ: 5.0, targetDepth: 0.5)
 
         let contours = [rectangleContour(width: 20, height: 10), rectangleContour(width: 30, height: 15, originX: 30)]
 
@@ -271,7 +271,7 @@ struct Facing_Tests {
     func testFacingRequiresNonZeroArea() {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 6.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0),
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepoverPercentage: 0.4),
                                           safeZ: 5.0, targetDepth: 0.5)
         let degenerateContour = SC.Contour(entities: [
             .init(geometry: .line(a: SIMD2<Double>(0, 0), b: SIMD2<Double>(20, 0)), reversed: false)
@@ -292,7 +292,7 @@ struct Facing_Tests {
     func testFacingCollapsedFootprintThrowsInvalidContour() {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 6.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0),
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepoverPercentage: 0.4),
                                           safeZ: 5.0, targetDepth: 0.5)
         // A valid, non-zero contour -- but an extensionLength negative enough that
         // `facingArea`'s grown rectangle collapses to zero (or negative) span.

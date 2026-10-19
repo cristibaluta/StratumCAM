@@ -105,12 +105,8 @@ extension SC {
         ///   the edge of the stock.
         ///
         /// - Parameter stepoverPercentage: Forward advance between successive
-        ///   bites, as a fraction (clamped to `0...1`) of `tool.diameter / 2`
-        ///   (the tool's own radius, not its full diameter) -- see
-        ///   `SCEngine.openEndedTrochoidalSegments`'s own doc comment for why a
-        ///   percentage is measured against a single radius here rather than
-        ///   `.pocket`'s `.trochoidal`/`settings.cutting.stepoverPercentage`
-        ///   convention of a fraction of the full diameter.
+        ///   bites, as a fraction (clamped to `0...1`) of `tool.diameter` -- the same
+        ///   convention as `settings.cutting.stepoverPercentage`.
         case fromOpenEnd(stepoverPercentage: Double)
     }
 }

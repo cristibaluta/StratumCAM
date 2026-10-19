@@ -29,7 +29,7 @@ struct LargeArcDirection_Tests {
 
     /// Motion of the long (300°-ish) arc in the last pass: `true` = CCW (G03), `false` = CW (G02).
     private func bigArcIsCCW(side: SC.CutSide, direction: SC.CutDirection, reversed: Bool) throws -> Bool {
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000, plungeRate: 300, stepdown: 0.5),
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000, plungeRate: 300, stepdown: 0.5, stepoverPercentage: 0.4),
                                           safeZ: 5,
                                           targetDepth: -1)
         let operation: SC.MachiningOperation = .contour(side: side,

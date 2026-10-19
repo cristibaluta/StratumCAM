@@ -22,7 +22,7 @@ struct GCode_Drilling_Tests {
                 spindleSpeed: 12000.0,
                 feedRate: 1000.0,
                 plungeRate: 200.0,
-                stepdown: 1.0
+                stepdown: 1.0, stepoverPercentage: 0.4
             ),
             safeZ: 5.0,
             retractZ: 1.0,
@@ -107,7 +107,7 @@ struct GCode_Drilling_Tests {
                 spindleSpeed: 9000.0,
                 feedRate: 1000.0,
                 plungeRate: 200.0,
-                stepdown: 1.0
+                stepdown: 1.0, stepoverPercentage: 0.4
             ),
             safeZ: 5.0,
             targetDepth: 5.0
@@ -154,7 +154,7 @@ struct GCode_Drilling_Tests {
                 spindleSpeed: 8500.0,
                 feedRate: 1000.0,
                 plungeRate: 200.0,
-                stepdown: 1.0
+                stepdown: 1.0, stepoverPercentage: 0.4
             ),
             safeZ: 5.0,
             targetDepth: 4.0
@@ -163,7 +163,7 @@ struct GCode_Drilling_Tests {
         // The machine-wide settings passed into `generateGCode`, representing the
         // program's default spindle speed (e.g. from the header `M03`).
         let machineSettings = SC.MachineSettings(
-            cutting: SC.CuttingData(spindleSpeed: 12000.0),
+            cutting: SC.CuttingData(spindleSpeed: 12000.0, stepoverPercentage: 0.4),
             safeZ: 5.0,
             targetDepth: 4.0
         )
@@ -207,7 +207,7 @@ struct GCode_Drilling_Tests {
                 spindleSpeed: 11000.0,
                 feedRate: 1000.0,
                 plungeRate: 200.0,
-                stepdown: 1.0
+                stepdown: 1.0, stepoverPercentage: 0.4
             ),
             safeZ: 5.0,
             targetDepth: 4.0

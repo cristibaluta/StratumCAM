@@ -13,7 +13,7 @@ import StratumCAM
 
 struct GCode_Arc_Tests {
 
-    private let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000, plungeRate: 300),
+    private let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000, plungeRate: 300, stepoverPercentage: 0.4),
                                               safeZ: 5,
                                               targetDepth: -0.1)
 

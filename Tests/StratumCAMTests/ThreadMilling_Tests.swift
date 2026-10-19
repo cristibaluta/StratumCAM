@@ -46,7 +46,7 @@ struct ThreadMilling_Tests {
     func testThreadMillingEntersAndExitsThroughCenterCuttingBottomToTop() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 3.0) // tool radius 1.5
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0),
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0, stepoverPercentage: 0.4),
                                           safeZ: 5.0,
                                           targetDepth: -3.0)
 
@@ -139,7 +139,7 @@ struct ThreadMilling_Tests {
     func testInternalThreadingOffsetsInward() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 4.0) // tool radius 2.0
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -2.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0, stepoverPercentage: 0.4), safeZ: 5.0, targetDepth: -2.0)
 
         let contour = circleContour(center: (10, 20), diameter: 12.0) // hole radius 6.0
 
@@ -158,7 +158,7 @@ struct ThreadMilling_Tests {
     func testExternalThreadingOffsetsOutward() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 4.0) // tool radius 2.0
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -2.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0, stepoverPercentage: 0.4), safeZ: 5.0, targetDepth: -2.0)
 
         let contour = circleContour(center: (10, 20), diameter: 12.0) // boss radius 6.0
 
@@ -179,7 +179,7 @@ struct ThreadMilling_Tests {
     func testToolTooLargeForInternalHoleThrowsToolIncompatible() {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 10.0) // tool radius 5.0
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -2.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0, stepoverPercentage: 0.4), safeZ: 5.0, targetDepth: -2.0)
 
         let contour = circleContour(center: (0, 0), diameter: 8.0) // hole radius 4.0, smaller than the tool radius
 
@@ -203,7 +203,7 @@ struct ThreadMilling_Tests {
     func testNonCircleContourThrowsInvalidContour() {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 3.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -2.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0, stepoverPercentage: 0.4), safeZ: 5.0, targetDepth: -2.0)
 
         let contour = SC.Contour(entities: [
             .init(geometry: .point(at: SIMD2<Double>(0, 0)), reversed: false)
@@ -226,7 +226,7 @@ struct ThreadMilling_Tests {
     func testZeroPitchThrowsInvalidParameter() {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 3.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -2.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0, stepoverPercentage: 0.4), safeZ: 5.0, targetDepth: -2.0)
 
         let contour = circleContour(center: (0, 0), diameter: 10.0)
 
@@ -249,7 +249,7 @@ struct ThreadMilling_Tests {
     func testRadialPassesBelowOneThrowsInvalidParameter() {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 3.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -2.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0, stepoverPercentage: 0.4), safeZ: 5.0, targetDepth: -2.0)
 
         let contour = circleContour(center: (0, 0), diameter: 10.0)
 
@@ -273,7 +273,7 @@ struct ThreadMilling_Tests {
     private func firstArcIsCCW(isInternal: Bool, direction: SC.ThreadDirection) throws -> Bool {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 3.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -1.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0, stepoverPercentage: 0.4), safeZ: 5.0, targetDepth: -1.0)
         let contour = circleContour(center: (0, 0), diameter: 10.0)
 
         let toolpaths = try engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
@@ -313,7 +313,7 @@ struct ThreadMilling_Tests {
     func testthreadMillingBatchOfHolesEachGetsOwnToolpath() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 3.0) // tool radius 1.5
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -2.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0, stepoverPercentage: 0.4), safeZ: 5.0, targetDepth: -2.0)
 
         let centers: [(Double, Double)] = [(0, 0), (20, 0), (20, 20), (0, 20)]
         let contours = centers.map { circleContour(center: $0, diameter: 10.0) } // hole radius 5.0
@@ -341,7 +341,7 @@ struct ThreadMilling_Tests {
     func testNegativePitchTreatedAsMagnitude() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 3.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -3.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0, stepoverPercentage: 0.4), safeZ: 5.0, targetDepth: -3.0)
         let contour = circleContour(center: (0, 0), diameter: 10.0)
 
         let positive = try engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
@@ -361,7 +361,7 @@ struct ThreadMilling_Tests {
     func testPartialFinalTurnDepthDoesNotOvershoot() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 3.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -3.5)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0, stepoverPercentage: 0.4), safeZ: 5.0, targetDepth: -3.5)
         let contour = circleContour(center: (0, 0), diameter: 10.0)
 
         let toolpaths = try engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
@@ -387,7 +387,7 @@ struct ThreadMilling_Tests {
     func testSingleShortTurnWhenDepthLessThanPitch() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 3.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -0.5)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0, stepoverPercentage: 0.4), safeZ: 5.0, targetDepth: -0.5)
         let contour = circleContour(center: (0, 0), diameter: 10.0)
 
         let toolpaths = try engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
@@ -409,7 +409,7 @@ struct ThreadMilling_Tests {
     func testAllWaypointsUseCuttingFeedRate() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 3.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 733.0, plungeRate: 150.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -3.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 733.0, plungeRate: 150.0, stepdown: 1.0, stepoverPercentage: 0.4), safeZ: 5.0, targetDepth: -3.0)
         let contour = circleContour(center: (0, 0), diameter: 10.0)
 
         let toolpaths = try engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
@@ -424,7 +424,7 @@ struct ThreadMilling_Tests {
     func testHelixMaintainsConstantRadiusThroughout() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 4.0) // tool radius 2.0
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -5.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0, stepoverPercentage: 0.4), safeZ: 5.0, targetDepth: -5.0)
         let center = (5.0, 7.0)
         let contour = circleContour(center: center, diameter: 20.0) // hole radius 10.0
 
@@ -449,7 +449,7 @@ struct ThreadMilling_Tests {
     func testWindingSenseConsistentAcrossAllTurns() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 3.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -4.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0, stepoverPercentage: 0.4), safeZ: 5.0, targetDepth: -4.0)
         let contour = circleContour(center: (0, 0), diameter: 10.0)
 
         let toolpaths = try engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
@@ -470,7 +470,7 @@ struct ThreadMilling_Tests {
     func testOutputToolpathCarriesToolAndSettings() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 3.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -3.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0, stepoverPercentage: 0.4), safeZ: 5.0, targetDepth: -3.0)
         let contour = circleContour(center: (0, 0), diameter: 10.0)
 
         let toolpaths = try engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
@@ -490,7 +490,7 @@ struct ThreadMilling_Tests {
     func testMixedBatchAbortsOnFirstBadContour() {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 3.0) // tool radius 1.5
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -2.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0, stepoverPercentage: 0.4), safeZ: 5.0, targetDepth: -2.0)
 
         let goodContour = circleContour(center: (0, 0), diameter: 10.0) // hole radius 5.0
         let badContour = SC.Contour(entities: [
@@ -515,7 +515,7 @@ struct ThreadMilling_Tests {
     func testPerContourCallsIsolateGoodContourFromBadOne() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 3.0) // tool radius 1.5
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -2.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0, stepoverPercentage: 0.4), safeZ: 5.0, targetDepth: -2.0)
 
         let goodContour = circleContour(center: (0, 0), diameter: 10.0) // hole radius 5.0
         let badContour = SC.Contour(entities: [
@@ -551,7 +551,7 @@ struct ThreadMilling_Tests {
     func testRadialPassesControlsPassCount() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 3.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -3.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0, stepoverPercentage: 0.4), safeZ: 5.0, targetDepth: -3.0)
         let contour = circleContour(center: (0, 0), diameter: 8.0) // existing (pre-drilled) hole diameter
 
         let toolpaths = try engine.generateToolpaths(from: [contour], tool: tool, settings: settings,
@@ -568,7 +568,7 @@ struct ThreadMilling_Tests {
     func testInternalRadialPassesStepOutwardToFinalDiameter() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 3.0) // tool radius 1.5
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -3.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0, stepoverPercentage: 0.4), safeZ: 5.0, targetDepth: -3.0)
         // Existing (already-drilled) hole diameter 10.0 -- e.g. the pilot hole selected
         // in the CAM software -- stepping out to a 13.0mm target (finished) diameter.
         let contour = circleContour(center: (0, 0), diameter: 10.0)
@@ -594,7 +594,7 @@ struct ThreadMilling_Tests {
     func testExternalRadialPassesStepInwardToFinalDiameter() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 4.0) // tool radius 2.0
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -2.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0, stepoverPercentage: 0.4), safeZ: 5.0, targetDepth: -2.0)
         // Existing (already-turned) boss diameter 13.0, slightly oversized, stepping
         // down to a 12.0mm target (finished) diameter.
         let contour = circleContour(center: (0, 0), diameter: 13.0)
@@ -617,7 +617,7 @@ struct ThreadMilling_Tests {
     func testSingleRadialPassMatchesOriginalBehavior() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 3.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -3.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 900.0, plungeRate: 200.0, stepdown: 1.0, stepoverPercentage: 0.4), safeZ: 5.0, targetDepth: -3.0)
         // Deliberately a different diameter than the target -- with a single pass the
         // step covers the whole existing-to-target distance in one go, so the engage
         // radius should depend only on targetDiameter, not on this existing value.

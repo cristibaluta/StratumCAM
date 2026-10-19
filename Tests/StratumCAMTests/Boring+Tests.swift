@@ -21,7 +21,7 @@ struct Boring_Tests {
     func testBoringPlungesAndOrbitsAtTargetRadius() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 6.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0),
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0, stepoverPercentage: 0.4),
                                           safeZ: 5.0,
                                           targetDepth: -8.0)
 
@@ -96,7 +96,7 @@ struct Boring_Tests {
     func testBoringUsesCircleCenterAsHoleLocation() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 6.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 250.0, stepdown: 1.0),
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 250.0, stepdown: 1.0, stepoverPercentage: 0.4),
                                           safeZ: 6.0,
                                           targetDepth: -5.0)
 
@@ -128,7 +128,7 @@ struct Boring_Tests {
     func testBoringNonDrillPointContourThrows() {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 6.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -8.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0, stepoverPercentage: 0.4), safeZ: 5.0, targetDepth: -8.0)
 
         let contour = SC.Contour(entities: [
             .init(geometry: .line(a: SIMD2<Double>(0, 0), b: SIMD2<Double>(10, 0)), reversed: false)
@@ -152,7 +152,7 @@ struct Boring_Tests {
     func testBoringBatchOfHolesEachGetsOwnToolpath() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 6.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -8.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0, stepoverPercentage: 0.4), safeZ: 5.0, targetDepth: -8.0)
 
         let points: [(Double, Double)] = [(0, 0), (10, 0), (10, 10), (0, 10)]
         let contours = points.map { x, y in
@@ -180,7 +180,7 @@ struct Boring_Tests {
     func testShiftRetractFalseRetractsStraightUp() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 6.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -8.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0, stepoverPercentage: 0.4), safeZ: 5.0, targetDepth: -8.0)
 
         let contour = SC.Contour(entities: [
             .init(geometry: .point(at: SIMD2<Double>(0, 0)), reversed: false)
@@ -205,7 +205,7 @@ struct Boring_Tests {
     func testShiftRetractTrueInsertsShiftBeforeRetract() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 6.0) // tool radius 3.0
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -8.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0, stepoverPercentage: 0.4), safeZ: 5.0, targetDepth: -8.0)
 
         let contour = SC.Contour(entities: [
             .init(geometry: .point(at: SIMD2<Double>(0, 0)), reversed: false)
@@ -239,7 +239,7 @@ struct Boring_Tests {
     func testShiftRetractClampsToHoleCenter() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 20.0) // tool radius 10.0, wider than the bore
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -8.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0, stepoverPercentage: 0.4), safeZ: 5.0, targetDepth: -8.0)
 
         let contour = SC.Contour(entities: [
             .init(geometry: .point(at: SIMD2<Double>(0, 0)), reversed: false)
@@ -257,7 +257,7 @@ struct Boring_Tests {
     func testShiftRetractExactlyReachesHoleCenterAtBoundary() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 10.0) // tool radius 5.0, exactly the bore radius
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -8.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0, stepoverPercentage: 0.4), safeZ: 5.0, targetDepth: -8.0)
 
         let contour = SC.Contour(entities: [
             .init(geometry: .point(at: SIMD2<Double>(0, 0)), reversed: false)
@@ -277,7 +277,7 @@ struct Boring_Tests {
     func testCircularInterpolationUsesCuttingFeedRateNotPlungeRate() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 6.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1200.0, plungeRate: 150.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -8.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1200.0, plungeRate: 150.0, stepdown: 1.0, stepoverPercentage: 0.4), safeZ: 5.0, targetDepth: -8.0)
 
         let contour = SC.Contour(entities: [
             .init(geometry: .point(at: SIMD2<Double>(0, 0)), reversed: false)

@@ -72,7 +72,7 @@ struct Chamfer_Tests {
 
         // Full pipeline should bail out cleanly rather than cut at a made-up depth.
         let engine = SCEngine()
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -1.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4), safeZ: 5.0, targetDepth: -1.0)
 
         // do/catch rather than #expect(throws:) -- matching Drilling_Tests.swift's own
         // note on why (the exact-value overload of #expect(throws:) isn't pinned across
@@ -94,7 +94,7 @@ struct Chamfer_Tests {
     func testChamferEmptyContourThrowsInvalidContour() {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .vBit, diameter: 6.0, vAngle: 90.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -1.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4), safeZ: 5.0, targetDepth: -1.0)
         let params = SC.ChamferParams(width: 1.0, side: .outside, direction: .conventional)
         let emptyContour = SC.Contour(entities: [], isClosed: true)
 
@@ -114,7 +114,7 @@ struct Chamfer_Tests {
     func testChamferOutsideOffsetsAwayFromContour() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .vBit, diameter: 6.0, vAngle: 90.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -1.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4), safeZ: 5.0, targetDepth: -1.0)
         let params = SC.ChamferParams(width: 1.0, side: .outside, direction: .conventional)
 
         let toolpaths = try engine.generateToolpaths(from: [ccwSquareContour()],
@@ -135,7 +135,7 @@ struct Chamfer_Tests {
     func testChamferInsideOffsetsTowardContourCenter() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .vBit, diameter: 6.0, vAngle: 90.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -1.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4), safeZ: 5.0, targetDepth: -1.0)
         let params = SC.ChamferParams(width: 1.0, side: .inside, direction: .conventional)
 
         let toolpaths = try engine.generateToolpaths(from: [ccwSquareContour()], tool: tool, settings: settings, operation: .chamfer(params: params))
@@ -155,7 +155,7 @@ struct Chamfer_Tests {
     func testChamferHonorsDirection() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .vBit, diameter: 6.0, vAngle: 90.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -1.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4), safeZ: 5.0, targetDepth: -1.0)
 
         let climbParams = SC.ChamferParams(width: 1.0, side: .outside, direction: .conventional)
         let conventionalParams = SC.ChamferParams(width: 1.0, side: .outside, direction: .climb)
@@ -180,7 +180,7 @@ struct Chamfer_Tests {
     func testChamferHonorsDirection_old() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(type: .vBit, diameter: 6.0, vAngle: 90.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0), safeZ: 5.0, targetDepth: -1.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4), safeZ: 5.0, targetDepth: -1.0)
 
         // CCW square
         let square = SC.Contour(entities: [

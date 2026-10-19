@@ -54,7 +54,7 @@ struct Slotting_Tests {
     func testSlottingFollowsCenterlineWithNoOffset() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 6.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0),
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepoverPercentage: 0.4),
                                           safeZ: 5.0,
                                           targetDepth: -1.0)
 
@@ -88,7 +88,7 @@ struct Slotting_Tests {
     @Test("A larger tool diameter does not change the traced XY path")
     func testSlottingOffsetIsIndependentOfToolDiameter() throws {
         let engine = SCEngine()
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0),
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepoverPercentage: 0.4),
                                           safeZ: 5.0,
                                           targetDepth: -1.0)
 
@@ -118,7 +118,7 @@ struct Slotting_Tests {
     func testSlottingTracesMultiSegmentCenterlineExactly() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 6.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0),
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepoverPercentage: 0.4),
                                           safeZ: 5.0,
                                           targetDepth: -1.0)
 
@@ -150,7 +150,7 @@ struct Slotting_Tests {
         // -2.5 / 1.0 -> rounds up to 3 passes: -1.0, -2.0, -2.5 (same fencepost rule
         // `calculateZPasses` covers in `ZPasses_Tests.swift`, and `.pocket` already
         // relies on in `PocketZPasses_Tests.swift`).
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0),
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepoverPercentage: 0.4),
                                           safeZ: 5.0,
                                           targetDepth: -2.5)
 
@@ -171,7 +171,7 @@ struct Slotting_Tests {
     func testSlottingGeometryReusedAcrossZPasses() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 6.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0),
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepoverPercentage: 0.4),
                                           safeZ: 5.0,
                                           targetDepth: -3.0)
 
@@ -197,7 +197,7 @@ struct Slotting_Tests {
     func testSlottingSinglePassWhenDepthMatchesStepdown() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 6.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0),
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepoverPercentage: 0.4),
                                           safeZ: 5.0,
                                           targetDepth: -1.0)
 
@@ -218,7 +218,7 @@ struct Slotting_Tests {
     func testSlottingPlungeEntryRetractsAndRePlungesEachPass() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 6.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0),
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepoverPercentage: 0.4),
                                           safeZ: 5.0,
                                           targetDepth: -2.0)
 
@@ -249,7 +249,7 @@ struct Slotting_Tests {
     func testSlottingRampEntryDescendsFromPreviousZ() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 6.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0),
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepoverPercentage: 0.4),
                                           safeZ: 5.0,
                                           targetDepth: -2.0)
 
@@ -300,7 +300,7 @@ struct Slotting_Tests {
     func testSlottingHelixEntryIsCenteredOnCenterline() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 6.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0),
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepoverPercentage: 0.4),
                                           safeZ: 5.0,
                                           targetDepth: -1.0)
 
@@ -395,7 +395,7 @@ struct Slotting_Tests {
     func testRectangleSlotCenterlineReproducesBoundaryWhenTraced() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 6.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0), safeZ: 5.0, targetDepth: -1.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepoverPercentage: 0.4), safeZ: 5.0, targetDepth: -1.0)
         let pattern = SC.SlotClearingPattern.raster
 
         let boundary = rectangleBoundaryContour(length: 30, width: 6)
@@ -531,7 +531,7 @@ struct Slotting_Tests {
     func testSlottingBatchProducesOneToolpathPerContour() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 6.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0),
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepoverPercentage: 0.4),
                                           safeZ: 5.0,
                                           targetDepth: -2.0)
 
@@ -557,7 +557,7 @@ struct Slotting_Tests {
     func testSlottingRequiresNonEmptyContour() {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 6.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0),
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepoverPercentage: 0.4),
                                           safeZ: 5.0,
                                           targetDepth: -1.0)
 

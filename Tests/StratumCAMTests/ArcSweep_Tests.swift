@@ -102,7 +102,7 @@ struct ArcSweep_Tests {
 
     @Test("Large-arc demo shape: tabs on the 300° arc clamp Z to the tab floor")
     func testPacManTabs() throws {
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000, plungeRate: 300, stepdown: 0.5),
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000, plungeRate: 300, stepdown: 0.5, stepoverPercentage: 0.4),
                                           safeZ: 5,
                                           targetDepth: -3)
         let operation: SC.MachiningOperation = .contour(

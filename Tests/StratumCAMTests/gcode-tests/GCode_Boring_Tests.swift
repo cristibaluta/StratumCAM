@@ -18,7 +18,7 @@ struct GCode_Boring_Tests {
     func testBoringDwellIsEmittedAfterFinalArc() throws {
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 6.0)
         let settings = SC.MachineSettings(
-            cutting: SC.CuttingData(spindleSpeed: 10000.0, feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0),
+            cutting: SC.CuttingData(spindleSpeed: 10000.0, feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0, stepoverPercentage: 0.4),
             safeZ: 5.0,
             targetDepth: 8.0
         )
@@ -56,7 +56,7 @@ struct GCode_Boring_Tests {
     func testBoringWithoutDwellTimeDoesNotEmitDwell() throws {
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 6.0)
         let settings = SC.MachineSettings(
-            cutting: SC.CuttingData(spindleSpeed: 9000.0, feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0),
+            cutting: SC.CuttingData(spindleSpeed: 9000.0, feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0, stepoverPercentage: 0.4),
             safeZ: 5.0,
             targetDepth: 5.0
         )
@@ -81,7 +81,7 @@ struct GCode_Boring_Tests {
     func testBoringDwellLandsBeforeShiftMoveWhenBothAreOn() throws {
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 6.0) // tool radius 3.0
         let settings = SC.MachineSettings(
-            cutting: SC.CuttingData(spindleSpeed: 9000.0, feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0),
+            cutting: SC.CuttingData(spindleSpeed: 9000.0, feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0, stepoverPercentage: 0.4),
             safeZ: 5.0,
             targetDepth: 8.0
         )
@@ -123,7 +123,7 @@ struct GCode_Boring_Tests {
     func testBoringZeroDwellTimeDoesNotEmitDwell() throws {
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 6.0)
         let settings = SC.MachineSettings(
-            cutting: SC.CuttingData(spindleSpeed: 9000.0, feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0),
+            cutting: SC.CuttingData(spindleSpeed: 9000.0, feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0, stepoverPercentage: 0.4),
             safeZ: 5.0,
             targetDepth: 5.0
         )
@@ -150,7 +150,7 @@ struct GCode_Boring_Tests {
     func testBoringBatchOfHolesEachGetsOwnDwell() throws {
         let tool = SC.ToolParams(type: .flatEndMill, diameter: 6.0)
         let settings = SC.MachineSettings(
-            cutting: SC.CuttingData(spindleSpeed: 9000.0, feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0),
+            cutting: SC.CuttingData(spindleSpeed: 9000.0, feedRate: 1000.0, plungeRate: 200.0, stepdown: 1.0, stepoverPercentage: 0.4),
             safeZ: 5.0,
             targetDepth: 8.0
         )

@@ -309,7 +309,7 @@ struct Raster_Tests {
         let tool = SC.ToolParams(diameter: 4.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0,
                                                                   plungeRate: 300.0,
-                                                                  stepdown: 1.0),
+                                                                  stepdown: 1.0, stepoverPercentage: 0.4),
                                           safeZ: 5.0,
                                           targetDepth: -1.0)
 

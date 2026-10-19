@@ -38,7 +38,7 @@ struct MakeraGCode_Contour_Tests {
                                      number: 1)
 
     private let settings = SC.MachineSettings(
-        cutting: SC.CuttingData(spindleSpeed: 12000, feedRate: 1200, plungeRate: 300, stepdown: 0.1),
+        cutting: SC.CuttingData(spindleSpeed: 12000, feedRate: 1200, plungeRate: 300, stepdown: 0.1, stepoverPercentage: 0.4),
         safeZ: 5.0,
         retractZ: 1.0,
         targetDepth: -1.0

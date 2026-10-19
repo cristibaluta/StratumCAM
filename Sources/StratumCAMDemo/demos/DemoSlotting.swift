@@ -234,7 +234,7 @@ class DemoSlotting: Demo {
                 from: [centerline],
                 tool: tool,
                 settings: settings,
-                operation: .slotting(depthPerPass: 1.0, pattern: pattern, entry: .fromOpenEnd(stepoverPercentage: 0.5))
+                operation: .slotting(depthPerPass: 1.0, pattern: pattern, entry: .fromOpenEnd(stepoverPercentage: 0.25))
             )
         } catch {
             print("generateToolpaths failed: \(error)")
@@ -335,7 +335,7 @@ class DemoSlotting: Demo {
                 from: [centerline],
                 tool: tool,
                 settings: settings,
-                operation: .slotting(depthPerPass: 1.0, pattern: pattern, entry: .fromOpenEnd(stepoverPercentage: 0.5))
+                operation: .slotting(depthPerPass: 1.0, pattern: pattern, entry: .fromOpenEnd(stepoverPercentage: 0.25))
             )
         } catch {
             print("generateToolpaths failed: \(error)")

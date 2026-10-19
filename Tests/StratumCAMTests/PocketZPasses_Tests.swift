@@ -47,7 +47,7 @@ struct PocketZPasses_Tests {
         let tool = SC.ToolParams(diameter: 6.0)
         // -2.5 / 1.0 -> rounds up to 3 passes: -1.0, -2.0, -2.5 (same fencepost rule
         // `calculateZPasses` already covers in ZPasses_Tests.swift).
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0),
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4),
                                           safeZ: 5.0,
                                           targetDepth: -2.5)
 
@@ -161,7 +161,7 @@ struct PocketZPasses_Tests {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 6.0)
         // stepdown 1.0 over a target of -2.0 -> two passes: -1.0, then -2.0.
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0),
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4),
                                           safeZ: 5.0,
                                           targetDepth: -2.0)
 
@@ -209,7 +209,7 @@ struct PocketZPasses_Tests {
     func testPocketHelixEntryStartsFromPreviousPassDepth() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 6.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0),
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4),
                                           safeZ: 5.0,
                                           targetDepth: -2.0)
 
@@ -242,7 +242,7 @@ struct PocketZPasses_Tests {
     func testPocketPlungeEntryStillStraightDownPerPass() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 6.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0),
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4),
                                           safeZ: 5.0,
                                           targetDepth: -2.0)
 

@@ -47,7 +47,7 @@ extension SCEngine {
     /// caller-supplied parameter.
     ///
     /// Facing has no wall to protect the way a pocket does -- `.pocket` uses
-    /// `stepoverPercentage * tool.diameter` (typically ~0.4) to keep radial
+    /// `stepoverPercentage * tool.diameter` (default 0.25) to keep radial
     /// engagement low against a wall it's about to trim, but a facing pass is
     /// just a flat-bottom sweep over open ground. There's no finish/chip-load
     /// tradeoff for a caller to tune, so rather than exposing another number to
