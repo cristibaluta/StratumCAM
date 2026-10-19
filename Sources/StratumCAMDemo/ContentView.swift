@@ -72,6 +72,92 @@ struct ContentView: View {
                         show(DemoDegenerateArcs().demoSquareWithJunkArcs())
                     }
                 }
+                Section("Pocketing") {
+                    demoButton("Rect (Climb)") {
+                        show(DemoPocketing().demoPocketRectangle())
+                    }
+                    demoButton("Rect (Conventional)") {
+                        show(DemoPocketing().demoPocketRectangleConventional())
+                    }
+                    demoButton("Rect (Climb, Center Out)") {
+                        show(DemoPocketing().demoPocketRectangleConcentricFromCenter())
+                    }
+                    demoButton("Heart (Climb, Center Out)") {
+                        show(DemoPocketing().demoPocketHeartConcentricFromCenter())
+                    }
+                    demoButton("Rect (Fixed Islands)") {
+                        show(DemoPocketing().demoPocketRectangleConcentricWithIslands())
+                    }
+                    demoButton("Rect (Auto Islands)") {
+                        show(DemoPocketing().demoPocketRectangleConcentricAutoIslands())
+                    }
+                    demoButton("Rect (Shaped Islands)") {
+                        show(DemoPocketing().demoPocketRectangleConcentricShapedIslands())
+                    }
+                    demoButton("Rect (Islands, Ramp)") {
+                        show(DemoPocketing().demoPocketRectangleConcentricShapedIslandsRamp())
+                    }
+                    demoButton("Rect (Concentric, Ramp)") {
+                        show(DemoPocketing().demoPocketRectangleConcentricFromCenterRampEntry())
+                    }
+                    demoButton("Rounded Rectangle") {
+                        show(DemoPocketing().demoPocketRoundedRectangle())
+                    }
+                    demoButton("Multi-pass Z Stepdown") {
+                        show(DemoPocketing().demoMultiPassZStepdown())
+                    }
+                    demoButton("Raster Multi-pass Z Stepdown") {
+                        show(DemoPocketing().demoRasterMultiPassZStepdown())
+                    }
+                    demoButton("Ring Geometry Reused Across Passes") {
+                        show(DemoPocketing().demoRingGeometryReusedAcrossPasses())
+                    }
+                    demoButton("Ramp Entry (Multi-pass)") {
+                        show(DemoPocketing().demoRampEntryMultiPass())
+                    }
+                    demoButton("Helix Entry (Multi-pass)") {
+                        show(DemoPocketing().demoHelixEntryMultiPass())
+                    }
+                    Divider()
+                    demoButton("Raster Rectangle (Climb)") {
+                        show(DemoPocketing().demoRasterRectangle())
+                    }
+                    demoButton("Raster Rectangle (Conventional)") {
+                        show(DemoPocketing().demoRasterRectangleConventional())
+                    }
+                    demoButton("Raster Rounded Rectangle") {
+                        show(DemoPocketing().demoRasterRoundedRectangle())
+                    }
+                    demoButton("Raster Ramp Entry") {
+                        show(DemoPocketing().demoRasterRampEntry())
+                    }
+                    demoButton("Raster Helix Entry") {
+                        show(DemoPocketing().demoRasterHelixEntry())
+                    }
+                    demoButton("Concave Staple (Bridging Row Fix)") {
+                        show(DemoPocketing().demoRasterConcaveStapleSkipsBridgingRows())
+                    }
+                    Divider()
+                    demoButton("Spiral Circle insideOut") {
+                        show(DemoPocketing().demoSpiralCircleInsideOut())
+                    }
+                    demoButton("Spiral Circle outsideIn") {
+                        show(DemoPocketing().demoSpiralCircle())
+                    }
+                    demoButton("Spiral Fallback on Rectangle") {
+                        show(DemoPocketing().demoSpiralFallbackOnRectangle())
+                    }
+                    Divider()
+                    demoButton("Trochoidal Rectangle (Climb)") {
+                        show(DemoPocketing().demoTrochoidalRectangle())
+                    }
+                    demoButton("Trochoidal Rectangle (Conventional)") {
+                        show(DemoPocketing().demoTrochoidalRectangleConventional())
+                    }
+                    demoButton("Trochoidal Circle") {
+                        show(DemoPocketing().demoTrochoidalCircle())
+                    }
+                }
                 Section("Drilling") {
                     demoButton("Plain Drill") {
                         show(DemoDrilling().demoPlainDrill())
@@ -130,89 +216,6 @@ struct ContentView: View {
                     }
                     demoButton("Multiple Counterbores") {
                         show(DemoCounterbore().demoMultipleCounterbores())
-                    }
-                }
-                Section("Pocketing") {
-                    demoButton("Rectangle (Climb)") {
-                        show(DemoPocketing().demoPocketRectangle())
-                    }
-                    demoButton("Rectangle (Climb, Center Out)") {
-                        show(DemoPocketing().demoPocketRectangleConcentricFromCenter())
-                    }
-                    demoButton("Heart (Climb, Center Out)") {
-                        show(DemoPocketing().demoPocketHeartConcentricFromCenter())
-                    }
-                    demoButton("Rectangle (Climb, Center Out, Islands)") {
-                        show(DemoPocketing().demoPocketRectangleConcentricWithIslands())
-                    }
-                    demoButton("Rectangle (Climb, Center Out, Auto Islands)") {
-                        show(DemoPocketing().demoPocketRectangleConcentricAutoIslands())
-                    }
-                    demoButton("Rectangle (Climb, Center Out, Shaped Islands)") {
-                        show(DemoPocketing().demoPocketRectangleConcentricShapedIslands())
-                    }
-                    demoButton("Rectangle (Climb, Center Out, Shaped Islands, Ramp)") {
-                        show(DemoPocketing().demoPocketRectangleConcentricShapedIslandsRamp())
-                    }
-                    demoButton("Rectangle (Conventional)") {
-                        show(DemoPocketing().demoPocketRectangleConventional())
-                    }
-                    demoButton("Rounded Rectangle") {
-                        show(DemoPocketing().demoPocketRoundedRectangle())
-                    }
-                    demoButton("Multi-pass Z Stepdown") {
-                        show(DemoPocketing().demoMultiPassZStepdown())
-                    }
-                    demoButton("Raster Multi-pass Z Stepdown") {
-                        show(DemoPocketing().demoRasterMultiPassZStepdown())
-                    }
-                    demoButton("Ring Geometry Reused Across Passes") {
-                        show(DemoPocketing().demoRingGeometryReusedAcrossPasses())
-                    }
-                    demoButton("Ramp Entry (Multi-pass)") {
-                        show(DemoPocketing().demoRampEntryMultiPass())
-                    }
-                    demoButton("Helix Entry (Multi-pass)") {
-                        show(DemoPocketing().demoHelixEntryMultiPass())
-                    }
-                    Divider()
-                    demoButton("Raster Rectangle (Climb)") {
-                        show(DemoPocketing().demoRasterRectangle())
-                    }
-                    demoButton("Raster Rectangle (Conventional)") {
-                        show(DemoPocketing().demoRasterRectangleConventional())
-                    }
-                    demoButton("Raster Rounded Rectangle") {
-                        show(DemoPocketing().demoRasterRoundedRectangle())
-                    }
-                    demoButton("Raster Ramp Entry") {
-                        show(DemoPocketing().demoRasterRampEntry())
-                    }
-                    demoButton("Raster Helix Entry") {
-                        show(DemoPocketing().demoRasterHelixEntry())
-                    }
-                    demoButton("Concave Staple (Bridging Row Fix)") {
-                        show(DemoPocketing().demoRasterConcaveStapleSkipsBridgingRows())
-                    }
-                    Divider()
-                    demoButton("Spiral Circle insideOut") {
-                        show(DemoPocketing().demoSpiralCircleInsideOut())
-                    }
-                    demoButton("Spiral Circle outsideIn") {
-                        show(DemoPocketing().demoSpiralCircle())
-                    }
-                    demoButton("Spiral Fallback on Rectangle") {
-                        show(DemoPocketing().demoSpiralFallbackOnRectangle())
-                    }
-                    Divider()
-                    demoButton("Trochoidal Rectangle (Climb)") {
-                        show(DemoPocketing().demoTrochoidalRectangle())
-                    }
-                    demoButton("Trochoidal Rectangle (Conventional)") {
-                        show(DemoPocketing().demoTrochoidalRectangleConventional())
-                    }
-                    demoButton("Trochoidal Circle") {
-                        show(DemoPocketing().demoTrochoidalCircle())
                     }
                 }
                 Section("Facing") {

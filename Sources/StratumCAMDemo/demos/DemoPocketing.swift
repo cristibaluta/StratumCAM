@@ -127,6 +127,17 @@ class DemoPocketing: Demo {
         return self.run(contour: contour, tool: tool, settings: settings, operation: operation)
     }
 
+    func demoPocketRectangleConcentricFromCenterRampEntry() -> Demo.DemoResult {
+        let tool = SC.ToolParams(diameter: 3.175)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -3.0)
+
+        let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .concentric(direction: .insideOut), entry: .ramp(angleDegrees: 3.0))
+
+        let contour = rectangleContour(width: 40, height: 24)
+        return self.run(contour: contour, tool: tool, settings: settings, operation: operation)
+    }
+
     /// A heart cleared with concentric passes from the centre: circles grow from the point
     /// furthest from the wall, and once they reach the wall they keep growing, moulding onto
     /// the heart's outline, until the last pass is the wall itself.

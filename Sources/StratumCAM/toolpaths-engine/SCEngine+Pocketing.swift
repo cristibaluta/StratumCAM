@@ -250,15 +250,28 @@ extension SCEngine {
                                            previousZ: Double,
                                            settings: SC.MachineSettings,
                                            entry: SC.EntryStrategy) -> [SC.Waypoint] {
-        var waypoints = buildWaypoints(for: group, atZ: z, settings: settings)
-        guard case .ramp(let angleDegrees) = entry, let start = group.first?.startPoint, waypoints.count > 2 else {
-            return waypoints
+        guard case .ramp(let angleDegrees) = entry,
+              let start = group.first?.startPoint,
+              let ramped = RampTools.pathRampWaypoints(path: group,
+                                                       angleDegrees: angleDegrees,
+                                                       fromZ: previousZ,
+                                                       toZ: z,
+                                                       settings: settings) else {
+            // Plunge, or a group too short to ramp at this angle.
+            return buildWaypoints(for: group, atZ: z, settings: settings)
         }
-        // `buildWaypoints` yields [rapid to safeZ, plunge to z, trace..., retract]: swap the plunge.
-        let ramp = [SC.Waypoint(position: SIMD3(start.x, start.y, previousZ), motion: .rapid, feedRate: settings.cutting.feedRate)]
-            + RampTools.pathRampWaypoints(path: group, angleDegrees: angleDegrees, fromZ: previousZ, toZ: z, settings: settings)
-        waypoints.replaceSubrange(1...1, with: ramp)
-        return waypoints
+        // Ramp forward along the group's own path, then carry on tracing from where it ends.
+        let ramp = [
+            SC.Waypoint(position: SIMD3(start.x, start.y, settings.safeZ), motion: .rapid, feedRate: settings.cutting.feedRate),
+            SC.Waypoint(position: SIMD3(start.x, start.y, previousZ), motion: .rapid, feedRate: settings.cutting.feedRate)
+        ] + ramped.ramp
+        // Reuse the trace + retract of `buildWaypoints`, dropping its own rapid and plunge.
+        guard !ramped.remaining.isEmpty else {
+            let end = ramped.ramp.last?.position ?? SIMD3(start.x, start.y, z)
+            return ramp + [SC.Waypoint(position: SIMD3(end.x, end.y, settings.safeZ), motion: .rapid, feedRate: settings.cutting.feedRate)]
+        }
+        let trace = buildWaypoints(for: ramped.remaining, atZ: z, settings: settings).dropFirst(2)
+        return ramp + trace
     }
 
     private func buildEntryWaypoints(for segments: [SC.Segment],
