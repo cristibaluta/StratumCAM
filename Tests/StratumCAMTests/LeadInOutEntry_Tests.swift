@@ -63,7 +63,7 @@ struct LeadInOutEntry_Tests {
     @Test("A lead-in with a helix entry is rejected")
     func testLeadInWithHelixThrows() {
         expectInvalidParameter {
-            _ = try generate(entry: .helix(radius: 2, rampAngleDegrees: 3), leadIn: linearLead, leadOut: nil)
+            _ = try generate(entry: .helix(rampAngleDegrees: 3), leadIn: linearLead, leadOut: nil)
         }
     }
 
@@ -76,12 +76,12 @@ struct LeadInOutEntry_Tests {
     @Test("Ramp and helix without a lead-in still work")
     func testRampAndHelixWithoutLeadIn() throws {
         #expect(!(try generate(entry: .ramp(angleDegrees: 3), leadIn: nil, leadOut: nil)).isEmpty)
-        #expect(!(try generate(entry: .helix(radius: 2, rampAngleDegrees: 3), leadIn: nil, leadOut: nil)).isEmpty)
+        #expect(!(try generate(entry: .helix(rampAngleDegrees: 3), leadIn: nil, leadOut: nil)).isEmpty)
     }
 
     @Test("A lead-out is honored with ramp and helix entries: a feed move off the contour, then a retract above it")
     func testLeadOutWithRampAndHelix() throws {
-        for entry in [SC.EntryStrategy.ramp(angleDegrees: 3), .helix(radius: 2, rampAngleDegrees: 3)] {
+        for entry in [SC.EntryStrategy.ramp(angleDegrees: 3), .helix(rampAngleDegrees: 3)] {
             let without = try generate(entry: entry, leadIn: nil, leadOut: nil)
             let with = try generate(entry: entry, leadIn: nil, leadOut: linearLead)
 

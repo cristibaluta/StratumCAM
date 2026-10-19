@@ -134,7 +134,7 @@ class DemoCounterbore: Demo {
 
         let center = (0.0, 0.0)
         let diameter = 20.0
-        let operation: SC.MachiningOperation = .counterbore(diameter: diameter, depth: 1.0, direction: .climb, entry: .helix(radius: 1.0, rampAngleDegrees: 30))
+        let operation: SC.MachiningOperation = .counterbore(diameter: diameter, depth: 1.0, direction: .climb, entry: .helix(rampAngleDegrees: 30))
 
         let contour = pointContour(center.0, center.1)
         let result = self.run(contour: contour, tool: tool, settings: settings, operation: operation)

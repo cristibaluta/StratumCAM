@@ -161,8 +161,9 @@ extension SCEngine {
                                                         settings: settings)
                 )
 
-            case .helix(let radius, let angleDegrees):
+            case .helix(let angleDegrees):
                 // Same reasoning as `.ramp` above.
+                let radius = RampTools.helixRadius(forToolRadius: tool.diameter / 2.0)
                 waypoints.append(
                     SC.Waypoint(position: SIMD3(startPoint.x, startPoint.y, previousZ),
                                 motion: .rapid,

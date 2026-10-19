@@ -66,7 +66,7 @@ struct PocketIslands_Tests {
     func testIslandsRejected() throws {
         let contour = pocket(islands: [island(x: 28, y: 12, radius: 2)])
         #expect(throws: SC.Error.self) { try generate(contour, pattern: .offset) }
-        #expect(throws: SC.Error.self) { try generate(contour, entry: .helix(radius: 1, rampAngleDegrees: 3)) }
+        #expect(throws: SC.Error.self) { try generate(contour, entry: .helix(rampAngleDegrees: 3)) }
     }
 
     @Test("Ramp entry is supported with islands, descends along the path and stays out of zones")

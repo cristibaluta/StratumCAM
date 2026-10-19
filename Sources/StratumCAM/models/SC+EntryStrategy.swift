@@ -64,10 +64,13 @@ extension SC {
         /// - Cons: Requires sufficient internal clearance area inside the pocket to accommodate helix radius.
         /// - Standard Use: Ideal default for 2D pockets, dynamic adaptive clearing, and deep internal cavities.
         ///
-        /// - Parameters:
-        ///   - radius: Radius of helical spiral entry path in workspace units (mm/inches).
-        ///   - rampAngleDegrees: Helical descent pitch angle relative to horizontal plane (typically 1.5°–3.0°).
-        case helix(radius: Double, rampAngleDegrees: Double)
+        /// The helix radius is not a parameter: the engine derives it from the tool (95% of the
+        /// tool radius, so the cutter edge still sweeps across the helix axis), shrunk further
+        /// when the pocket is too small for it. In a round pocket cleared inside-out, the helix is
+        /// centered on the pocket's center.
+        ///
+        /// - Parameter rampAngleDegrees: Helical descent pitch angle relative to horizontal plane (typically 1.5°–3.0°).
+        case helix(rampAngleDegrees: Double)
 
         /// Feeds in sideways from outside the stock, through an open end of the
         /// feature, using overlapping trochoidal loops rather than descending

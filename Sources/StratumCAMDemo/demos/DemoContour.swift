@@ -129,7 +129,7 @@ class DemoContour: Demo {
 
         let operation: SC.MachiningOperation = .contour(side: .outside,
                                                         direction: .climb,
-                                                        entry: .helix(radius: 2, rampAngleDegrees: 3),
+                                                        entry: .helix(rampAngleDegrees: 3),
                                                         leadIn: nil,
                                                         leadOut: nil,
                                                         tabs: [])

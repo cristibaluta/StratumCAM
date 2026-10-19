@@ -120,7 +120,7 @@ struct Counterbore_Tests {
             from: [pointContour(x: 0, y: 0)],
             tool: tool,
             settings: settings(stepdown: 1.0),
-            operation: .counterbore(diameter: 20.0, depth: 1.0, direction: .climb, entry: .helix(radius: 1.0, rampAngleDegrees: 30))
+            operation: .counterbore(diameter: 20.0, depth: 1.0, direction: .climb, entry: .helix(rampAngleDegrees: 30))
         )
 
         let waypoints = toolpaths[0].passes[0].waypoints
@@ -216,7 +216,7 @@ struct Counterbore_Tests {
             from: [pointContour(x: 2, y: -3)],
             tool: tool,
             settings: settings(stepdown: 0.5, stepoverPercentage: 0.35),
-            operation: .counterbore(diameter: 25.0, depth: 1.5, direction: .conventional, entry: .helix(radius: 1.0, rampAngleDegrees: 20))
+            operation: .counterbore(diameter: 25.0, depth: 1.5, direction: .conventional, entry: .helix(rampAngleDegrees: 20))
         )
 
         let expectedWallRadius = 25.0 / 2.0 - 1.5

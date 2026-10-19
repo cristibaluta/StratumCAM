@@ -135,7 +135,8 @@ extension SCEngine {
                         entry: entry,
                         leadIn: leadIn,
                         leadOut: leadOut,
-                        tabs: tabs
+                        tabs: tabs,
+                        toolRadius: tool.diameter / 2.0
                     )
                 )
             }
@@ -185,7 +186,8 @@ extension SCEngine {
                                        entry: SC.EntryStrategy,
                                        leadIn: SC.LeadInOut?,
                                        leadOut: SC.LeadInOut?,
-                                       tabs: [SC.HoldingTab]) -> [SC.Waypoint] {
+                                       tabs: [SC.HoldingTab],
+                                       toolRadius: Double) -> [SC.Waypoint] {
 
         let contourStart = firstSegment.startPoint
         let startTangent = direction(of: firstSegment, atEnd: false)
@@ -241,7 +243,8 @@ extension SCEngine {
                                                         settings: settings)
                 )
 
-            case .helix(let radius, let angleDegrees):
+            case .helix(let angleDegrees):
+                let radius = RampTools.helixRadius(forToolRadius: toolRadius)
                 // Same reasoning as `.ramp` above: travel at safeZ, but helix down only
                 // from the previous pass's depth to this pass's depth.
                 waypoints.append(

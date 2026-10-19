@@ -110,6 +110,6 @@ struct FromOpenEnd_Tests {
         #expect(SC.EntryStrategy.plunge.isStraightDown)
         #expect(SC.EntryStrategy.fromOpenEnd(stepoverPercentage: 0.5).isStraightDown)
         #expect(!SC.EntryStrategy.ramp(angleDegrees: 3).isStraightDown)
-        #expect(!SC.EntryStrategy.helix(radius: 2, rampAngleDegrees: 3).isStraightDown)
+        #expect(!SC.EntryStrategy.helix(rampAngleDegrees: 3).isStraightDown)
     }
 }

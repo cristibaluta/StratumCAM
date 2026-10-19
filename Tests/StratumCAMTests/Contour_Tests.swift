@@ -279,7 +279,7 @@ struct Contour_Tests {
             from: [ccwSquareContour()], tool: tool, settings: settings,
             operation: .contour(side: .outside,
                                 direction: .conventional,
-                                entry: .helix(radius: 2, rampAngleDegrees: 30),
+                                entry: .helix(rampAngleDegrees: 30),
                                 leadIn: nil,
                                 leadOut: nil,
                                 tabs: [])

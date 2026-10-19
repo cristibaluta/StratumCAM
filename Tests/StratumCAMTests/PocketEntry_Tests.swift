@@ -134,7 +134,7 @@ struct PocketEntry_Tests {
             from: [ccwRectangleContour()],
             tool: tool,
             settings: settings,
-            operation: pocketStrategy(pattern: .offset, entry: .helix(radius: 1.0, rampAngleDegrees: 30))
+            operation: pocketStrategy(pattern: .offset, entry: .helix(rampAngleDegrees: 30))
         )
 
         let waypoints = toolpaths[0].passes[0].waypoints
@@ -167,7 +167,7 @@ struct PocketEntry_Tests {
             from: [ccwRectangleContour()],
             tool: tool,
             settings: settings,
-            operation: pocketStrategy(pattern: .offset, entry: .helix(radius: 1.0, rampAngleDegrees: 30))
+            operation: pocketStrategy(pattern: .offset, entry: .helix(rampAngleDegrees: 30))
         )
 
         let waypoints = toolpaths[0].passes[0].waypoints
@@ -232,7 +232,7 @@ struct PocketEntry_Tests {
             from: [ccwRectangleContour()],
             tool: tool,
             settings: settings,
-            operation: pocketStrategy(pattern: .raster, entry: .helix(radius: 1.0, rampAngleDegrees: 30))
+            operation: pocketStrategy(pattern: .raster, entry: .helix(rampAngleDegrees: 30))
         )
 
         let waypoints = toolpaths[0].passes[0].waypoints
@@ -277,7 +277,7 @@ struct PocketEntry_Tests {
             from: [wideRasterContour()],
             tool: tool,
             settings: settings,
-            operation: pocketStrategy(pattern: .raster, entry: .helix(radius: 2.0, rampAngleDegrees: 30))
+            operation: pocketStrategy(pattern: .raster, entry: .helix(rampAngleDegrees: 30))
         )
 
         #expect(toolpaths.count == 1, "Test Failed: expected 1 raster pocket toolpath")

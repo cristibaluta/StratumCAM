@@ -244,6 +244,12 @@ struct RampTools {
 
     // MARK: - Centered helix (pocket entry)
 
+    /// Tool-center radius of a helix entry, derived from the tool: 95% of the tool radius, so
+    /// the cutter's edge still sweeps across the helix axis and no core is left standing.
+    static func helixRadius(forToolRadius toolRadius: Double) -> Double {
+        0.95 * toolRadius
+    }
+
     /// A full circle at the head of a toolpath: its center, radius, where it starts and
     /// which way it winds.
     struct LeadingCircle {
@@ -344,5 +350,22 @@ struct RampTools {
                                motion: isCCW ? .arcCCW(center: center) : .arcCW(center: center),
                                feedRate: feedRate)
         }
+    }
+
+    /// `path` without its leading full circles of radius <= `maxRadius`, and without the
+    /// short link moves that follow them. Used to skip rings a helix has already cleared.
+    static func droppingCircles(upToRadius maxRadius: Double, from path: [SC.Segment]) -> [SC.Segment] {
+        var rest = path
+        while let circle = leadingCircle(of: rest), circle.radius <= maxRadius {
+            var swept = 0.0
+            while let first = rest.first, swept < 2 * .pi - 1e-6 {
+                swept += first.pathLength / circle.radius
+                rest.removeFirst()
+            }
+            while case .line? = rest.first {
+                rest.removeFirst()
+            }
+        }
+        return rest
     }
 }

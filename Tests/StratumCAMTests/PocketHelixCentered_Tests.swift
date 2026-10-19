@@ -19,18 +19,18 @@ struct PocketHelixCentered_Tests {
         ], isClosed: true)
     }
 
-    private func firstPass(helixRadius: Double, angle: Double, depth: Double) throws -> [SC.Waypoint] {
+    private func firstPass(angle: Double, depth: Double, pocketRadius: Double = 20) throws -> [SC.Waypoint] {
         let tool = SC.ToolParams(diameter: 6.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4),
                                           safeZ: 5.0,
                                           targetDepth: depth)
         let toolpaths = try SCEngine().generateToolpaths(
-            from: [circleContour(radius: 20)],
+            from: [circleContour(radius: pocketRadius)],
             tool: tool,
             settings: settings,
             operation: .pocket(direction: .climb,
                                pattern: .concentric(direction: .insideOut),
-                               entry: .helix(radius: helixRadius, rampAngleDegrees: angle))
+                               entry: .helix(rampAngleDegrees: angle))
         )
         return try #require(toolpaths.first?.passes.first?.waypoints)
     }
@@ -43,7 +43,7 @@ struct PocketHelixCentered_Tests {
 
     @Test("Helix arcs are centered on the circle's center")
     func testHelixCenteredOnShapeCenter() throws {
-        let waypoints = try firstPass(helixRadius: 3.0, angle: 3.0, depth: -1.0)
+        let waypoints = try firstPass(angle: 3.0, depth: -1.0)
         let descending = waypoints.filter { isArc($0.motion) && $0.position.z > -1.0 + 1e-9 }
         #expect(!descending.isEmpty)
         for waypoint in descending {
@@ -58,7 +58,7 @@ struct PocketHelixCentered_Tests {
 
     @Test("Helix reaches depth exactly at its start angle")
     func testHelixEndsAtStartPoint() throws {
-        let waypoints = try firstPass(helixRadius: 3.0, angle: 3.0, depth: -1.0)
+        let waypoints = try firstPass(angle: 3.0, depth: -1.0)
         let startRapid = try #require(waypoints.first(where: { $0.motion == .rapid && abs($0.position.z) < 1e-9 }))
         let atDepth = try #require(waypoints.first(where: { isArc($0.motion) && abs($0.position.z + 1.0) < 1e-9 }))
         // First arc to reach full depth is the last helix step: back on the start point.
@@ -68,7 +68,7 @@ struct PocketHelixCentered_Tests {
 
     @Test("Ramp angle is never steeper than requested")
     func testHelixHonorsAngle() throws {
-        let waypoints = try firstPass(helixRadius: 3.0, angle: 3.0, depth: -1.0)
+        let waypoints = try firstPass(angle: 3.0, depth: -1.0)
         var previous = try #require(waypoints.first(where: { $0.motion == .rapid && abs($0.position.z) < 1e-9 })).position
         let tanLimit = tan(3.0 * Double.pi / 180.0)
         for waypoint in waypoints where isArc(waypoint.motion) && waypoint.position.z > -1.0 - 1e-9 && waypoint.position.z < previous.z - 1e-12 {
@@ -76,6 +76,27 @@ struct PocketHelixCentered_Tests {
             let chord = hypot(waypoint.position.x - previous.x, waypoint.position.y - previous.y)
             #expect(dz / chord <= tanLimit * 1.05)
             previous = waypoint.position
+        }
+    }
+
+    @Test("Helix radius is 95% of the tool radius, not the tiny first ring")
+    func testHelixRadiusIsNearToolRadius() throws {
+        let waypoints = try firstPass(angle: 3.0, depth: -1.0)
+        let helix = waypoints.filter { isArc($0.motion) && $0.position.z > -1.0 + 1e-9 }
+        #expect(!helix.isEmpty)
+        for waypoint in helix {
+            #expect(abs(hypot(Double(waypoint.position.x), Double(waypoint.position.y)) - 0.95 * 3.0) < 1e-6)
+        }
+    }
+
+    @Test("Helix shrinks to fit a pocket too small for the full radius")
+    func testHelixShrinksInSmallPocket() throws {
+        // Pocket radius 4, tool radius 3: the tool center can only be 1mm from the center.
+        let waypoints = try firstPass(angle: 3.0, depth: -1.0, pocketRadius: 4)
+        let helix = waypoints.filter { isArc($0.motion) && $0.position.z > -1.0 + 1e-9 }
+        #expect(!helix.isEmpty)
+        for waypoint in helix {
+            #expect(hypot(Double(waypoint.position.x), Double(waypoint.position.y)) <= 1.0 + 1e-6)
         }
     }
 }

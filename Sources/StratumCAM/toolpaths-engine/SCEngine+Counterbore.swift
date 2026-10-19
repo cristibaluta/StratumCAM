@@ -100,7 +100,8 @@ extension SCEngine {
                                                        previousZ: previousZ,
                                                        settings: settings,
                                                        entry: entry,
-                                                       center: center)
+                                                       center: center,
+                                                       toolRadius: toolRadius)
             passes.append(SC.ToolpathPass(passIndex: i, depthZ: z, waypoints: waypoints))
             previousZ = z
         }
@@ -216,7 +217,8 @@ extension SCEngine {
                                            previousZ: Double,
                                            settings: SC.MachineSettings,
                                            entry: SC.EntryStrategy,
-                                           center: CGPoint) -> [SC.Waypoint] {
+                                           center: CGPoint,
+                                           toolRadius: Double) -> [SC.Waypoint] {
 
         // Not converted to `throws` in Step 6.5: `buildCounterboreToolpath` already
         // throws `SC.Error.geometryCollapsed` before ever calling this function if
@@ -289,7 +291,8 @@ extension SCEngine {
                                                         settings: settings)
                 )
 
-            case .helix(let radius, let angleDegrees):
+            case .helix(let angleDegrees):
+                let radius = RampTools.helixRadius(forToolRadius: toolRadius)
                 // Same reasoning as `.ramp` above: travel at safeZ, but rapid down to
                 // previousZ first so the helix itself starts from there, not from safeZ.
                 waypoints.append(

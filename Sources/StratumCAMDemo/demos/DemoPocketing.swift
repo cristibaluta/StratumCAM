@@ -383,16 +383,17 @@ class DemoPocketing: Demo {
         let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0)
         let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -2.0)
 
-        let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .offset, entry: .helix(radius: 1.0, rampAngleDegrees: 30))
+        let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .offset, entry: .helix(rampAngleDegrees: 30))
 
         let contour = rectangleContour(width: 20, height: 10)
         return self.run(contour: contour, tool: tool, settings: settings, operation: operation)
     }
 
     /// Circular pocket (radius 20) cleared inside-out with concentric circles and a helix
-    /// entry. The helix is centered on the circle's center (not to the side): it spirals
-    /// down at the first ring's radius, ends back at its start angle, and the first ring
-    /// is the flat full circle that cleans the sloped floor, then the rings grow outward.
+    /// entry. The helix is centered on the circle's center (not to the side) with a radius
+    /// of 95% of the tool radius: it spirals down, ends back at its start angle, a flat full
+    /// circle cleans the sloped floor, and the rings inside it are skipped before the rest
+    /// grow outward.
     /// Two Z passes, so the second helix only spans its own fresh stepdown.
     func demoHelixEntryCircle() -> Demo.DemoResult {
         let tool = SC.ToolParams(diameter: 6.0)
@@ -401,7 +402,7 @@ class DemoPocketing: Demo {
 
         let operation: SC.MachiningOperation = .pocket(direction: .climb,
                                                        pattern: .concentric(direction: .insideOut),
-                                                       entry: .helix(radius: 3.0, rampAngleDegrees: 3.0))
+                                                       entry: .helix(rampAngleDegrees: 3.0))
 
         let contour = circleContour(radius: 20)
         return self.run(contour: contour, tool: tool, settings: settings, operation: operation)
@@ -473,7 +474,7 @@ class DemoPocketing: Demo {
         let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4)
         let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -1.0)
 
-        let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .raster, entry: .helix(radius: 2.0, rampAngleDegrees: 30))
+        let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .raster, entry: .helix(rampAngleDegrees: 30))
 
         let contour = rectangleContour(width: 40, height: 24)
         return self.run(contour: contour, tool: tool, settings: settings, operation: operation)
