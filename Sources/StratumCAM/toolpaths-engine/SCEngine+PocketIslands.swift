@@ -407,7 +407,7 @@ extension SCEngine {
 
     /// Cuts `segment` at the given parameters: `t` in 0...1 along a line, the swept angle
     /// from the start along an arc. Parameters at or beyond the ends are ignored.
-    private func split(_ segment: SC.Segment, atParameters raw: [Double]) -> [SC.Segment] {
+    func split(_ segment: SC.Segment, atParameters raw: [Double]) -> [SC.Segment] {
         switch segment {
             case .line(let a, let b):
                 let ts = distinctSorted(raw.filter { $0 > 1e-9 && $0 < 1 - 1e-9 })
@@ -489,7 +489,7 @@ extension SCEngine {
 
     /// Split parameters of `segment` at its crossings with `other` (both bounded to their
     /// own extent). The parameter is `t` for a line and the swept angle for an arc.
-    private func intersectionParameters(of segment: SC.Segment, with other: SC.Segment) -> [Double] {
+    func intersectionParameters(of segment: SC.Segment, with other: SC.Segment) -> [Double] {
         switch (segment, other) {
 
             case (.line(let a, let b), .line(let c, let d)):

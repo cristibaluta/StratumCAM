@@ -151,4 +151,45 @@ struct PocketCenter_Tests {
             #expect(insideLWall(waypoint.position), "\(waypoint.position) leaves the wall offset")
         }
     }
+
+    // MARK: - Heart
+
+    private func heartContour() -> SC.Contour {
+        let count = 96
+        let vertices = (0..<count).map { i -> SC.Geometry.Vertex in
+            let t = 2 * Double.pi * Double(i) / Double(count)
+            let x = 16 * pow(sin(t), 3)
+            let y = 13 * cos(t) - 5 * cos(2 * t) - 2 * cos(3 * t) - cos(4 * t)
+            return SC.Geometry.Vertex(SIMD2<Double>(20 + x * 1.25, 18 + y * 1.25))
+        }
+        return SC.Contour(entities: [
+            SC.Contour.Chained(geometry: .polyline(vertices: vertices, closed: true), reversed: false)
+        ], isClosed: true)
+    }
+
+    @Test("On a heart the circles keep growing onto the wall instead of returning to the centre")
+    func testHeartGrowsOutwardFromTheLastCircle() throws {
+        let contour = heartContour()
+        let engine = SCEngine()
+        // Tool radius 2, stepover 0.5 * 4 = 2.
+        let wall = engine.offsetContour(contour.linearizedSegments, side: .inside, toolRadius: 2.0, isClosed: true)
+        let center = try #require(engine.pocketCenter(wallRing: wall, zones: []))
+
+        let w = try waypoints(contour)
+        let cutting = w.filter { $0.position.z < 0 }
+
+        // Every cutting move stays inside the wall offset.
+        for waypoint in cutting {
+            let p = CGPoint(x: waypoint.position.x, y: waypoint.position.y)
+            #expect(engine.isInsideLoop(p, loop: wall) || engine.distance(from: p, toLoop: wall) < 1e-4,
+                    "\(p) leaves the wall offset")
+        }
+
+        // Once the passes have moved past the last free circle they never come back inside it.
+        let distances = cutting.map { hypot(Double($0.position.x) - Double(center.point.x), Double($0.position.y) - Double(center.point.y)) }
+        let firstOutside = try #require(distances.firstIndex { $0 > center.radius + 2.5 })
+        for (offset, d) in distances[firstOutside...].enumerated() {
+            #expect(d >= center.radius - 1e-3, "waypoint \(firstOutside + offset) returns to the centre (\(d) < \(center.radius))")
+        }
+    }
 }

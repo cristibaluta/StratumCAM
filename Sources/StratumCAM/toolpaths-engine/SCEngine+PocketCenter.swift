@@ -128,11 +128,12 @@ extension SCEngine {
 
     /// Inside-out ring stack for an irregular pocket: perfect circles around the pocket's
     /// centre, growing one `stepover` at a time until the biggest touches the wall or an
-    /// island, followed by the wall offset rings that still reach material the circles don't.
+    /// island, then the same circles keep growing but moulded onto the wall (see
+    /// `grownRings`), ending with the wall ring itself.
     ///
     /// - Parameters:
-    ///   - offsetRings: the plain inward offset rings of the wall, outside-in, `pocketRings`'
-    ///     output. Rings lying entirely inside the biggest circle are dropped.
+    ///   - offsetRings: `pocketRings`' output, outside-in; only its first ring, the wall
+    ///     ring, is used.
     ///   - zones: island keep-out zones (empty for a pocket without islands).
     /// - Returns: the rings inside-out, or `nil` when there is no usable centre, or, for a
     ///   pocket without islands, when a link between two rings would leave the pocket. The
@@ -166,16 +167,18 @@ extension SCEngine {
             circleRing(center: center.point, radius: $0, counterClockwise: counterClockwise)
         }
 
-        // 2. Offset rings, deepest first. Whatever lies inside the biggest circle is already
-        //    cleared (the tool footprint of a point inside the circle is inside the circle
-        //    grown by the tool radius), so those rings are skipped.
-        let covered = center.radius + max(1e-4, center.radius * 1e-4)
+        // 2. Keep growing from the last circle. Where the circle is still free it keeps being a
+        //    circle; where it has reached the wall it follows the wall. The last ring is the
+        //    wall itself.
+        guard let grown = grownRings(center: center,
+                                     wallRing: wallRing,
+                                     stepover: stepover,
+                                     counterClockwise: counterClockwise) else {
+            return nil
+        }
+
         var previousStart = stack.last?.first?.startPoint
-        for ring in offsetRings.reversed() {
-            let farthest = ring.map { farthestDistance(from: center.point, on: $0) }.max() ?? 0
-            guard farthest > covered else {
-                continue
-            }
+        for ring in grown {
             // Start each ring at the point nearest the previous one so the link is short.
             var next = ring
             if let previousStart, let nearest = nearestPoint(onLoop: ring, to: previousStart) {
@@ -191,6 +194,98 @@ extension SCEngine {
         }
 
         return stack
+    }
+
+    // MARK: - Circles moulding onto the wall
+
+    /// The rings that follow the biggest free circle: for each radius `center.radius + k * stepover`
+    /// the outline of "the disk of that radius around the centre, limited to the pocket". Free
+    /// parts of the outline are circle arcs, parts that have hit the wall run along it, so the
+    /// circle gradually takes the shape of the pocket. The last ring is the wall ring itself
+    /// (omitted when the biggest circle already is the wall, as in a round pocket).
+    /// Returns `nil` when an outline can't be assembled into closed loops.
+    private func grownRings(center: PocketCenter,
+                            wallRing: [SC.Segment],
+                            stepover: Double,
+                            counterClockwise: Bool) -> [[SC.Segment]]? {
+
+        let farthest = wallRing.map { farthestDistance(from: center.point, on: $0) }.max() ?? 0
+        var rings: [[SC.Segment]] = []
+
+        var radius = center.radius + stepover
+        var count = 0
+        // A ring that would differ from the wall only by a sliver at the far tip is skipped.
+        while radius < farthest - 0.25 * stepover, count < 500 {
+            guard let loops = grownLoops(radius: radius,
+                                         center: center.point,
+                                         wallRing: wallRing,
+                                         counterClockwise: counterClockwise) else {
+                return nil
+            }
+            rings.append(contentsOf: loops)
+            radius += stepover
+            count += 1
+        }
+
+        if farthest > center.radius + max(1e-4, center.radius * 1e-4) {
+            rings.append(wallRing)
+        }
+        return rings
+    }
+
+    /// The boundary of (disk of `radius` around `center`) intersected with the pocket, as
+    /// closed loops. The circle and the wall ring share a winding, so the pieces of each that
+    /// survive join end to start.
+    private func grownLoops(radius: Double,
+                            center: CGPoint,
+                            wallRing: [SC.Segment],
+                            counterClockwise: Bool) -> [[SC.Segment]]? {
+
+        let circle = circleRing(center: center, radius: radius, counterClockwise: counterClockwise)
+
+        // Parts of the circle inside the pocket.
+        var pieces: [SC.Segment] = []
+        for arc in circle {
+            let cuts = wallRing.flatMap { intersectionParameters(of: arc, with: $0) }
+            for piece in split(arc, atParameters: cuts) where isInsideLoop(midpoint(of: piece), loop: wallRing) {
+                pieces.append(piece)
+            }
+        }
+        // Parts of the wall inside the circle.
+        for segment in wallRing {
+            let cuts = circle.flatMap { intersectionParameters(of: segment, with: $0) }
+            for piece in split(segment, atParameters: cuts) {
+                let middle = midpoint(of: piece)
+                if hypot(middle.x - center.x, middle.y - center.y) < radius - 1e-9 {
+                    pieces.append(piece)
+                }
+            }
+        }
+        var pool = pieces.filter { !$0.isDegenerate }
+        guard !pool.isEmpty else {
+            return []
+        }
+
+        let tolerance = 1e-5
+        var loops: [[SC.Segment]] = []
+        while !pool.isEmpty {
+            var loop = [pool.removeFirst()]
+            let origin = loop[0].startPoint
+            while true {
+                let end = loop[loop.count - 1].endPoint
+                if hypot(end.x - origin.x, end.y - origin.y) < tolerance {
+                    break
+                }
+                guard let next = pool.firstIndex(where: {
+                    hypot($0.startPoint.x - end.x, $0.startPoint.y - end.y) < tolerance
+                }) else {
+                    return nil
+                }
+                loop.append(pool.remove(at: next))
+            }
+            loops.append(loop)
+        }
+        return loops
     }
 
     /// True when the straight link `from -> to` stays inside the closed `wallRing`

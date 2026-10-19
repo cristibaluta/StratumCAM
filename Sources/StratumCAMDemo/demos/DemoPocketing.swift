@@ -65,6 +65,22 @@ class DemoPocketing: Demo {
         ], isClosed: true)
     }
 
+    /// A heart, about 40 wide, as a closed polyline of 96 vertices: an irregular shape with a
+    /// notch, two lobes and a point.
+    private func heartContour(scale: Double = 1.25) -> SC.Contour {
+        let count = 96
+        var vertices: [SC.Geometry.Vertex] = []
+        for i in 0..<count {
+            let t = 2 * Double.pi * Double(i) / Double(count)
+            let x = 16 * pow(sin(t), 3)
+            let y = 13 * cos(t) - 5 * cos(2 * t) - 2 * cos(3 * t) - cos(4 * t)
+            vertices.append(SC.Geometry.Vertex(SIMD2<Double>(20 + x * scale, 18 + y * scale)))
+        }
+        return SC.Contour(entities: [
+            SC.Contour.Chained(geometry: .polyline(vertices: vertices, closed: true), reversed: false)
+        ], isClosed: true)
+    }
+
     // MARK: - Concentric ring pocketing (Step 2.2)
 
     /// Clears a 40x24 rectangle with a 6mm tool at 40% stepover. Wide enough
@@ -109,6 +125,18 @@ class DemoPocketing: Demo {
 
         let contour = rectangleContour(width: 40, height: 24)
         return self.run(contour: contour, tool: tool, settings: settings, operation: operation)
+    }
+
+    /// A heart cleared with concentric passes from the centre: circles grow from the point
+    /// furthest from the wall, and once they reach the wall they keep growing, moulding onto
+    /// the heart's outline, until the last pass is the wall itself.
+    func demoPocketHeartConcentricFromCenter() -> Demo.DemoResult {
+        let tool = SC.ToolParams(diameter: 3.0)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -3.0)
+
+        let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .concentric(direction: .insideOut), entry: .plunge)
+        return self.run(contour: heartContour(), tool: tool, settings: settings, operation: operation)
     }
 
     /// The same climb-milled, centre-out 40x24 pocket as

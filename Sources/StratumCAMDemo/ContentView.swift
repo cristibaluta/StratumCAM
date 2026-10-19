@@ -139,6 +139,9 @@ struct ContentView: View {
                     demoButton("Rectangle (Climb, Center Out)") {
                         show(DemoPocketing().demoPocketRectangleConcentricFromCenter())
                     }
+                    demoButton("Heart (Climb, Center Out)") {
+                        show(DemoPocketing().demoPocketHeartConcentricFromCenter())
+                    }
                     demoButton("Rectangle (Climb, Center Out, Islands)") {
                         show(DemoPocketing().demoPocketRectangleConcentricWithIslands())
                     }
