@@ -89,20 +89,35 @@ extension SCEngine {
                     throw SC.Error.geometryCollapsed
                 }
 
-                // Inside-out ring stack. An axis-aligned rectangle gets rings that start as a
-                // circle (or a slot for a long rectangle) at the centre and sharpen into the
-                // rectangle at the wall; any other shape uses its plain offset rings, reversed.
+                // Inside-out ring stack.
+                //  - An island-free axis-aligned rectangle gets rings that start as a circle (or a
+                //    slot for a long rectangle) at the centre and sharpen into the rectangle at
+                //    the wall.
+                //  - Any other shape (irregular, or with islands) starts with circles around the
+                //    point furthest from every wall and island, grown until the biggest touches
+                //    something, then continues with the wall offset rings.
+                //  - If no such centre can be found, the plain offset rings, reversed.
+                let toolRadius = tool.diameter / 2.0
                 let stepover = settings.cutting.stepoverPercentage * tool.diameter
-                let insideOutRings = roundedMorphRings(wallRing: rings[0], toolRadius: tool.diameter / 2.0, stepover: stepover)
-                    ?? Array(rings.reversed())
+                let zones: [PocketIslandZone] = try contour.islands.isEmpty
+                    ? []
+                    : islandZones(contour.islands, toolRadius: toolRadius, wallRing: rings[0])
+
+                let insideOutRings: [[SC.Segment]]
+                if zones.isEmpty, let morphed = roundedMorphRings(wallRing: rings[0], toolRadius: toolRadius, stepover: stepover) {
+                    insideOutRings = morphed
+                } else if let centered = centeredRings(offsetRings: rings, zones: zones, toolRadius: toolRadius, stepover: stepover) {
+                    insideOutRings = centered
+                } else {
+                    insideOutRings = Array(rings.reversed())
+                }
 
                 let orderedRings = ringOrder == .insideOut ? insideOutRings : Array(insideOutRings.reversed())
 
-                if contour.islands.isEmpty {
+                if zones.isEmpty {
                     toolpathSegments = chainedRingSegments(orderedRings)
                 } else {
-                    let zones = try islandZones(contour.islands, toolRadius: tool.diameter / 2.0, wallRing: rings[0])
-                    let groups = islandRingGroups(rings: orderedRings, zones: zones)
+                    let groups = islandRingGroups(rings: orderedRings, zones: zones, wallRing: rings[0])
                     guard !groups.isEmpty else {
                         throw SC.Error.geometryCollapsed
                     }

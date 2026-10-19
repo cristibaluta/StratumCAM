@@ -78,8 +78,9 @@ extension SCEngine {
     /// island, so every clipped ring is still made of closed loops. Each island's own
     /// wall is finished with a full loop at the end. Consecutive loops are chained with a
     /// straight link when that link stays clear of every zone; otherwise a new group starts
-    /// (plunged and retracted separately).
-    func islandRingGroups(rings: [[SC.Segment]], zones: [PocketIslandZone]) -> [[SC.Segment]] {
+    /// (plunged and retracted separately). With `wallRing`, a link that would leave the pocket
+    /// also starts a new group.
+    func islandRingGroups(rings: [[SC.Segment]], zones: [PocketIslandZone], wallRing: [SC.Segment]? = nil) -> [[SC.Segment]] {
         var groups: [[SC.Segment]] = []
         var current: [SC.Segment] = []
 
@@ -96,7 +97,9 @@ extension SCEngine {
                 let linkCrossesZone = zones.contains { zone in
                     split(link, by: zone).contains { isInside(midpoint(of: $0), zone: zone) }
                 }
-                if !linkCrossesZone {
+                // A link between two rings can also leave the pocket (a concave wall).
+                let linkLeavesWall = wallRing.map { !linkStaysInside(from: end, to: start, wallRing: $0) } ?? false
+                if !linkCrossesZone && !linkLeavesWall {
                     current.append(link)
                     current.append(contentsOf: loop)
                     return
