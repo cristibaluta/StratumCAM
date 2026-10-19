@@ -25,7 +25,11 @@ extension SC {
         public var entities: [Chained]
         public var isClosed: Bool
 
-        /// Circular islands left standing inside a closed pocket contour. Only the
+        /// Circular islands left standing inside a closed pocket contour. For `.pocket`,
+        /// `SCEngine.generateToolpaths` fills this in automatically from any closed
+        /// contours nested inside this one in the input list (see
+        /// `SCEngine.resolvePocketIslands`); islands set here by hand are kept and added to.
+        /// Only the
         /// `.pocket` operation with the `.concentric` pattern honors them (any other
         /// pocket pattern throws rather than cutting through an island); every other
         /// operation ignores them.

@@ -26,6 +26,14 @@ public final class SCEngine {
 
         var results: [SC.OutputToolpath] = []
 
+        // Pockets leave islands standing: any closed shape nested inside another becomes
+        // an island of it (and a shape inside an island is a pocket again), so the caller
+        // can pass one flat list of shapes.
+        var contours = contours
+        if case .pocket = operation {
+            contours = resolvePocketIslands(contours)
+        }
+
         for contour in contours {
             if let toolpath = try buildToolpath(for: contour, tool: tool, settings: settings, operation: operation) {
                 results.append(toolpath)

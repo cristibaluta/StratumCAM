@@ -131,6 +131,21 @@ class DemoPocketing: Demo {
         return self.run(contour: contour, tool: tool, settings: settings, operation: operation)
     }
 
+    /// Same pocket and islands as `demoPocketRectangleConcentricWithIslands()`, but the
+    /// islands are not attached to the pocket: the pocket outline and the circles are
+    /// passed as one flat list of shapes and the engine detects which sit inside which.
+    func demoPocketRectangleConcentricAutoIslands() -> Demo.DemoResult {
+        let tool = SC.ToolParams(diameter: 6.0)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -3.0)
+
+        let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .concentric(direction: .insideOut), entry: .plunge)
+
+        let shapes = [rectangleContour(width: 40, height: 24)]
+            + randomCircleIslands(count: 3, seed: 7, toolRadius: tool.diameter / 2.0, width: 40, height: 24)
+        return self.run(contours: shapes, tool: tool, settings: settings, operation: operation)
+    }
+
     /// Deterministic pseudo-random circular islands inside a `width` x `height` pocket
     /// whose lower-left corner is the origin. Each island keeps clear of the walls, of
     /// the other islands (by at least the tool diameter... the tool must fit between

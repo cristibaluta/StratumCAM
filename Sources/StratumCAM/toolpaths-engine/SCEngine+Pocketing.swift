@@ -803,7 +803,7 @@ extension SCEngine {
     }
 
     /// Even-odd test of `point` against the closed `loop`.
-    private func pointInside(_ point: CGPoint, loop: [SC.Segment]) -> Bool {
+    func pointInside(_ point: CGPoint, loop: [SC.Segment]) -> Bool {
         horizontalIntersections(y: point.y, with: loop).filter { $0 > point.x }.count % 2 == 1
     }
 
@@ -1164,7 +1164,7 @@ extension SCEngine {
     /// treat lines as infinite and arcs as full circles because they only need the point
     /// nearest a known vertex. A scanline clip has no such vertex to anchor on, so it
     /// needs the true bounded crossings.
-    private func horizontalIntersections(y: Double, with segments: [SC.Segment]) -> [Double] {
+    func horizontalIntersections(y: Double, with segments: [SC.Segment]) -> [Double] {
         var xs: [Double] = []
 
         for segment in segments {
