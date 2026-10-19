@@ -73,16 +73,16 @@ struct ContentView: View {
                     }
                 }
                 Section("Pocketing") {
-                    demoButton("Rect (Climb)") {
+                    demoButton("Rect (Offset Climb)") {
                         show(DemoPocketing().demoPocketRectangle())
                     }
-                    demoButton("Rect (Conventional)") {
+                    demoButton("Rect (Offset Conventional)") {
                         show(DemoPocketing().demoPocketRectangleConventional())
                     }
-                    demoButton("Rect (Climb, Center Out)") {
+                    demoButton("Rect (Concentric, Center Out)") {
                         show(DemoPocketing().demoPocketRectangleConcentricFromCenter())
                     }
-                    demoButton("Heart (Climb, Center Out)") {
+                    demoButton("Heart (Concentric, Center Out)") {
                         show(DemoPocketing().demoPocketHeartConcentricFromCenter())
                     }
                     demoButton("Rect (Fixed Islands)") {
