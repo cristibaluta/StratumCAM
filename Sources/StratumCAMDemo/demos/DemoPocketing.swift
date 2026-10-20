@@ -409,6 +409,28 @@ class DemoPocketing: Demo {
         return self.run(contour: contour, tool: tool, settings: settings, operation: operation)
     }
 
+    /// 4 mm hole pocketed with a 3.175 mm tool and a helix entry. The tool-centre region is only
+    /// 0.4125 mm in radius (2 - 1.5875), so the helix must shrink from its default 95% of the
+    /// tool radius (1.51 mm) to fit: the cutter edge must never go past the 4 mm wall.
+    /// The blue dashed circle is the hole; the yellow helix should stay inside it.
+    func demoHelixEntrySmallHole() -> Demo.DemoResult {
+        let tool = SC.ToolParams(diameter: 3.175)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.25)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -3.0)
+
+        let operation: SC.MachiningOperation = .pocket(direction: .climb,
+                                                       pattern: .concentric(direction: .insideOut),
+                                                       entry: .helix(rampAngleDegrees: 3.0))
+
+        let result = self.run(contour: circleContour(radius: 2.0), tool: tool, settings: settings, operation: operation)
+
+        // Verify: the tool edge (centre distance + tool radius) must stay within the hole.
+        let maxCentreDistance = result.toolpathPoints.map { hypot(Double($0.x), Double($0.y)) }.max() ?? 0
+        let maxReach = maxCentreDistance + tool.diameter / 2.0
+        print("[demo] small hole helix: max tool-centre radius \(maxCentreDistance), tool edge reach \(maxReach) (hole radius 2.0)\(maxReach > 2.0 + 1e-3 ? " -- EXCEEDS HOLE" : " -- ok")")
+        return result
+    }
+
     // MARK: - Raster clearing (Step 1.1)
 
     /// Clears a 40x24 rectangle with parallel scanline rows instead of concentric

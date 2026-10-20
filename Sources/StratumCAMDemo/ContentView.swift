@@ -121,6 +121,9 @@ struct ContentView: View {
                     demoButton("Helix Entry (Circle, Centered)") {
                         show(DemoPocketing().demoHelixEntryCircle())
                     }
+                    demoButton("Helix Entry (Ø4 Hole, Ø3.175 Tool)") {
+                        show(DemoPocketing().demoHelixEntrySmallHole())
+                    }
                     Divider()
                     demoButton("Raster Rectangle (Climb)") {
                         show(DemoPocketing().demoRasterRectangle())
