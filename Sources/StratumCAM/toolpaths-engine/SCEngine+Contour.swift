@@ -143,6 +143,15 @@ extension SCEngine {
             passes.append(SC.ToolpathPass(passIndex: i, depthZ: z, waypoints: waypoints))
             previousZ = z
         }
+
+        // A layer of a closed loop ends where the next one starts, so only that case may skip
+        // the full retract. Holding tabs leave material standing above the floor, and a
+        // lead-in/out moves the tool away from the contour, so those keep the full retract.
+        if tabs.isEmpty, leadIn == nil, leadOut == nil {
+            applyRetractPolicy(to: &passes, settings: settings) { from, to in
+                hypot(from.x - to.x, from.y - to.y) < 1e-6
+            }
+        }
         let waypointsTime = OffsetTiming.lap(&clock)
         let waypointCount = passes.reduce(0) { $0 + $1.waypoints.count }
         let totalTime = String(format: "%.2f", Double(OffsetTiming.now() &- totalStart) / 1_000_000)

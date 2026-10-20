@@ -68,6 +68,16 @@ extension SCEngine {
             previousZ = z
         }
 
+        // Between layers the tool only travels back along the slot it has already cut, so a
+        // link is allowed when every point of it lies on the slot's own centerline.
+        applyRetractPolicy(to: &passes, settings: settings) { from, to in
+            (0...16).allSatisfy { k in
+                let t = Double(k) / 16.0
+                let point = CGPoint(x: from.x + t * (to.x - from.x), y: from.y + t * (to.y - from.y))
+                return distance(from: point, toLoop: segments) < 1e-3
+            }
+        }
+
         return SC.OutputToolpath(operation: operation, tool: tool, settings: settings, passes: passes)
     }
 

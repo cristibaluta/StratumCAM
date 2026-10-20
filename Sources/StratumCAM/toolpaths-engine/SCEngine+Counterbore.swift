@@ -106,6 +106,9 @@ extension SCEngine {
             previousZ = z
         }
 
+        // The recess is cleared out to its wall ring, so the tool may travel anywhere inside it.
+        applyRetractPolicy(to: &passes, settings: settings, within: boundary)
+
         return SC.OutputToolpath(operation: operation, tool: tool, settings: settings, passes: passes)
     }
 
