@@ -257,11 +257,73 @@ extension SCEngine {
             previousZ = z
         }
 
+        if settings.retractPolicy != .safeZ, islandGroups == nil, passes.count > 1 {
+            // Where the tool centre may travel between layers: already the wall offset for
+            // raster and for helix entries, otherwise offset it here.
+            var travelRegion = toolCenterRegion
+            if travelRegion.isEmpty {
+                if case .raster = pattern {
+                    travelRegion = boundarySegments
+                } else {
+                    travelRegion = offsetContour(boundarySegments, side: .inside, toolRadius: tool.diameter / 2.0, isClosed: true)
+                }
+            }
+            applyRetractPolicy(to: &passes, region: travelRegion, settings: settings)
+        }
+
         return SC.OutputToolpath(operation: operation,
                                  tool: tool,
                                  settings: settings,
                                  passes: passes,
                                  restCorners: restCorners(in: baseSegments, toolRadius: tool.diameter / 2.0))
+    }
+
+    /// Replaces the full retract / re-approach at safe Z between two consecutive layers with
+    /// the move `settings.retractPolicy` asks for. Layers whose link would leave `region`
+    /// keep the full retract. Expects every pass to start with a rapid at safe Z and end with
+    /// a rapid back to safe Z, which is what the entry builders produce.
+    private func applyRetractPolicy(to passes: inout [SC.ToolpathPass], region: [SC.Segment], settings: SC.MachineSettings) {
+        guard !region.isEmpty else {
+            return
+        }
+        for i in 0..<(passes.count - 1) {
+            var current = passes[i].waypoints
+            var next = passes[i + 1].waypoints
+            guard current.count >= 2, let nextStart = next.first,
+                  let last = current.last, last.motion == .rapid,
+                  nextStart.motion == .rapid else {
+                continue
+            }
+            let cutEnd = current[current.count - 2].position
+            let from = CGPoint(x: cutEnd.x, y: cutEnd.y)
+            let to = CGPoint(x: nextStart.position.x, y: nextStart.position.y)
+            guard linkStaysInside(from: from, to: to, wallRing: region) else {
+                continue
+            }
+
+            let hoverZ: Double
+            switch settings.retractPolicy {
+                case .safeZ:
+                    continue
+                case .clearance:
+                    hoverZ = min(cutEnd.z + settings.retractZ, settings.safeZ)
+                case .none:
+                    hoverZ = cutEnd.z
+            }
+
+            if hoverZ == cutEnd.z {
+                current.removeLast()
+            } else {
+                current[current.count - 1] = SC.Waypoint(position: SIMD3(cutEnd.x, cutEnd.y, hoverZ),
+                                                         motion: .rapid,
+                                                         feedRate: last.feedRate)
+            }
+            next[0] = SC.Waypoint(position: SIMD3(nextStart.position.x, nextStart.position.y, hoverZ),
+                                  motion: .rapid,
+                                  feedRate: nextStart.feedRate)
+            passes[i] = SC.ToolpathPass(passIndex: passes[i].passIndex, depthZ: passes[i].depthZ, waypoints: current)
+            passes[i + 1] = SC.ToolpathPass(passIndex: passes[i + 1].passIndex, depthZ: passes[i + 1].depthZ, waypoints: next)
+        }
     }
 
     // MARK: - Pocket entry
