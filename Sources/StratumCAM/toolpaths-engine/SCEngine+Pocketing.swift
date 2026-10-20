@@ -56,6 +56,7 @@ extension SCEngine {
             }
         }
 
+        var timingClock = OffsetTiming.now()
         let toolpathSegments: [SC.Segment]
 
         // The real, closed pocket-wall boundary
@@ -103,10 +104,13 @@ extension SCEngine {
                     ? []
                     : islandZones(contour.islands, toolRadius: toolRadius, wallRing: rings[0])
 
+                OffsetTiming.log("[pocket] pocketRings: \(OffsetTiming.lap(&timingClock)) ms (\(rings.count) rings)")
                 let insideOutRings: [[SC.Segment]]
                 if zones.isEmpty, let morphed = roundedMorphRings(wallRing: rings[0], toolRadius: toolRadius, stepover: stepover) {
+                    OffsetTiming.log("[pocket] roundedMorphRings: \(OffsetTiming.lap(&timingClock)) ms")
                     insideOutRings = morphed
                 } else if let centered = centeredRings(offsetRings: rings, zones: zones, toolRadius: toolRadius, stepover: stepover) {
+                    OffsetTiming.log("[pocket] centeredRings: \(OffsetTiming.lap(&timingClock)) ms")
                     insideOutRings = centered
                 } else {
                     insideOutRings = Array(rings.reversed())
@@ -207,6 +211,7 @@ extension SCEngine {
         guard !toolpathSegments.isEmpty else {
             throw SC.Error.geometryCollapsed
         }
+        OffsetTiming.log("[pocket] \(pattern) toolpath segments: \(OffsetTiming.lap(&timingClock)) ms (\(toolpathSegments.count) segments)")
 
         let zDepths = EngineTools.calculateZPasses(targetDepth: settings.targetDepth, stepdown: settings.cutting.stepdown)
 
@@ -224,6 +229,8 @@ extension SCEngine {
                 helixIsCCW = OffsetTools.isCCWWinding(orientedForDirection(toolCenterRegion, side: .inside, direction: direction))
             }
         }
+
+        OffsetTiming.log("[pocket] tool-centre region: \(OffsetTiming.lap(&timingClock)) ms")
 
         var passes: [SC.ToolpathPass] = []
         var previousZ = 0.0 // top of stock -- pass 0 ramps/helixes down from here, same convention `.contour` uses.
@@ -246,6 +253,7 @@ extension SCEngine {
                                                 entry: entry)
             }
             passes.append(SC.ToolpathPass(passIndex: i, depthZ: z, waypoints: waypoints))
+            OffsetTiming.log("[pocket] pass \(i) entry waypoints: \(OffsetTiming.lap(&timingClock)) ms (\(waypoints.count) waypoints)")
             previousZ = z
         }
 
@@ -530,6 +538,22 @@ extension SCEngine {
             }
             guard OffsetTools.isCCWWinding(next) == winding else {
                 break // Straight-edge collapse: the ring inverted through its own center.
+            }
+
+            // An all-arc ring (a circle) never fails to offset or flips winding: past its
+            // centre it just inverts into a growing circle, and the loop would only stop at
+            // `maxRings` after seconds of pointless offsetting. An inward offset can only
+            // shrink the ring, so a bigger bounding box (or a non-positive radius) means it
+            // has collapsed.
+            let currentBox = current.boundingBox, nextBox = next.boundingBox
+            let grew = (nextBox.maxX - nextBox.minX) > (currentBox.maxX - currentBox.minX) + 1e-9
+                || (nextBox.maxY - nextBox.minY) > (currentBox.maxY - currentBox.minY) + 1e-9
+            let degenerateArc = next.contains { segment in
+                if case .arc(_, let radius, _, _, _) = segment { return radius <= 1e-6 }
+                return false
+            }
+            guard !grew, !degenerateArc else {
+                break
             }
 
             rings.append(next)

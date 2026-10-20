@@ -61,12 +61,12 @@ extension SCEngine {
         // Cover the bounding box with square cells; the shorter side sets the cell size.
         let cellSize = min(width, height)
         let half = cellSize / 2
-        var queue: [Cell] = []
+        var cells: [Cell] = []
         var x = box.minX
         while x < box.maxX {
             var y = box.minY
             while y < box.maxY {
-                queue.append(makeCell(x + half, y + half, half))
+                cells.append(makeCell(x + half, y + half, half))
                 y += cellSize
             }
             x += cellSize
@@ -74,14 +74,46 @@ extension SCEngine {
 
         // The bounding box centre is a good first guess (and the exact answer for a circle).
         var best = makeCell((box.minX + box.maxX) / 2, (box.minY + box.maxY) / 2, 0)
-        for cell in queue where cell.clearance > best.clearance {
+        for cell in cells where cell.clearance > best.clearance {
             best = cell
         }
 
+        // Max-heap on `potential`: popping the most promising cell is O(log n) instead of
+        // scanning (and shifting) the whole queue for every cell.
+        var heap: [Cell] = []
+        func push(_ cell: Cell) {
+            heap.append(cell)
+            var i = heap.count - 1
+            while i > 0 {
+                let parent = (i - 1) / 2
+                if heap[parent].potential >= heap[i].potential { break }
+                heap.swapAt(parent, i)
+                i = parent
+            }
+        }
+        func pop() -> Cell? {
+            guard let top = heap.first else { return nil }
+            let last = heap.removeLast()
+            if !heap.isEmpty {
+                heap[0] = last
+                var i = 0
+                while true {
+                    let l = 2 * i + 1, r = l + 1
+                    var largest = i
+                    if l < heap.count, heap[l].potential > heap[largest].potential { largest = l }
+                    if r < heap.count, heap[r].potential > heap[largest].potential { largest = r }
+                    if largest == i { break }
+                    heap.swapAt(i, largest)
+                    i = largest
+                }
+            }
+            return top
+        }
+        cells.forEach(push)
+
         let maxCells = 20_000
         var processed = 0
-        while processed < maxCells, let index = queue.indices.max(by: { queue[$0].potential < queue[$1].potential }) {
-            let cell = queue.remove(at: index)
+        while processed < maxCells, let cell = pop() {
             processed += 1
 
             if cell.clearance > best.clearance {
@@ -99,10 +131,11 @@ extension SCEngine {
                     best = child
                 }
                 if child.potential - best.clearance > tolerance {
-                    queue.append(child)
+                    push(child)
                 }
             }
         }
+        OffsetTiming.log("[pocketCenter] processed \(processed) cells")
 
         guard best.clearance > 1e-6 else {
             return nil
@@ -309,11 +342,14 @@ extension SCEngine {
                      region: [SC.Segment],
                      desiredRadius: Double) -> (center: CGPoint, radius: Double)? {
 
+        var clock = OffsetTiming.now()
+        defer { OffsetTiming.log("[helix] fittedHelix total: \(OffsetTiming.lap(&clock)) ms") }
         guard !region.isEmpty, desiredRadius > 1e-6,
               let pole = pocketCenter(wallRing: region, zones: []), pole.radius > 1e-6 else {
             return nil
         }
         let radius = min(desiredRadius, 0.97 * pole.radius)
+        OffsetTiming.log("[helix] pocketCenter: \(OffsetTiming.lap(&clock)) ms")
 
         func room(_ p: CGPoint) -> Double {
             clearance(at: p, wallRing: region, zones: [])
