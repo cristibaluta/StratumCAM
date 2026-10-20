@@ -52,7 +52,9 @@ class Demo {
         for contour in contours {
             for outline in [contour] + contour.islands {
                 let segments = outline.linearizedSegments
-                let waypoints = engine.buildWaypoints(for: segments, atZ: 0, settings: settings)
+                // `buildWaypoints` wraps the trace in a rapid to safeZ and a final retract; the
+                // reference outline lies at Z = 0, so drop both.
+                let waypoints = Array(engine.buildWaypoints(for: segments, atZ: 0, settings: settings).dropFirst().dropLast())
                 rawPoints.append(contentsOf: tessellateForRender(waypoints))
             }
         }
