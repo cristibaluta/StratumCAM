@@ -45,7 +45,9 @@ struct RampTools {
         // the anchor segment itself allows, rounded up to an even count so the ramp always
         // finishes back at `a` (the contour start).
         var legCount = max(2, Int((horizontalRunNeeded / spanLength).rounded(.up)))
-        if legCount % 2 != 0 { legCount += 1 }
+        if legCount % 2 != 0 {
+            legCount += 1
+        }
 
         // Spreading the required run evenly across every leg keeps each leg's achieved
         // angle exactly `angleDegrees` (not shallower), and naturally caps each leg's
@@ -59,6 +61,7 @@ struct RampTools {
 
         var waypoints: [SC.Waypoint] = []
         var currentZ = fromZ
+        
         for leg in 0..<legCount {
             let target = leg % 2 == 0 ? forwardPoint : a
             currentZ = (leg == legCount - 1) ? toZ : currentZ - dropPerLeg

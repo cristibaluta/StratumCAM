@@ -84,8 +84,12 @@ extension SC {
         /// Closed contour of the leftover sliver: wall, wall, then the tool-circle arc.
         public var region: [Segment]
 
-        public init(corner: CGPoint, tangentIn: CGPoint, tangentOut: CGPoint,
-                    interiorAngle: Double, toolRadius: Double, region: [Segment]) {
+        public init(corner: CGPoint,
+                    tangentIn: CGPoint,
+                    tangentOut: CGPoint,
+                    interiorAngle: Double,
+                    toolRadius: Double,
+                    region: [Segment]) {
             self.corner = corner
             self.tangentIn = tangentIn
             self.tangentOut = tangentOut

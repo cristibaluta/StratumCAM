@@ -11,8 +11,7 @@ extension SC {
 
     public enum Segment: Sendable, Equatable {
 
-        case line(start: CGPoint,
-                  end: CGPoint)
+        case line(start: CGPoint, end: CGPoint)
 
         /// angle is in radians
         case arc(center: CGPoint,
@@ -75,7 +74,7 @@ extension SC.Segment {
             case .arc(let center, let radius, let startAngle, let endAngle, let isCCW):
                 // Offsetting left shrinks a CCW arc and grows a CW arc (and vice versa) --
                 // a CCW arc curves toward its center on the left of travel direction.
-                let newRadius = isCCW ? radius - distance : radius + distance
+                let newRadius = isCCW ? (radius - distance) : (radius + distance)
                 guard newRadius > 1e-6 else {
                     return nil // tool doesn't fit inside this arc
                 }
@@ -198,6 +197,7 @@ extension SC.Segment {
             return 0
         }
         let twoPi = 2 * Double.pi
+
         return raw + twoPi * (-raw / twoPi).rounded(.up)
     }
 

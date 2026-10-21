@@ -254,6 +254,7 @@ enum PolygonOffset {
             return max(1, Int((sweep / (.pi / 2)).rounded(.up)))
         }
         let step = max(2 * acos(max(-1.0, min(1.0, 1 - tolerance / radius))), 1e-3)
+
         return max(1, Int((abs(sweep) / step).rounded(.up)))
     }
 
@@ -269,6 +270,7 @@ enum PolygonOffset {
         guard abs(denominator) > 1e-14 else {
             return nil
         }
+        
         var t = ((p3.x - p1.x) * d2y - (p3.y - p1.y) * d2x) / denominator
         var u = ((p3.x - p1.x) * d1y - (p3.y - p1.y) * d1x) / denominator
         guard t >= -tolerance, t <= 1 + tolerance, u >= -tolerance, u <= 1 + tolerance else {
@@ -276,6 +278,7 @@ enum PolygonOffset {
         }
         t = min(1, max(0, t))
         u = min(1, max(0, u))
+
         return (t, u, CGPoint(x: p1.x + t * d1x, y: p1.y + t * d1y))
     }
 
