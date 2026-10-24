@@ -297,19 +297,21 @@ struct PocketSpiral_Tests {
         #expect(climb * conventional < 0, "Test Failed: climb and conventional should wind opposite ways")
     }
 
-    // MARK: - Fallback on other non-circular boundaries
+    // MARK: - Spiral on any other shape
 
-    @Test("Spiral pocket falls back on a rounded rectangle too -- only a plain circle is eligible")
-    func testSpiralPocketFallsBackOnRoundedRectangle() throws {
-        let engine = SCEngine()
-        let tool = SC.ToolParams(diameter: 3.0)
-        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4),
-                                          safeZ: 5.0,
-                                          targetDepth: -1.0)
+    /// L-shaped pocket (30x30 with a 10-wide arm): neither a circle nor a rectangle.
+    private let lShapePoints: [(Double, Double)] = [(0, 0), (30, 0), (30, 10), (10, 10), (10, 30), (0, 30)]
 
-        // A 20x10 rectangle with 2mm corner radii: some segments are arcs, but they
-        // don't share one common center/radius the way a plain circle's do.
-        let roundedRectangleContour = SC.Contour(entities: [
+    private func lShapeContour() -> SC.Contour {
+        SC.Contour(entities: lShapePoints.indices.map { i in
+            let a = lShapePoints[i], b = lShapePoints[(i + 1) % lShapePoints.count]
+            return .init(geometry: .line(a: SIMD2<Double>(a.0, a.1), b: SIMD2<Double>(b.0, b.1)), reversed: false)
+        }, isClosed: true)
+    }
+
+    /// 20x10 rectangle with 2mm corner radii: arcs, but not one common centre.
+    private func roundedRectangleContour() -> SC.Contour {
+        SC.Contour(entities: [
             .init(geometry: .line(a: SIMD2<Double>(2, 0), b: SIMD2<Double>(18, 0)), reversed: false),
             .init(geometry: .arc(center: SIMD2<Double>(18, 2), radius: 2.0, startDeg: -90, endDeg: 0), reversed: false),
             .init(geometry: .line(a: SIMD2<Double>(20, 2), b: SIMD2<Double>(20, 8)), reversed: false),
@@ -319,22 +321,82 @@ struct PocketSpiral_Tests {
             .init(geometry: .line(a: SIMD2<Double>(0, 8), b: SIMD2<Double>(0, 2)), reversed: false),
             .init(geometry: .arc(center: SIMD2<Double>(2, 2), radius: 2.0, startDeg: 180, endDeg: 270), reversed: false)
         ], isClosed: true)
+    }
 
-        let spiralWaypoints = try engine.generateToolpaths(
-            from: [roundedRectangleContour],
-            tool: tool,
-            settings: settings,
-            operation: pocketStrategy(pattern: .spiral(direction: .outsideIn))
-        )[0].passes[0].waypoints
+    private func distanceToPolygonBoundary(_ p: SIMD3<Double>, _ pts: [(Double, Double)]) -> Double {
+        var best = Double.infinity
+        for i in pts.indices {
+            let a = pts[i], b = pts[(i + 1) % pts.count]
+            let dx = b.0 - a.0, dy = b.1 - a.1
+            let t = min(max(((p.x - a.0) * dx + (p.y - a.1) * dy) / (dx * dx + dy * dy), 0), 1)
+            best = min(best, hypot(p.x - (a.0 + t * dx), p.y - (a.1 + t * dy)))
+        }
+        return best
+    }
 
-        let offsetPatternWaypoints = try engine.generateToolpaths(
-            from: [roundedRectangleContour],
-            tool: tool,
-            settings: settings,
-            operation: pocketStrategy(pattern: .offset)
-        )[0].passes[0].waypoints
+    @Test("Spiral works on any shape: an L-shaped pocket is one unbroken cut, centre-out or wall-first")
+    func testSpiralOnLShapeIsContinuous() throws {
+        let tool = SC.ToolParams(diameter: 3.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4),
+                                          safeZ: 5.0,
+                                          targetDepth: -1.0)
 
-        #expect(spiralWaypoints == offsetPatternWaypoints,
-                "Test Failed: a rounded rectangle has 4 different arc centers, not 1 -- .spiral should fall back here too")
+        func run(_ direction: SC.SpiralDirection) throws -> [SC.Waypoint] {
+            try SCEngine().generateToolpaths(from: [lShapeContour()], tool: tool, settings: settings,
+                                             operation: pocketStrategy(pattern: .spiral(direction: direction)))[0].passes[0].waypoints
+        }
+        let offsetRings = try SCEngine().generateToolpaths(from: [lShapeContour()], tool: tool, settings: settings,
+                                                           operation: pocketStrategy(pattern: .offset))[0].passes[0].waypoints
+
+        for direction in [SC.SpiralDirection.insideOut, .outsideIn] {
+            let w = try run(direction)
+            #expect(w != offsetRings, "Test Failed: \(direction) L-shape spiral is still the offset-ring fallback")
+            for i in 2..<(w.count - 1) {
+                #expect(w[i].motion != .rapid, "Test Failed: \(direction) lifts or rapids inside the spiral at waypoint \(i)")
+            }
+            // Never closer to the wall than the tool radius.
+            for i in 1..<(w.count - 1) {
+                #expect(distanceToPolygonBoundary(w[i].position, lShapePoints) >= 1.5 - 1e-6,
+                        "Test Failed: \(direction) waypoint \(i) puts the tool through the wall")
+            }
+        }
+
+        // Wall-first plunges on the wall offset; centre-out plunges well inside.
+        let outsideIn = try run(.outsideIn)
+        let insideOut = try run(.insideOut)
+        #expect(abs(distanceToPolygonBoundary(outsideIn[1].position, lShapePoints) - 1.5) < 1e-6,
+                "Test Failed: outside-in should plunge on the wall pass")
+        #expect(distanceToPolygonBoundary(insideOut[1].position, lShapePoints) > 3.0,
+                "Test Failed: inside-out should plunge in the middle of the pocket, away from the wall")
+    }
+
+    @Test("Spiral works on a rounded rectangle too, as one unbroken cut")
+    func testSpiralOnRoundedRectangleIsContinuous() throws {
+        let tool = SC.ToolParams(diameter: 3.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4),
+                                          safeZ: 5.0,
+                                          targetDepth: -1.0)
+        for direction in [SC.SpiralDirection.insideOut, .outsideIn] {
+            let w = try SCEngine().generateToolpaths(from: [roundedRectangleContour()], tool: tool, settings: settings,
+                                                     operation: pocketStrategy(pattern: .spiral(direction: direction)))[0].passes[0].waypoints
+            for i in 2..<(w.count - 1) {
+                #expect(w[i].motion != .rapid, "Test Failed: \(direction) rounded-rectangle spiral has a rapid at waypoint \(i)")
+            }
+        }
+    }
+
+    @Test("Spiral on a non-rectangular shape keeps its toolpath after a helix entry")
+    func testLShapeSpiralSurvivesHelixEntry() throws {
+        let tool = SC.ToolParams(diameter: 3.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4),
+                                          safeZ: 5.0,
+                                          targetDepth: -1.0)
+        for direction in [SC.SpiralDirection.insideOut, .outsideIn] {
+            let plunge = try SCEngine().generateToolpaths(from: [lShapeContour()], tool: tool, settings: settings,
+                                                          operation: pocketStrategy(pattern: .spiral(direction: direction)))[0].passes[0].waypoints
+            let helix = try SCEngine().generateToolpaths(from: [lShapeContour()], tool: tool, settings: settings,
+                                                         operation: pocketStrategy(pattern: .spiral(direction: direction), entry: .helix(rampAngleDegrees: 5)))[0].passes[0].waypoints
+            #expect(helix.count > plunge.count - 20, "Test Failed: \(direction) helix entry lost the spiral")
+        }
     }
 }

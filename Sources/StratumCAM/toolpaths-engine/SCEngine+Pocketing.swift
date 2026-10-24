@@ -178,7 +178,15 @@ extension SCEngine {
                     // wall), blended turn by turn into one continuous spiral.
                     toolpathSegments = morphSpiralSegments(from: morphed, direction: spiralDirection)
                 } else {
-                    toolpathSegments = chainedRingSegments(rings)
+                    // Any other shape: the same centre-out stack `.concentric` uses (circles around
+                    // the point furthest from the walls, then moulded onto the wall), or plain offset
+                    // rings when there is no such centre, joined into one spiral.
+                    let insideOutRings = centeredRings(offsetRings: rings, zones: [], toolRadius: toolRadius, stepover: stepover)
+                        ?? Array(rings.reversed())
+                    toolpathSegments = generalSpiralSegments(from: insideOutRings,
+                                                             wallRing: rings[0],
+                                                             stepover: stepover,
+                                                             direction: spiralDirection)
                 }
 
             case .trochoidal(let trochoidalSettings):
@@ -980,6 +988,103 @@ extension SCEngine {
         return segments
     }
 
+    // MARK: - Spiral on any shape
+
+    /// Joins any inside-out ring stack (nested closed loops, centre first, wall last) into one
+    /// continuous spiral.
+    ///
+    /// Works outside-in internally. Between a ring `A` and the next, smaller ring `B`, one turn
+    /// of the spiral walks once around `A` while moving from `A` onto `B`:
+    ///
+    ///     P(f) = (1 - f) * A(f) + f * nearest_B(A(f))
+    ///
+    /// `f` is the fraction of `A`'s perimeter travelled. `B` is first rotated to start at the
+    /// point nearest `A`'s start, so the turn closes exactly on `B`'s start, where the next turn
+    /// begins. Mapping every point of `A` to its nearest point on `B` (rather than matching
+    /// perimeter fractions) keeps the gap between turns close to one stepover even when the two
+    /// rings have different shapes.
+    ///
+    /// The first ring is traced whole (a full wall pass first, as the circular spiral's opening
+    /// turn does) and the last ring is traced whole to close. If a turn would leave the tool-centre
+    /// region (rings that are not nested, e.g. a pocket that pinches in two), that transition
+    /// falls back to tracing the ring and a straight link to the next, like the chained rings.
+    ///
+    /// `.insideOut` is the same path travelled backwards; the rings are wound the other way
+    /// first, so the final wall pass keeps the climb/conventional winding the caller asked for.
+    private func generalSpiralSegments(from insideOutRings: [[SC.Segment]],
+                                       wallRing: [SC.Segment],
+                                       stepover: Double,
+                                       direction: SC.SpiralDirection) -> [SC.Segment] {
+        var rings = insideOutRings.reversed().filter { !$0.isEmpty }
+        guard !rings.isEmpty else {
+            return []
+        }
+        if direction == .insideOut {
+            rings = rings.map { ring in ring.reversed().map { $0.reversed } }
+        }
+
+        let maxChord = max(0.5 * stepover, 1e-3)
+        var path: [SC.Segment] = rings[0]
+        var current = rings[0]
+        var currentIsTraced = true
+
+        for ring in rings.dropFirst() {
+            let origin = current[0].startPoint
+            var next = ring
+            if let nearest = nearestPoint(onLoop: ring, to: origin) {
+                next = rotatedLoop(ring, startingAt: nearest)
+            }
+
+            if let turn = spiralTurn(from: current, to: next, wallRing: wallRing, maxChord: maxChord) {
+                path.append(contentsOf: turn)
+            } else {
+                if !currentIsTraced {
+                    path.append(contentsOf: current)
+                }
+                if let end = path.last?.endPoint, let start = next.first?.startPoint,
+                   hypot(start.x - end.x, start.y - end.y) > 1e-6 {
+                    path.append(.line(start: end, end: start))
+                }
+            }
+            current = next
+            currentIsTraced = false
+        }
+
+        if !currentIsTraced {
+            path.append(contentsOf: current)
+        }
+
+        return direction == .insideOut ? path.reversed().map { $0.reversed } : path
+    }
+
+    /// One turn of the spiral, from the start of `outer` to the start of `inner`, as short
+    /// lines; `nil` when any of it would leave the tool-centre region `wallRing`.
+    private func spiralTurn(from outer: [SC.Segment],
+                            to inner: [SC.Segment],
+                            wallRing: [SC.Segment],
+                            maxChord: Double) -> [SC.Segment]? {
+        let sampler = SpiralRingSampler(outer)
+        var previous = outer[0].startPoint
+        var turn: [SC.Segment] = []
+
+        for f in sampler.sampleFractions(maxChord: maxChord).dropFirst() {
+            let onOuter = sampler.point(at: f)
+            guard let onInner = nearestPoint(onLoop: inner, to: onOuter) else {
+                return nil
+            }
+            let point = CGPoint(x: onOuter.x + (onInner.x - onOuter.x) * f,
+                                y: onOuter.y + (onInner.y - onOuter.y) * f)
+            guard clearance(at: point, wallRing: wallRing, zones: []) > -1e-6 else {
+                return nil
+            }
+            if hypot(point.x - previous.x, point.y - previous.y) > 1e-9 {
+                turn.append(.line(start: previous, end: point))
+                previous = point
+            }
+        }
+        return turn
+    }
+
     // MARK: - Raster wall finishing
 
     /// Rotates a closed, contiguous loop so it starts at `point` (which should lie on the
@@ -1478,9 +1583,13 @@ private struct SpiralRingSampler {
     /// Perimeter fraction at the end of each segment; the last is exactly 1.
     private let segmentEnds: [Double]
 
+    /// Total length of the ring.
+    private let perimeter: Double
+
     init(_ segments: [SC.Segment]) {
         self.segments = segments
         let total = segments.pathLength
+        perimeter = total
         var running = 0.0
         var ends: [Double] = []
         for segment in segments {
@@ -1516,7 +1625,9 @@ private struct SpiralRingSampler {
 
     /// Fractions at which a polyline must sample this ring to follow it closely: every
     /// segment end, and an arc split into pieces of at most 5 degrees.
-    func sampleFractions() -> [Double] {
+    ///
+    /// - Parameter maxChord: also splits any piece longer than this (in length units).
+    func sampleFractions(maxChord: Double = .infinity) -> [Double] {
         var fractions: [Double] = [0.0]
         var lower = 0.0
         for (index, segment) in segments.enumerated() {
@@ -1525,6 +1636,10 @@ private struct SpiralRingSampler {
             if case .arc(_, _, let startAngle, let endAngle, let isCCW) = segment {
                 let sweep = SC.Segment.sweepAngle(start: startAngle, end: endAngle, isCCW: isCCW)
                 pieces = max(1, Int((sweep / (5.0 * .pi / 180.0) - 1e-9).rounded(.up)))
+            }
+            if maxChord.isFinite, maxChord > 0 {
+                let length = (upper - lower) * perimeter
+                pieces = max(pieces, Int((length / maxChord - 1e-9).rounded(.up)))
             }
             for k in 1...pieces {
                 fractions.append(lower + (upper - lower) * Double(k) / Double(pieces))

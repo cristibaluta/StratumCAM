@@ -459,7 +459,7 @@ extension SCEngine {
     }
 
     /// The point of the closed `loop` that is nearest to `point`.
-    private func nearestPoint(onLoop loop: [SC.Segment], to point: CGPoint) -> CGPoint? {
+    func nearestPoint(onLoop loop: [SC.Segment], to point: CGPoint) -> CGPoint? {
         var best: (point: CGPoint, distance: Double)?
         for segment in loop {
             let candidate = closestPoint(on: segment, to: point)
@@ -471,7 +471,7 @@ extension SCEngine {
         return best?.point
     }
 
-    private func closestPoint(on segment: SC.Segment, to point: CGPoint) -> CGPoint {
+    func closestPoint(on segment: SC.Segment, to point: CGPoint) -> CGPoint {
         switch segment {
             case .line(let a, let b):
                 let dx = b.x - a.x, dy = b.y - a.y

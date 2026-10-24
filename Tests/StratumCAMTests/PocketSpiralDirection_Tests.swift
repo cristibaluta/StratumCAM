@@ -166,35 +166,36 @@ struct PocketSpiralDirection_Tests {
                 "Test Failed: expected bare .spiral to produce identical output to .spiral(direction: .outsideIn)")
     }
 
-    // MARK: - Fallback on a non-circular, non-rectangular boundary is unaffected by direction
+    // MARK: - Direction on a shape that is neither a circle nor a rectangle
 
-    @Test("Inside-out spiral falls back to the exact same offsetPattern output as outside-in on a shape with no spiral")
-    func testInsideOutFallsBackIdenticallyOnIrregularBoundary() throws {
+    @Test("Inside-out and outside-in spirals on an L-shape differ and end on opposite rings")
+    func testDirectionChangesLShapeSpiral() throws {
         let engine = SCEngine()
         let tool = SC.ToolParams(diameter: 3.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4),
                                           safeZ: 5.0,
                                           targetDepth: -1.0)
 
-        // L-shaped pocket: neither a circle nor an axis-aligned rectangle.
         let points: [(Double, Double)] = [(0, 0), (30, 0), (30, 10), (10, 10), (10, 30), (0, 30)]
         let lShape = SC.Contour(entities: points.indices.map { i in
             let a = points[i], b = points[(i + 1) % points.count]
             return .init(geometry: .line(a: SIMD2<Double>(a.0, a.1), b: SIMD2<Double>(b.0, b.1)), reversed: false)
         }, isClosed: true)
 
-        func run(_ pattern: SC.PocketClearingPattern) throws -> [SC.Waypoint] {
+        func run(_ direction: SC.SpiralDirection) throws -> [SC.Waypoint] {
             try engine.generateToolpaths(from: [lShape], tool: tool, settings: settings,
-                                         operation: pocketStrategy(pattern: pattern))[0].passes[0].waypoints
+                                         operation: pocketStrategy(pattern: .spiral(direction: direction)))[0].passes[0].waypoints
         }
+        let insideOut = try run(.insideOut)
+        let outsideIn = try run(.outsideIn)
 
-        let insideOutWaypoints = try run(.spiral(direction: .insideOut))
-        let outsideInWaypoints = try run(.spiral(direction: .outsideIn))
-        let offsetPatternWaypoints = try run(.offset)
+        #expect(insideOut != outsideIn, "Test Failed: direction should change the spiral on an L-shape")
 
-        #expect(insideOutWaypoints == outsideInWaypoints,
-                "Test Failed: direction should have no effect once a boundary isn't spiral-eligible")
-        #expect(insideOutWaypoints == offsetPatternWaypoints,
-                "Test Failed: expected the fallback path to match .offsetPattern exactly regardless of direction")
+        // The wall pass is first outside-in and last inside-out: its far end is the same point
+        // (the wall ring's start), one at the beginning of the cut, one at the end.
+        let wallStart = outsideIn[1].position
+        let insideOutEnd = insideOut[insideOut.count - 2].position
+        #expect(hypot(wallStart.x - insideOutEnd.x, wallStart.y - insideOutEnd.y) < 1e-6,
+                "Test Failed: inside-out should finish where outside-in starts, on the wall ring's start")
     }
 }
