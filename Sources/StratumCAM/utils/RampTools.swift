@@ -61,7 +61,7 @@ struct RampTools {
 
         var waypoints: [SC.Waypoint] = []
         var currentZ = fromZ
-        
+
         for leg in 0..<legCount {
             let target = leg % 2 == 0 ? forwardPoint : a
             currentZ = (leg == legCount - 1) ? toZ : currentZ - dropPerLeg
@@ -357,7 +357,12 @@ struct RampTools {
 
     /// `path` without its leading full circles of radius <= `maxRadius`, and without the
     /// short link moves that follow them. Used to skip rings a helix has already cleared.
-    static func droppingCircles(upToRadius maxRadius: Double, from path: [SC.Segment]) -> [SC.Segment] {
+    ///
+    /// - Parameter dropsLinkMoves: `true` for a chain of separate rings, where a single line
+    ///   links one ring to the next. Pass `false` when the lines after the circle are the
+    ///   cutting path itself (a spiral): there is no link to drop, and dropping them would
+    ///   throw away the whole toolpath.
+    static func droppingCircles(upToRadius maxRadius: Double, from path: [SC.Segment], dropsLinkMoves: Bool = true) -> [SC.Segment] {
         var rest = path
         while let circle = leadingCircle(of: rest), circle.radius <= maxRadius {
             var swept = 0.0
@@ -365,7 +370,7 @@ struct RampTools {
                 swept += first.pathLength / circle.radius
                 rest.removeFirst()
             }
-            while case .line? = rest.first {
+            while dropsLinkMoves, case .line? = rest.first {
                 rest.removeFirst()
             }
         }

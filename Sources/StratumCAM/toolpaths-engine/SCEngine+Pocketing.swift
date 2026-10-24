@@ -241,6 +241,11 @@ extension SCEngine {
 
         OffsetTiming.log("[pocket] tool-centre region: \(OffsetTiming.lap(&timingClock)) ms")
 
+        var isSpiralPattern = false
+        if case .spiral = pattern {
+            isSpiralPattern = true
+        }
+
         var passes: [SC.ToolpathPass] = []
         var previousZ = 0.0 // top of stock -- pass 0 ramps/helixes down from here, same convention `.contour` uses.
         for (i, z) in zDepths.enumerated() {
@@ -259,7 +264,8 @@ extension SCEngine {
                                                 atZ: z,
                                                 previousZ: previousZ,
                                                 settings: settings,
-                                                entry: entry)
+                                                entry: entry,
+                                                ringsAreLinked: !isSpiralPattern)
             }
             passes.append(SC.ToolpathPass(passIndex: i, depthZ: z, waypoints: waypoints))
             OffsetTiming.log("[pocket] pass \(i) entry waypoints: \(OffsetTiming.lap(&timingClock)) ms (\(waypoints.count) waypoints)")
@@ -329,7 +335,8 @@ extension SCEngine {
                                      atZ z: Double,
                                      previousZ: Double,
                                      settings: SC.MachineSettings,
-                                     entry: SC.EntryStrategy) -> [SC.Waypoint] {
+                                     entry: SC.EntryStrategy,
+                                     ringsAreLinked: Bool = true) -> [SC.Waypoint] {
 
         guard let firstSegment = segments.first else {
             return []
@@ -439,7 +446,10 @@ extension SCEngine {
                     if skipsClearedCircles {
                         // Rings that lie inside the helix are already cleared: carry on from
                         // the first ring beyond it.
-                        traceSegments = RampTools.droppingCircles(upToRadius: helix.radius + 1e-6, from: segments)
+                        // A spiral has no link lines between its circle and the rest of the path.
+                        traceSegments = RampTools.droppingCircles(upToRadius: helix.radius + 1e-6,
+                                                                  from: segments,
+                                                                  dropsLinkMoves: ringsAreLinked)
                     }
                     // Travel to where the pocket's own toolpath begins, then trace it.
                     if let next = traceSegments.first?.startPoint,

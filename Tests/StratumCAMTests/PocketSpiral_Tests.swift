@@ -248,6 +248,40 @@ struct PocketSpiral_Tests {
         #expect(hypot(end.x - 10.0, end.y - 5.0) <= 2.0 + 1e-6, "Test Failed: outside-in should finish at the centre")
     }
 
+    @Test("Rectangle spiral keeps its whole toolpath after a helix entry")
+    func testRectangleSpiralSurvivesHelixEntry() throws {
+        let tool = SC.ToolParams(diameter: 6.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4),
+                                          safeZ: 5.0,
+                                          targetDepth: -1.0)
+
+        func run(_ direction: SC.SpiralDirection, entry: SC.EntryStrategy) throws -> [SC.Waypoint] {
+            try SCEngine().generateToolpaths(from: [ccwRectangleContour()], tool: tool, settings: settings,
+                                             operation: pocketStrategy(pattern: .spiral(direction: direction), entry: entry))[0].passes[0].waypoints
+        }
+
+        for direction in [SC.SpiralDirection.insideOut, .outsideIn] {
+            let plunge = try run(direction, entry: .plunge)
+            let helix = try run(direction, entry: .helix(rampAngleDegrees: 5))
+
+            // The helix only adds its own descent in front: the spiral's cutting moves must all
+            // still be there, ending on the wall pass back at the middle of the bottom wall.
+            #expect(helix.count > plunge.count, "Test Failed: \(direction) helix entry lost the spiral toolpath")
+            let cutting = helix.dropLast().map { $0.position }
+            for corner in [(3.0, 3.0), (17.0, 3.0), (17.0, 7.0), (3.0, 7.0)] {
+                #expect(cutting.contains { abs($0.x - corner.0) < 1e-6 && abs($0.y - corner.1) < 1e-6 },
+                        "Test Failed: \(direction) helix entry never reaches wall corner \(corner)")
+            }
+        }
+
+        // Inside-out: the helix replaces the opening circle, so the plunge-entry spiral's cutting
+        // moves minus that circle are exactly the tail of the helix-entry waypoints.
+        let plunge = try run(.insideOut, entry: .plunge)
+        let helix = try run(.insideOut, entry: .helix(rampAngleDegrees: 5))
+        #expect(Array(helix.suffix(plunge.count / 2)) == Array(plunge.suffix(plunge.count / 2)),
+                "Test Failed: the spiral after the helix should match the plunge-entry spiral")
+    }
+
     @Test("Rectangle spiral keeps the requested climb/conventional winding")
     func testRectangleSpiralRespectsCutDirection() throws {
         func signedArea(_ waypoints: [SC.Waypoint]) -> Double {
