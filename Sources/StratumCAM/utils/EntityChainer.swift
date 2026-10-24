@@ -39,7 +39,23 @@ public enum EntityChainer {
             hypot(a.x - b.x, a.y - b.y) <= tolerance
         }
 
+        // A polyline flagged closed is a closed contour on its own: its last vertex is not
+        // where it started (the closing edge is implicit), so it can't be chained to anything.
+        var closedPolylines = Set<Int>()
+        for index in remaining.indices {
+            if case .polyline(_, true) = remaining[index].geometry {
+                closedPolylines.insert(index)
+            }
+        }
+
         for startIndex in remaining.indices {
+            if closedPolylines.contains(startIndex) {
+                contours.append(
+                    SC.Contour(entities: [SC.Contour.Chained(geometry: remaining[startIndex].geometry, reversed: false)], isClosed: true)
+                )
+                remaining[startIndex].used = true
+                continue
+            }
             guard !remaining[startIndex].used, let (s0, e0) = endpoints(remaining[startIndex].geometry) else {
                 continue
             }
@@ -51,7 +67,7 @@ public enum EntityChainer {
             var extended = true
             while extended {
                 extended = false
-                for i in remaining.indices where !remaining[i].used {
+                for i in remaining.indices where !remaining[i].used && !closedPolylines.contains(i) {
                     guard let (a, b) = endpoints(remaining[i].geometry) else {
                         continue
                     }

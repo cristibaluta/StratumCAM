@@ -45,14 +45,18 @@ extension SCEngine {
         // Islands would be gouged by any pattern that doesn't know about them, so refuse
         // instead of silently cutting through.
         if !contour.islands.isEmpty {
-            guard case .concentric = pattern else {
-                throw SC.Error.invalidParameter("islands are only supported by the .concentric pattern")
-            }
-            switch entry {
-                case .plunge, .fromOpenEnd, .ramp:
-                    break
-                case .helix:
-                    throw SC.Error.invalidParameter("islands support plunge and ramp entries only")
+            switch pattern {
+                case .concentric:
+                    switch entry {
+                        case .plunge, .fromOpenEnd, .ramp:
+                            break
+                        case .helix:
+                            throw SC.Error.invalidParameter("islands support plunge and ramp entries only")
+                    }
+                case .adaptive:
+                    break // handles every entry, the helix goes in the middle of the free area
+                default:
+                    throw SC.Error.invalidParameter("islands are only supported by the .concentric and .adaptive patterns")
             }
         }
 
@@ -64,6 +68,8 @@ extension SCEngine {
 
         // Set when islands split the toolpath into separately-plunged groups.
         var islandGroups: [[SC.Segment]]?
+        // Adaptive only: the helix each group starts with, if any (same order as `islandGroups`).
+        var groupHelices: [(center: CGPoint, radius: Double, startAngle: Double, isCCW: Bool)?] = []
 
         switch pattern {
             case .offset:
@@ -166,27 +172,10 @@ extension SCEngine {
                     throw SC.Error.geometryCollapsed
                 }
 
-                let toolRadius = tool.diameter / 2.0
-                let stepover = settings.cutting.stepoverPercentage * tool.diameter
-
                 if isSpiralEligible(oriented) {
-                    // Circle: radius interpolates between the concentric circles.
                     toolpathSegments = spiralSegments(from: rings, direction: spiralDirection)
-                } else if let morphed = roundedMorphRings(wallRing: rings[0], toolRadius: toolRadius, stepover: stepover) {
-                    // Axis-aligned rectangle: the same centre-out ring stack `.concentric` uses
-                    // (circle -> stadium once it meets the long walls -> sharpening corners ->
-                    // wall), blended turn by turn into one continuous spiral.
-                    toolpathSegments = morphSpiralSegments(from: morphed, direction: spiralDirection)
                 } else {
-                    // Any other shape: the same centre-out stack `.concentric` uses (circles around
-                    // the point furthest from the walls, then moulded onto the wall), or plain offset
-                    // rings when there is no such centre, joined into one spiral.
-                    let insideOutRings = centeredRings(offsetRings: rings, zones: [], toolRadius: toolRadius, stepover: stepover)
-                        ?? Array(rings.reversed())
-                    toolpathSegments = generalSpiralSegments(from: insideOutRings,
-                                                             wallRing: rings[0],
-                                                             stepover: stepover,
-                                                             direction: spiralDirection)
+                    toolpathSegments = chainedRingSegments(rings)
                 }
 
             case .trochoidal(let trochoidalSettings):
@@ -220,9 +209,31 @@ extension SCEngine {
                 }
                 toolpathSegments = chained
 
-            case .adaptive:
-                // Not implemented yet -- surface it as an error instead of crashing the caller.
-                throw SC.Error.invalidParameter("pattern: .adaptive is not implemented")
+            case .adaptive(let adaptiveSettings):
+                let oriented = orientedForDirection(baseSegments, side: .inside, direction: direction)
+                boundarySegments = oriented
+
+                let toolRadius = tool.diameter / 2.0
+                let wallRing = offsetContour(oriented, side: .inside, toolRadius: toolRadius, isClosed: true)
+                guard !wallRing.isEmpty, wallRing != oriented else {
+                    throw SC.Error.geometryCollapsed
+                }
+                let zones: [PocketIslandZone] = try contour.islands.isEmpty
+                    ? []
+                    : islandZones(contour.islands, toolRadius: toolRadius, wallRing: wallRing)
+
+                let engagement = adaptiveStepover(settings: adaptiveSettings, cutting: settings.cutting, tool: tool)
+                guard let plan = adaptiveGroups(wallRing: wallRing,
+                                                zones: zones,
+                                                toolRadius: toolRadius,
+                                                stepover: engagement) else {
+                    throw SC.Error.geometryCollapsed
+                }
+                OffsetTiming.log("[pocket] adaptive plan: \(OffsetTiming.lap(&timingClock)) ms (\(plan.count) groups)")
+
+                islandGroups = plan.map { $0.segments }
+                groupHelices = plan.map { $0.helix }
+                toolpathSegments = plan.flatMap { $0.segments }
         }
 
         guard !toolpathSegments.isEmpty else {
@@ -249,20 +260,26 @@ extension SCEngine {
 
         OffsetTiming.log("[pocket] tool-centre region: \(OffsetTiming.lap(&timingClock)) ms")
 
-        var isSpiralPattern = false
-        if case .spiral = pattern {
-            isSpiralPattern = true
-        }
-
         var passes: [SC.ToolpathPass] = []
         var previousZ = 0.0 // top of stock -- pass 0 ramps/helixes down from here, same convention `.contour` uses.
         for (i, z) in zDepths.enumerated() {
             let waypoints: [SC.Waypoint]
             if let groups = islandGroups {
                 // Each group is entered and retracted on its own so no move crosses an island.
-                waypoints = groups.flatMap {
-                    buildIslandGroupWaypoints(for: $0, atZ: z, previousZ: previousZ, settings: settings, entry: entry)
+                var all: [SC.Waypoint] = []
+                for (index, group) in groups.enumerated() {
+                    if case .helix(let angleDegrees) = entry, index < groupHelices.count, let helix = groupHelices[index] {
+                        all.append(contentsOf: buildHelixGroupWaypoints(for: group,
+                                                                        helix: helix,
+                                                                        angleDegrees: angleDegrees,
+                                                                        atZ: z,
+                                                                        previousZ: previousZ,
+                                                                        settings: settings))
+                    } else {
+                        all.append(contentsOf: buildIslandGroupWaypoints(for: group, atZ: z, previousZ: previousZ, settings: settings, entry: entry))
+                    }
                 }
+                waypoints = all
             } else {
                 waypoints = buildEntryWaypoints(for: toolpathSegments,
                                                 boundary: boundarySegments,
@@ -272,8 +289,7 @@ extension SCEngine {
                                                 atZ: z,
                                                 previousZ: previousZ,
                                                 settings: settings,
-                                                entry: entry,
-                                                ringsAreLinked: !isSpiralPattern)
+                                                entry: entry)
             }
             passes.append(SC.ToolpathPass(passIndex: i, depthZ: z, waypoints: waypoints))
             OffsetTiming.log("[pocket] pass \(i) entry waypoints: \(OffsetTiming.lap(&timingClock)) ms (\(waypoints.count) waypoints)")
@@ -306,7 +322,7 @@ extension SCEngine {
 
     /// One island group: plunged as usual, or, for `.ramp`, descended along the group's own
     /// path (arcs stay arcs) instead of dropping straight down at its start.
-    private func buildIslandGroupWaypoints(for group: [SC.Segment],
+    func buildIslandGroupWaypoints(for group: [SC.Segment],
                                            atZ z: Double,
                                            previousZ: Double,
                                            settings: SC.MachineSettings,
@@ -335,6 +351,44 @@ extension SCEngine {
         return ramp + trace
     }
 
+    /// A group that starts with a full circle: comes down in a helix around that circle's
+    /// centre, then traces the group (whose first moves are the circle, flat at depth).
+    func buildHelixGroupWaypoints(for group: [SC.Segment],
+                                  helix: (center: CGPoint, radius: Double, startAngle: Double, isCCW: Bool),
+                                  angleDegrees: Double,
+                                  atZ z: Double,
+                                  previousZ: Double,
+                                  settings: SC.MachineSettings) -> [SC.Waypoint] {
+        let start = CGPoint(x: helix.center.x + helix.radius * cos(helix.startAngle),
+                            y: helix.center.y + helix.radius * sin(helix.startAngle))
+        var waypoints: [SC.Waypoint] = [
+            SC.Waypoint(position: SIMD3(start.x, start.y, settings.safeZ), motion: .rapid, feedRate: settings.cutting.feedRate),
+            SC.Waypoint(position: SIMD3(start.x, start.y, previousZ), motion: .rapid, feedRate: settings.cutting.feedRate)
+        ]
+        waypoints.append(contentsOf: RampTools.centeredHelixWaypoints(center: helix.center,
+                                                                      radius: helix.radius,
+                                                                      startAngle: helix.startAngle,
+                                                                      isCCW: helix.isCCW,
+                                                                      angleDegrees: angleDegrees,
+                                                                      fromZ: previousZ,
+                                                                      toZ: z,
+                                                                      settings: settings))
+        for segment in group {
+            switch segment {
+                case .line(_, let end):
+                    waypoints.append(SC.Waypoint(position: SIMD3(end.x, end.y, z), motion: .linear, feedRate: settings.cutting.feedRate))
+                case .arc(let center, let radius, _, let endAngle, let isCCW):
+                    waypoints.append(SC.Waypoint(position: SIMD3(center.x + radius * cos(endAngle), center.y + radius * sin(endAngle), z),
+                                                 motion: isCCW ? .arcCCW(center: center) : .arcCW(center: center),
+                                                 feedRate: settings.cutting.feedRate))
+            }
+        }
+        if let last = waypoints.last?.position {
+            waypoints.append(SC.Waypoint(position: SIMD3(last.x, last.y, settings.safeZ), motion: .rapid, feedRate: settings.cutting.feedRate))
+        }
+        return waypoints
+    }
+
     private func buildEntryWaypoints(for segments: [SC.Segment],
                                      boundary: [SC.Segment],
                                      toolRadius: Double,
@@ -343,8 +397,7 @@ extension SCEngine {
                                      atZ z: Double,
                                      previousZ: Double,
                                      settings: SC.MachineSettings,
-                                     entry: SC.EntryStrategy,
-                                     ringsAreLinked: Bool = true) -> [SC.Waypoint] {
+                                     entry: SC.EntryStrategy) -> [SC.Waypoint] {
 
         guard let firstSegment = segments.first else {
             return []
@@ -454,10 +507,7 @@ extension SCEngine {
                     if skipsClearedCircles {
                         // Rings that lie inside the helix are already cleared: carry on from
                         // the first ring beyond it.
-                        // A spiral has no link lines between its circle and the rest of the path.
-                        traceSegments = RampTools.droppingCircles(upToRadius: helix.radius + 1e-6,
-                                                                  from: segments,
-                                                                  dropsLinkMoves: ringsAreLinked)
+                        traceSegments = RampTools.droppingCircles(upToRadius: helix.radius + 1e-6, from: segments)
                     }
                     // Travel to where the pocket's own toolpath begins, then trace it.
                     if let next = traceSegments.first?.startPoint,
@@ -903,188 +953,6 @@ extension SCEngine {
         return segments
     }
 
-    // MARK: - Spiral on a rectangular pocket
-
-    /// Turns the inside-out ring stack `roundedMorphRings` produces for an axis-aligned
-    /// rectangle into one continuous spiral.
-    ///
-    /// Every ring starts at the middle of its bottom edge and is closed, so a ring can be
-    /// addressed by the fraction (0...1) of its perimeter travelled from that point. One
-    /// turn of the spiral blends two neighbouring rings point by point, at the same
-    /// fraction `f`, with weight `f` on the outer-stack neighbour's partner:
-    ///
-    ///     P(f) = (1 - f) * ringA(f) + f * ringB(f)
-    ///
-    /// so the turn starts exactly on ringA and arrives exactly on ringB's start point,
-    /// where the next turn takes over -- no jumps, no closed rings in between. Because the
-    /// rings themselves come from the concentric morph, the spiral behaves like it: it
-    /// grows as a circle from the centre, and once that circle touches the long walls it
-    /// keeps going around them as a stadium whose ends advance to the short walls, then the
-    /// corners sharpen until the final pass runs along the wall.
-    ///
-    /// The first and last turns are the real ring segments (exact arcs and lines), as the
-    /// circular `spiralSegments` does with its hold turns: `.insideOut` opens on the centre
-    /// circle and closes with a full wall pass, `.outsideIn` opens on the wall and closes
-    /// on the centre circle. The blended turns are polylines, sampled at every ring corner
-    /// and at most every 5 degrees of arc, so no chord cuts a corner. The blend stays
-    /// inside the (convex) rectangle, so it can never reach past the wall pass.
-    ///
-    /// - Parameter insideOutRings: rings ordered centre first, wall last.
-    private func morphSpiralSegments(from insideOutRings: [[SC.Segment]], direction: SC.SpiralDirection) -> [SC.Segment] {
-        let ordered = direction == .insideOut ? insideOutRings : Array(insideOutRings.reversed())
-        let rings = ordered.filter { !$0.isEmpty }
-        guard let firstRing = rings.first else {
-            return []
-        }
-
-        var segments: [SC.Segment] = firstRing
-        guard rings.count > 1 else {
-            return segments
-        }
-
-        let samplers = rings.map { SpiralRingSampler($0) }
-        var previousPoint = firstRing[0].startPoint
-
-        for i in 0..<(samplers.count - 1) {
-            let a = samplers[i], b = samplers[i + 1]
-            let fractions = SpiralRingSampler.mergedFractions(a.sampleFractions() + b.sampleFractions())
-
-            func blended(_ f: Double) -> CGPoint {
-                let pa = a.point(at: f), pb = b.point(at: f)
-                return CGPoint(x: pa.x + (pb.x - pa.x) * f, y: pa.y + (pb.y - pa.y) * f)
-            }
-
-            for (f0, f1) in zip(fractions, fractions.dropFirst()) {
-                // Between two sample fractions both rings are a single line or arc, but the
-                // blend weight `f` makes the blended curve quadratic in `f`, so a single chord
-                // sags off it by about |D(f1) - D(f0)| * (f1 - f0) / 4, D = ringB - ringA.
-                // Split long pieces (the straight walls) until that sag is below 5 microns.
-                let a0 = a.point(at: f0), b0 = b.point(at: f0)
-                let a1 = a.point(at: f1), b1 = b.point(at: f1)
-                let dx = (b1.x - a1.x) - (b0.x - a0.x)
-                let dy = (b1.y - a1.y) - (b0.y - a0.y)
-                let sag = hypot(dx, dy) * (f1 - f0) / 4.0
-                let pieces = min(64, max(1, Int((sag / 0.005).squareRoot().rounded(.up))))
-
-                for k in 1...pieces {
-                    let f = f0 + (f1 - f0) * Double(k) / Double(pieces)
-                    let next = blended(f)
-                    if hypot(next.x - previousPoint.x, next.y - previousPoint.y) > 1e-9 {
-                        segments.append(.line(start: previousPoint, end: next))
-                        previousPoint = next
-                    }
-                }
-            }
-        }
-
-        // The last blended point is the final ring's start; close with that ring as is.
-        let lastRing = rings[rings.count - 1]
-        let lastStart = lastRing[0].startPoint
-        if hypot(lastStart.x - previousPoint.x, lastStart.y - previousPoint.y) > 1e-9 {
-            segments.append(.line(start: previousPoint, end: lastStart))
-        }
-        segments.append(contentsOf: lastRing)
-
-        return segments
-    }
-
-    // MARK: - Spiral on any shape
-
-    /// Joins any inside-out ring stack (nested closed loops, centre first, wall last) into one
-    /// continuous spiral.
-    ///
-    /// Works outside-in internally. Between a ring `A` and the next, smaller ring `B`, one turn
-    /// of the spiral walks once around `A` while moving from `A` onto `B`:
-    ///
-    ///     P(f) = (1 - f) * A(f) + f * nearest_B(A(f))
-    ///
-    /// `f` is the fraction of `A`'s perimeter travelled. `B` is first rotated to start at the
-    /// point nearest `A`'s start, so the turn closes exactly on `B`'s start, where the next turn
-    /// begins. Mapping every point of `A` to its nearest point on `B` (rather than matching
-    /// perimeter fractions) keeps the gap between turns close to one stepover even when the two
-    /// rings have different shapes.
-    ///
-    /// The first ring is traced whole (a full wall pass first, as the circular spiral's opening
-    /// turn does) and the last ring is traced whole to close. If a turn would leave the tool-centre
-    /// region (rings that are not nested, e.g. a pocket that pinches in two), that transition
-    /// falls back to tracing the ring and a straight link to the next, like the chained rings.
-    ///
-    /// `.insideOut` is the same path travelled backwards; the rings are wound the other way
-    /// first, so the final wall pass keeps the climb/conventional winding the caller asked for.
-    private func generalSpiralSegments(from insideOutRings: [[SC.Segment]],
-                                       wallRing: [SC.Segment],
-                                       stepover: Double,
-                                       direction: SC.SpiralDirection) -> [SC.Segment] {
-        var rings = insideOutRings.reversed().filter { !$0.isEmpty }
-        guard !rings.isEmpty else {
-            return []
-        }
-        if direction == .insideOut {
-            rings = rings.map { ring in ring.reversed().map { $0.reversed } }
-        }
-
-        let maxChord = max(0.5 * stepover, 1e-3)
-        var path: [SC.Segment] = rings[0]
-        var current = rings[0]
-        var currentIsTraced = true
-
-        for ring in rings.dropFirst() {
-            let origin = current[0].startPoint
-            var next = ring
-            if let nearest = nearestPoint(onLoop: ring, to: origin) {
-                next = rotatedLoop(ring, startingAt: nearest)
-            }
-
-            if let turn = spiralTurn(from: current, to: next, wallRing: wallRing, maxChord: maxChord) {
-                path.append(contentsOf: turn)
-            } else {
-                if !currentIsTraced {
-                    path.append(contentsOf: current)
-                }
-                if let end = path.last?.endPoint, let start = next.first?.startPoint,
-                   hypot(start.x - end.x, start.y - end.y) > 1e-6 {
-                    path.append(.line(start: end, end: start))
-                }
-            }
-            current = next
-            currentIsTraced = false
-        }
-
-        if !currentIsTraced {
-            path.append(contentsOf: current)
-        }
-
-        return direction == .insideOut ? path.reversed().map { $0.reversed } : path
-    }
-
-    /// One turn of the spiral, from the start of `outer` to the start of `inner`, as short
-    /// lines; `nil` when any of it would leave the tool-centre region `wallRing`.
-    private func spiralTurn(from outer: [SC.Segment],
-                            to inner: [SC.Segment],
-                            wallRing: [SC.Segment],
-                            maxChord: Double) -> [SC.Segment]? {
-        let sampler = SpiralRingSampler(outer)
-        var previous = outer[0].startPoint
-        var turn: [SC.Segment] = []
-
-        for f in sampler.sampleFractions(maxChord: maxChord).dropFirst() {
-            let onOuter = sampler.point(at: f)
-            guard let onInner = nearestPoint(onLoop: inner, to: onOuter) else {
-                return nil
-            }
-            let point = CGPoint(x: onOuter.x + (onInner.x - onOuter.x) * f,
-                                y: onOuter.y + (onInner.y - onOuter.y) * f)
-            guard clearance(at: point, wallRing: wallRing, zones: []) > -1e-6 else {
-                return nil
-            }
-            if hypot(point.x - previous.x, point.y - previous.y) > 1e-9 {
-                turn.append(.line(start: previous, end: point))
-                previous = point
-            }
-        }
-        return turn
-    }
-
     // MARK: - Raster wall finishing
 
     /// Rotates a closed, contiguous loop so it starts at `point` (which should lie on the
@@ -1273,7 +1141,7 @@ extension SCEngine {
     /// treat lines as infinite and arcs as full circles because they only need the point
     /// nearest a known vertex. A scanline clip has no such vertex to anchor on, so it
     /// needs the true bounded crossings.
-    private func horizontalIntersections(y: Double, with segments: [SC.Segment]) -> [Double] {
+    func horizontalIntersections(y: Double, with segments: [SC.Segment]) -> [Double] {
         var xs: [Double] = []
 
         for segment in segments {
@@ -1570,94 +1438,5 @@ extension SCEngine {
                 let radialX = cos(angle), radialY = sin(angle)
                 return isCCW ? CGPoint(x: -radialY, y: radialX) : CGPoint(x: radialY, y: -radialX)
         }
-    }
-}
-
-/// Addresses a closed ring of segments by the fraction (0...1) of its perimeter travelled
-/// from its start point -- what `morphSpiralSegments` needs to blend two rings of different
-/// shapes point by point.
-private struct SpiralRingSampler {
-
-    let segments: [SC.Segment]
-
-    /// Perimeter fraction at the end of each segment; the last is exactly 1.
-    private let segmentEnds: [Double]
-
-    /// Total length of the ring.
-    private let perimeter: Double
-
-    init(_ segments: [SC.Segment]) {
-        self.segments = segments
-        let total = segments.pathLength
-        perimeter = total
-        var running = 0.0
-        var ends: [Double] = []
-        for segment in segments {
-            running += segment.pathLength
-            ends.append(total > 1e-12 ? running / total : 1.0)
-        }
-        if !ends.isEmpty {
-            ends[ends.count - 1] = 1.0
-        }
-        segmentEnds = ends
-    }
-
-    func point(at fraction: Double) -> CGPoint {
-        guard !segments.isEmpty else {
-            return .zero
-        }
-        let f = min(max(fraction, 0), 1)
-        let index = segmentEnds.firstIndex(where: { f <= $0 }) ?? segments.count - 1
-        let lower = index == 0 ? 0.0 : segmentEnds[index - 1]
-        let span = segmentEnds[index] - lower
-        let t = span > 1e-12 ? (f - lower) / span : 0.0
-
-        switch segments[index] {
-            case .line(let start, let end):
-                return CGPoint(x: start.x + (end.x - start.x) * t, y: start.y + (end.y - start.y) * t)
-
-            case .arc(let center, let radius, let startAngle, let endAngle, let isCCW):
-                let sweep = SC.Segment.sweepAngle(start: startAngle, end: endAngle, isCCW: isCCW)
-                let angle = startAngle + (isCCW ? 1.0 : -1.0) * sweep * t
-                return CGPoint(x: center.x + radius * cos(angle), y: center.y + radius * sin(angle))
-        }
-    }
-
-    /// Fractions at which a polyline must sample this ring to follow it closely: every
-    /// segment end, and an arc split into pieces of at most 5 degrees.
-    ///
-    /// - Parameter maxChord: also splits any piece longer than this (in length units).
-    func sampleFractions(maxChord: Double = .infinity) -> [Double] {
-        var fractions: [Double] = [0.0]
-        var lower = 0.0
-        for (index, segment) in segments.enumerated() {
-            let upper = segmentEnds[index]
-            var pieces = 1
-            if case .arc(_, _, let startAngle, let endAngle, let isCCW) = segment {
-                let sweep = SC.Segment.sweepAngle(start: startAngle, end: endAngle, isCCW: isCCW)
-                pieces = max(1, Int((sweep / (5.0 * .pi / 180.0) - 1e-9).rounded(.up)))
-            }
-            if maxChord.isFinite, maxChord > 0 {
-                let length = (upper - lower) * perimeter
-                pieces = max(pieces, Int((length / maxChord - 1e-9).rounded(.up)))
-            }
-            for k in 1...pieces {
-                fractions.append(lower + (upper - lower) * Double(k) / Double(pieces))
-            }
-            lower = upper
-        }
-        return fractions
-    }
-
-    /// Sorted union of two fraction lists, dropping near-duplicates.
-    static func mergedFractions(_ fractions: [Double]) -> [Double] {
-        var merged: [Double] = []
-        for f in fractions.sorted() {
-            if let last = merged.last, f - last < 1e-9 {
-                continue
-            }
-            merged.append(f)
-        }
-        return merged
     }
 }

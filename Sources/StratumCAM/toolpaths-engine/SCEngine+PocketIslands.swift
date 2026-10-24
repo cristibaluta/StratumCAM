@@ -250,8 +250,7 @@ extension SCEngine {
 
     /// Both ways round the closed `loop` from `from` to `to`: `forward` follows the loop's
     /// own direction, `backward` goes the other way (already reversed to run from `from`).
-    private func zonePaths(_ loop: [SC.Segment], from: CGPoint, to: CGPoint) -> (forward: [SC.Segment], backward: [SC.Segment])? {
-        let tolerance = 1e-4
+    func zonePaths(_ loop: [SC.Segment], from: CGPoint, to: CGPoint, tolerance: Double = 1e-4) -> (forward: [SC.Segment], backward: [SC.Segment])? {
 
         var pieces: [SC.Segment] = []
         for segment in loop {
@@ -450,7 +449,7 @@ extension SCEngine {
     }
 
     /// Where `point` lies on `segment`, as a split parameter, or `nil` if it isn't on it.
-    private func parameter(of point: CGPoint, on segment: SC.Segment, tolerance: Double) -> Double? {
+    func parameter(of point: CGPoint, on segment: SC.Segment, tolerance: Double) -> Double? {
         switch segment {
             case .line(let a, let b):
                 let dx = b.x - a.x, dy = b.y - a.y

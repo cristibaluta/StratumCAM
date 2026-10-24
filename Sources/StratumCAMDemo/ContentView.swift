@@ -88,6 +88,12 @@ struct ContentView: View {
                     demoButton("Rect (Fixed Islands)") {
                         show(DemoPocketing().demoPocketRectangleConcentricWithIslands())
                     }
+                    demoButton("Star (Adaptive)") {
+                        show(DemoPocketing().demoAdaptiveStar())
+                    }
+                    demoButton("Rect with Islands (Adaptive)") {
+                        show(DemoPocketing().demoAdaptiveRectangleWithIslands())
+                    }
                     demoButton("Rect (Auto Islands)") {
                         show(DemoPocketing().demoPocketRectangleConcentricAutoIslands())
                     }

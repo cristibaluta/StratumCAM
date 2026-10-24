@@ -72,7 +72,9 @@ extension SCEngine {
                   inner.box.minY >= outer.box.minY - tol, inner.box.maxY <= outer.box.maxY + tol else {
                 return false
             }
-            return inner.samples.allSatisfy { isInsideLoop($0, loop: outer.segments) }
+            // A point on the outer outline counts as inside: islands may share part of their
+            // outline with the wall (a block standing on it, an outline closed against it).
+            return inner.samples.allSatisfy { isInsideLoop($0, loop: outer.segments) || distance(from: $0, toLoop: outer.segments) < 1e-6 }
         }
 
         // For each shape: every shape that contains it.

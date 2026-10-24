@@ -185,6 +185,49 @@ class DemoPocketing: Demo {
         return self.run(contours: shapes, tool: tool, settings: settings, operation: operation)
     }
 
+    /// A five-pointed star cleared with the adaptive pattern: a helix in the middle, a
+    /// spiral to widen it, then every arm cleared completely before the next one.
+    func demoAdaptiveStar() -> Demo.DemoResult {
+        let tool = SC.ToolParams(diameter: 3.0)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -1.0)
+        let operation: SC.MachiningOperation = .pocket(direction: .climb,
+                                                       pattern: .adaptive(settings: SC.AdaptiveSettings(optimalLoad: 1.2)),
+                                                       entry: .helix(rampAngleDegrees: 3.0))
+        let points: [(Double, Double)] = [
+            (23.73518913841543, 43.00668907540511), (16.780127231112573, 30.108565764940664),
+            (4.000000059604645, 37.000000551342964), (11.976910964284432, 21.16988675201899),
+            (2.735188825491144, 7.0066885389634965), (20.735189093711952, 13.006688628370426),
+            (34.00000050663948, 2.0000000298023224), (32.00000047683716, 18.0000002682209),
+            (45.33499643368561, 30.47381788899007), (28.735189212921206, 30.00668888169008)
+        ]
+        let star: [SC.Geometry] = [.polyline(vertices: points.map { SC.Geometry.Vertex(SIMD2<Double>($0.0, $0.1)) }, closed: true)]
+        return self.run(contours: EntityChainer.chain(star), tool: tool, settings: settings, operation: operation)
+    }
+
+    /// A 130x35 pocket with two round islands, a block standing on the bottom wall and an
+    /// open semicircle in the lower-right corner whose ends land on the walls (so it is
+    /// really a closed island). Adaptive clearing starts with a helix at the centre of the
+    /// biggest island-free area.
+    func demoAdaptiveRectangleWithIslands() -> Demo.DemoResult {
+        let tool = SC.ToolParams(diameter: 3.0)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -1.0)
+        let operation: SC.MachiningOperation = .pocket(direction: .climb,
+                                                       pattern: .adaptive(settings: SC.AdaptiveSettings(optimalLoad: 1.2)),
+                                                       entry: .helix(rampAngleDegrees: 3.0))
+        func v(_ x: Double, _ y: Double) -> SC.Geometry.Vertex { SC.Geometry.Vertex(SIMD2<Double>(x, y)) }
+        let shapes: [SC.Geometry] = [
+            .polyline(vertices: [v(0, 0), v(130, 0), v(130, 35), v(0, 35)], closed: true),
+            .circle(center: SIMD2(85.0, 25.0), radius: 3.755299845886528),
+            .circle(center: SIMD2(99.78639935583031, 12.47927062556613), radius: 4.69276341596225),
+            .polyline(vertices: [v(54.58373358463825, 15.342106124408286), v(70, 15.342106124408286),
+                                 v(70, 0), v(54.58373358463825, 0)], closed: true),
+            .arc(center: SIMD2(125, 5), radius: 8.143868613693423, startDeg: 52.123694486149844, endDeg: 217.8763055138502)
+        ]
+        return self.run(contours: EntityChainer.chain(shapes), tool: tool, settings: settings, operation: operation)
+    }
+
     /// A 60x36 pocket with a rectangular island and a triangular one, passed as plain
     /// shapes in one flat list. Islands don't have to be circles: any closed outline
     /// inside the pocket is detected and left standing.

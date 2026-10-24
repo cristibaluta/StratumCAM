@@ -31,7 +31,11 @@ public final class SCEngine {
         // can pass one flat list of shapes.
         var contours = contours
         if case .pocket = operation {
+            // An open outline with both ends on a wall is an island sharing the wall; islands
+            // touching the wall are cut out of it, so what's left is plain pockets and islands.
+            contours = closingOpenContours(contours)
             contours = resolvePocketIslands(contours)
+            contours = mergingTouchingIslands(contours)
         }
 
         for contour in contours {
