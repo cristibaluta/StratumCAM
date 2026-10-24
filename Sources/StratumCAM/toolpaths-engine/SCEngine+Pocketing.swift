@@ -166,8 +166,17 @@ extension SCEngine {
                     throw SC.Error.geometryCollapsed
                 }
 
+                let toolRadius = tool.diameter / 2.0
+                let stepover = settings.cutting.stepoverPercentage * tool.diameter
+
                 if isSpiralEligible(oriented) {
+                    // Circle: radius interpolates between the concentric circles.
                     toolpathSegments = spiralSegments(from: rings, direction: spiralDirection)
+                } else if let morphed = roundedMorphRings(wallRing: rings[0], toolRadius: toolRadius, stepover: stepover) {
+                    // Axis-aligned rectangle: the same centre-out ring stack `.concentric` uses
+                    // (circle -> stadium once it meets the long walls -> sharpening corners ->
+                    // wall), blended turn by turn into one continuous spiral.
+                    toolpathSegments = morphSpiralSegments(from: morphed, direction: spiralDirection)
                 } else {
                     toolpathSegments = chainedRingSegments(rings)
                 }
@@ -876,6 +885,91 @@ extension SCEngine {
         return segments
     }
 
+    // MARK: - Spiral on a rectangular pocket
+
+    /// Turns the inside-out ring stack `roundedMorphRings` produces for an axis-aligned
+    /// rectangle into one continuous spiral.
+    ///
+    /// Every ring starts at the middle of its bottom edge and is closed, so a ring can be
+    /// addressed by the fraction (0...1) of its perimeter travelled from that point. One
+    /// turn of the spiral blends two neighbouring rings point by point, at the same
+    /// fraction `f`, with weight `f` on the outer-stack neighbour's partner:
+    ///
+    ///     P(f) = (1 - f) * ringA(f) + f * ringB(f)
+    ///
+    /// so the turn starts exactly on ringA and arrives exactly on ringB's start point,
+    /// where the next turn takes over -- no jumps, no closed rings in between. Because the
+    /// rings themselves come from the concentric morph, the spiral behaves like it: it
+    /// grows as a circle from the centre, and once that circle touches the long walls it
+    /// keeps going around them as a stadium whose ends advance to the short walls, then the
+    /// corners sharpen until the final pass runs along the wall.
+    ///
+    /// The first and last turns are the real ring segments (exact arcs and lines), as the
+    /// circular `spiralSegments` does with its hold turns: `.insideOut` opens on the centre
+    /// circle and closes with a full wall pass, `.outsideIn` opens on the wall and closes
+    /// on the centre circle. The blended turns are polylines, sampled at every ring corner
+    /// and at most every 5 degrees of arc, so no chord cuts a corner. The blend stays
+    /// inside the (convex) rectangle, so it can never reach past the wall pass.
+    ///
+    /// - Parameter insideOutRings: rings ordered centre first, wall last.
+    private func morphSpiralSegments(from insideOutRings: [[SC.Segment]], direction: SC.SpiralDirection) -> [SC.Segment] {
+        let ordered = direction == .insideOut ? insideOutRings : Array(insideOutRings.reversed())
+        let rings = ordered.filter { !$0.isEmpty }
+        guard let firstRing = rings.first else {
+            return []
+        }
+
+        var segments: [SC.Segment] = firstRing
+        guard rings.count > 1 else {
+            return segments
+        }
+
+        let samplers = rings.map { SpiralRingSampler($0) }
+        var previousPoint = firstRing[0].startPoint
+
+        for i in 0..<(samplers.count - 1) {
+            let a = samplers[i], b = samplers[i + 1]
+            let fractions = SpiralRingSampler.mergedFractions(a.sampleFractions() + b.sampleFractions())
+
+            func blended(_ f: Double) -> CGPoint {
+                let pa = a.point(at: f), pb = b.point(at: f)
+                return CGPoint(x: pa.x + (pb.x - pa.x) * f, y: pa.y + (pb.y - pa.y) * f)
+            }
+
+            for (f0, f1) in zip(fractions, fractions.dropFirst()) {
+                // Between two sample fractions both rings are a single line or arc, but the
+                // blend weight `f` makes the blended curve quadratic in `f`, so a single chord
+                // sags off it by about |D(f1) - D(f0)| * (f1 - f0) / 4, D = ringB - ringA.
+                // Split long pieces (the straight walls) until that sag is below 5 microns.
+                let a0 = a.point(at: f0), b0 = b.point(at: f0)
+                let a1 = a.point(at: f1), b1 = b.point(at: f1)
+                let dx = (b1.x - a1.x) - (b0.x - a0.x)
+                let dy = (b1.y - a1.y) - (b0.y - a0.y)
+                let sag = hypot(dx, dy) * (f1 - f0) / 4.0
+                let pieces = min(64, max(1, Int((sag / 0.005).squareRoot().rounded(.up))))
+
+                for k in 1...pieces {
+                    let f = f0 + (f1 - f0) * Double(k) / Double(pieces)
+                    let next = blended(f)
+                    if hypot(next.x - previousPoint.x, next.y - previousPoint.y) > 1e-9 {
+                        segments.append(.line(start: previousPoint, end: next))
+                        previousPoint = next
+                    }
+                }
+            }
+        }
+
+        // The last blended point is the final ring's start; close with that ring as is.
+        let lastRing = rings[rings.count - 1]
+        let lastStart = lastRing[0].startPoint
+        if hypot(lastStart.x - previousPoint.x, lastStart.y - previousPoint.y) > 1e-9 {
+            segments.append(.line(start: previousPoint, end: lastStart))
+        }
+        segments.append(contentsOf: lastRing)
+
+        return segments
+    }
+
     // MARK: - Raster wall finishing
 
     /// Rotates a closed, contiguous loop so it starts at `point` (which should lie on the
@@ -1361,5 +1455,84 @@ extension SCEngine {
                 let radialX = cos(angle), radialY = sin(angle)
                 return isCCW ? CGPoint(x: -radialY, y: radialX) : CGPoint(x: radialY, y: -radialX)
         }
+    }
+}
+
+/// Addresses a closed ring of segments by the fraction (0...1) of its perimeter travelled
+/// from its start point -- what `morphSpiralSegments` needs to blend two rings of different
+/// shapes point by point.
+private struct SpiralRingSampler {
+
+    let segments: [SC.Segment]
+
+    /// Perimeter fraction at the end of each segment; the last is exactly 1.
+    private let segmentEnds: [Double]
+
+    init(_ segments: [SC.Segment]) {
+        self.segments = segments
+        let total = segments.pathLength
+        var running = 0.0
+        var ends: [Double] = []
+        for segment in segments {
+            running += segment.pathLength
+            ends.append(total > 1e-12 ? running / total : 1.0)
+        }
+        if !ends.isEmpty {
+            ends[ends.count - 1] = 1.0
+        }
+        segmentEnds = ends
+    }
+
+    func point(at fraction: Double) -> CGPoint {
+        guard !segments.isEmpty else {
+            return .zero
+        }
+        let f = min(max(fraction, 0), 1)
+        let index = segmentEnds.firstIndex(where: { f <= $0 }) ?? segments.count - 1
+        let lower = index == 0 ? 0.0 : segmentEnds[index - 1]
+        let span = segmentEnds[index] - lower
+        let t = span > 1e-12 ? (f - lower) / span : 0.0
+
+        switch segments[index] {
+            case .line(let start, let end):
+                return CGPoint(x: start.x + (end.x - start.x) * t, y: start.y + (end.y - start.y) * t)
+
+            case .arc(let center, let radius, let startAngle, let endAngle, let isCCW):
+                let sweep = SC.Segment.sweepAngle(start: startAngle, end: endAngle, isCCW: isCCW)
+                let angle = startAngle + (isCCW ? 1.0 : -1.0) * sweep * t
+                return CGPoint(x: center.x + radius * cos(angle), y: center.y + radius * sin(angle))
+        }
+    }
+
+    /// Fractions at which a polyline must sample this ring to follow it closely: every
+    /// segment end, and an arc split into pieces of at most 5 degrees.
+    func sampleFractions() -> [Double] {
+        var fractions: [Double] = [0.0]
+        var lower = 0.0
+        for (index, segment) in segments.enumerated() {
+            let upper = segmentEnds[index]
+            var pieces = 1
+            if case .arc(_, _, let startAngle, let endAngle, let isCCW) = segment {
+                let sweep = SC.Segment.sweepAngle(start: startAngle, end: endAngle, isCCW: isCCW)
+                pieces = max(1, Int((sweep / (5.0 * .pi / 180.0) - 1e-9).rounded(.up)))
+            }
+            for k in 1...pieces {
+                fractions.append(lower + (upper - lower) * Double(k) / Double(pieces))
+            }
+            lower = upper
+        }
+        return fractions
+    }
+
+    /// Sorted union of two fraction lists, dropping near-duplicates.
+    static func mergedFractions(_ fractions: [Double]) -> [Double] {
+        var merged: [Double] = []
+        for f in fractions.sorted() {
+            if let last = merged.last, f - last < 1e-9 {
+                continue
+            }
+            merged.append(f)
+        }
+        return merged
     }
 }

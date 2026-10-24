@@ -243,6 +243,12 @@ extension SC {
         /// - Standard Use: Circular pockets, bores, smooth cavities, and
         ///   suitable facing or clearing regions.
         ///
+        /// - Shapes: a circle spirals with a continuously changing radius. An
+        ///   axis-aligned rectangle spirals out of a small circle at its centre, keeps
+        ///   going around the walls once that circle touches them (stadium, then
+        ///   sharpening corners) and finishes with a wall pass. Any other boundary falls
+        ///   back to offset rings.
+        ///
         /// - Parameter:
         ///   - direction: Determines whether the spiral progresses from the
         ///     outside toward the inside or from the inside toward the outside.

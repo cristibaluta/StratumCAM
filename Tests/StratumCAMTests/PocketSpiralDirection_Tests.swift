@@ -31,9 +31,7 @@ struct PocketSpiralDirection_Tests {
         ], isClosed: true)
     }
 
-    /// Same 20x10 CCW rectangle fixture `PocketSpiral_Tests.swift` uses -- not circular,
-    /// so `.spiral` falls back to the exact `.offsetPattern` ring-and-chain path
-    /// regardless of `direction`.
+    /// Same 20x10 CCW rectangle fixture `PocketSpiral_Tests.swift` uses.
     private func ccwRectangleContour() -> SC.Contour {
         SC.Contour(entities: [
             .init(geometry: .line(a: SIMD2<Double>(0, 0), b: SIMD2<Double>(20, 0)), reversed: false),
@@ -168,40 +166,32 @@ struct PocketSpiralDirection_Tests {
                 "Test Failed: expected bare .spiral to produce identical output to .spiral(direction: .outsideIn)")
     }
 
-    // MARK: - Fallback on a non-circular boundary is unaffected by direction
+    // MARK: - Fallback on a non-circular, non-rectangular boundary is unaffected by direction
 
-    @Test("Inside-out spiral falls back to the exact same offsetPattern output as outside-in on a non-circular boundary")
-    func testInsideOutFallsBackIdenticallyOnNonCircularBoundary() throws {
+    @Test("Inside-out spiral falls back to the exact same offsetPattern output as outside-in on a shape with no spiral")
+    func testInsideOutFallsBackIdenticallyOnIrregularBoundary() throws {
         let engine = SCEngine()
-        let tool = SC.ToolParams(diameter: 6.0)
+        let tool = SC.ToolParams(diameter: 3.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4),
                                           safeZ: 5.0,
                                           targetDepth: -1.0)
 
-        let insideOutWaypoints = try engine.generateToolpaths(
-            from: [ccwRectangleContour()],
-            tool: tool,
-            settings: settings,
-            operation: pocketStrategy(pattern: .spiral(direction: .insideOut))
-        )[0].passes[0].waypoints
+        // L-shaped pocket: neither a circle nor an axis-aligned rectangle.
+        let points: [(Double, Double)] = [(0, 0), (30, 0), (30, 10), (10, 10), (10, 30), (0, 30)]
+        let lShape = SC.Contour(entities: points.indices.map { i in
+            let a = points[i], b = points[(i + 1) % points.count]
+            return .init(geometry: .line(a: SIMD2<Double>(a.0, a.1), b: SIMD2<Double>(b.0, b.1)), reversed: false)
+        }, isClosed: true)
 
-        let outsideInWaypoints = try engine.generateToolpaths(
-            from: [ccwRectangleContour()],
-            tool: tool,
-            settings: settings,
-            operation: pocketStrategy(pattern: .spiral(direction: .outsideIn))
-        )[0].passes[0].waypoints
+        func run(_ pattern: SC.PocketClearingPattern) throws -> [SC.Waypoint] {
+            try engine.generateToolpaths(from: [lShape], tool: tool, settings: settings,
+                                         operation: pocketStrategy(pattern: pattern))[0].passes[0].waypoints
+        }
 
-        let offsetPatternWaypoints = try engine.generateToolpaths(
-            from: [ccwRectangleContour()],
-            tool: tool,
-            settings: settings,
-            operation: pocketStrategy(pattern: .offset)
-        )[0].passes[0].waypoints
+        let insideOutWaypoints = try run(.spiral(direction: .insideOut))
+        let outsideInWaypoints = try run(.spiral(direction: .outsideIn))
+        let offsetPatternWaypoints = try run(.offset)
 
-        // A rectangle has no single center to spiral around either way, so `direction`
-        // must have no effect on the fallback path -- both directions should produce
-        // the identical exact `.offsetPattern` output.
         #expect(insideOutWaypoints == outsideInWaypoints,
                 "Test Failed: direction should have no effect once a boundary isn't spiral-eligible")
         #expect(insideOutWaypoints == offsetPatternWaypoints,

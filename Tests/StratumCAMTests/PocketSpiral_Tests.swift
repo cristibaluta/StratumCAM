@@ -167,36 +167,103 @@ struct PocketSpiral_Tests {
         }
     }
 
-    // MARK: - Fallback on a non-circular boundary
+    // MARK: - Continuous spiral on an axis-aligned rectangle
 
-    @Test("Spiral pocket falls back to the exact offsetPattern ring-and-chain path on a non-circular boundary")
-    func testSpiralPocketFallsBackToRingAndChainOnNonCircularBoundary() throws {
-        let engine = SCEngine()
-        let tool = SC.ToolParams(diameter: 6.0)
+    private func rectangleSpiralWaypoints(direction: SC.SpiralDirection,
+                                          cut: SC.CutDirection = .climb,
+                                          toolDiameter: Double = 6.0) throws -> [SC.Waypoint] {
+        let tool = SC.ToolParams(diameter: toolDiameter)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4),
                                           safeZ: 5.0,
                                           targetDepth: -1.0)
-
-        let spiralWaypoints = try engine.generateToolpaths(
+        return try SCEngine().generateToolpaths(
             from: [ccwRectangleContour()],
             tool: tool,
             settings: settings,
-            operation: pocketStrategy(pattern: .spiral(direction: .outsideIn))
+            operation: pocketStrategy(pattern: .spiral(direction: direction), direction: cut)
         )[0].passes[0].waypoints
+    }
 
-        let offsetPatternWaypoints = try engine.generateToolpaths(
+    @Test("Inside-out spiral on a rectangle starts at the centre and is one unbroken cut")
+    func testRectangleSpiralStartsAtCentreAndNeverLiftsOrJumps() throws {
+        // 20x10 pocket, 6mm tool -> tool-centre region is [3,17] x [3,7], centre (10,5).
+        let waypoints = try rectangleSpiralWaypoints(direction: .insideOut)
+        let plunge = waypoints[1].position
+
+        // Entry is on the small centre circle (radius 95% of the tool radius, capped by the
+        // half-height 2), directly below the centre -- not on the wall ring.
+        #expect(abs(plunge.x - 10.0) < 1e-6, "Test Failed: plunge should be at the middle of the centre ring's bottom")
+        #expect(hypot(plunge.x - 10.0, plunge.y - 5.0) <= 2.0 + 1e-6, "Test Failed: inside-out should plunge at the centre, not at the wall")
+        #expect(waypoints[1].position.z == -1.0, "Test Failed: plunge should land at target depth")
+
+        // rapid, plunge, ...cutting moves only..., retract: one continuous spiral.
+        for i in 2..<(waypoints.count - 1) {
+            #expect(waypoints[i].motion != .rapid, "Test Failed: waypoint \(i) is a rapid inside the spiral")
+        }
+        #expect(waypoints.last?.motion == .rapid && waypoints.last?.position.z == 5.0, "Test Failed: expected a single retract at the end")
+    }
+
+    @Test("Rectangle spiral never leaves the tool-centre region and finishes with a full wall pass")
+    func testRectangleSpiralStaysInsideAndEndsOnWall() throws {
+        let waypoints = try rectangleSpiralWaypoints(direction: .insideOut)
+
+        for i in 1..<(waypoints.count - 1) {
+            let p = waypoints[i].position
+            #expect(p.x >= 3.0 - 1e-6 && p.x <= 17.0 + 1e-6 && p.y >= 3.0 - 1e-6 && p.y <= 7.0 + 1e-6,
+                    "Test Failed: waypoint \(i) at (\(p.x), \(p.y)) leaves the wall offset rectangle")
+        }
+
+        // Closing pass: the last cutting waypoints trace the sharp wall rectangle, so all four
+        // corners of the tool-centre region are visited, and the spiral ends on its start.
+        let cutting = waypoints[1..<(waypoints.count - 1)].map { $0.position }
+        for corner in [(3.0, 3.0), (17.0, 3.0), (17.0, 7.0), (3.0, 7.0)] {
+            #expect(cutting.contains { abs($0.x - corner.0) < 1e-6 && abs($0.y - corner.1) < 1e-6 },
+                    "Test Failed: wall corner \(corner) is never reached")
+        }
+        let last = cutting[cutting.count - 1]
+        #expect(abs(last.x - 10.0) < 1e-6 && abs(last.y - 3.0) < 1e-6, "Test Failed: the wall pass should close at the middle of the bottom wall")
+    }
+
+    @Test("Rectangle spiral is not the offset-ring fallback any more, and outside-in reverses the order")
+    func testRectangleSpiralIsRealAndDirectionReversesIt() throws {
+        let insideOut = try rectangleSpiralWaypoints(direction: .insideOut)
+        let outsideIn = try rectangleSpiralWaypoints(direction: .outsideIn)
+
+        let offsetPattern = try SCEngine().generateToolpaths(
             from: [ccwRectangleContour()],
-            tool: tool,
-            settings: settings,
+            tool: SC.ToolParams(diameter: 6.0),
+            settings: SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4),
+                                         safeZ: 5.0,
+                                         targetDepth: -1.0),
             operation: pocketStrategy(pattern: .offset)
         )[0].passes[0].waypoints
 
-        // A rectangle has no single center to spiral around, so `.spiral` should
-        // produce the identical output `.offsetPattern` does -- not an attempt at a
-        // spiral computed around the wrong point.
-        #expect(spiralWaypoints == offsetPatternWaypoints,
-                "Test Failed: expected .spiral to fall back to the exact .offsetPattern output on a non-circular boundary")
+        #expect(insideOut != offsetPattern, "Test Failed: rectangle spiral still equals the offset fallback")
+        #expect(insideOut != outsideIn, "Test Failed: direction should change the rectangle spiral")
+
+        // Outside-in plunges on the wall ring (bottom middle, y = 3) and finishes at the centre.
+        let start = outsideIn[1].position
+        #expect(abs(start.x - 10.0) < 1e-6 && abs(start.y - 3.0) < 1e-6, "Test Failed: outside-in should plunge on the wall")
+        let end = outsideIn[outsideIn.count - 2].position
+        #expect(hypot(end.x - 10.0, end.y - 5.0) <= 2.0 + 1e-6, "Test Failed: outside-in should finish at the centre")
     }
+
+    @Test("Rectangle spiral keeps the requested climb/conventional winding")
+    func testRectangleSpiralRespectsCutDirection() throws {
+        func signedArea(_ waypoints: [SC.Waypoint]) -> Double {
+            // Shoelace over the final wall pass (last 5 cutting points of a sharp rectangle ring).
+            let pts = waypoints[1..<(waypoints.count - 1)].map { $0.position }.suffix(5)
+            var area = 0.0
+            let a = Array(pts)
+            for i in 0..<(a.count - 1) { area += a[i].x * a[i + 1].y - a[i + 1].x * a[i].y }
+            return area
+        }
+        let climb = signedArea(try rectangleSpiralWaypoints(direction: .insideOut, cut: .climb))
+        let conventional = signedArea(try rectangleSpiralWaypoints(direction: .insideOut, cut: .conventional))
+        #expect(climb * conventional < 0, "Test Failed: climb and conventional should wind opposite ways")
+    }
+
+    // MARK: - Fallback on other non-circular boundaries
 
     @Test("Spiral pocket falls back on a rounded rectangle too -- only a plain circle is eligible")
     func testSpiralPocketFallsBackOnRoundedRectangle() throws {
