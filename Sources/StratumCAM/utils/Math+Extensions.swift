@@ -5,6 +5,7 @@
 //  Created by Cristian Baluta on 14.09.2026.
 //
 
+import Foundation
 
 extension Double {
     var degreesToRadians: Double {

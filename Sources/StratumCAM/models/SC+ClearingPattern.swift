@@ -69,13 +69,6 @@ extension SC {
     /// by `MachiningOperation`.
     public enum SpiralDirection: String, Sendable, Codable, Equatable {
 
-        /// Opening turn holds at the outer (wall) radius; closing turn holds
-        /// at the innermost radius.
-        ///
-        /// The tool engages the wall first and clears toward the center,
-        /// leaving the innermost region for the final part of the operation.
-        case outsideIn
-
         /// Opening turn holds at the innermost radius; closing turn holds
         /// at the outer (wall) radius.
         ///
@@ -83,6 +76,13 @@ extension SC {
         /// useful when the final wall pass should not be followed by
         /// another interior clearing pass.
         case insideOut
+
+        /// Opening turn holds at the outer (wall) radius; closing turn holds
+        /// at the innermost radius.
+        ///
+        /// The tool engages the wall first and clears toward the center,
+        /// leaving the innermost region for the final part of the operation.
+        case outsideIn
     }
 
     /// Defines the domain boundary target and path generation mode for adaptive (constant radial load) clearing.

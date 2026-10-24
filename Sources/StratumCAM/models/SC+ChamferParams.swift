@@ -47,6 +47,7 @@ extension SC.ChamferParams {
             return nil
         }
         let halfAngleRad = (vAngle / 2.0).degreesToRadians
+
         return -(width / tan(halfAngleRad))
     }
 }

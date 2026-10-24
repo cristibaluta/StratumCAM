@@ -15,24 +15,18 @@ extension SC {
             public var geometry: SC.Geometry
             public var reversed: Bool
 
-            // The inits are needed because the app using the lib is not able to init otherwise
+            // NOTE: The inits are needed because the app using the lib is not able to init otherwise
             public init(geometry: SC.Geometry, reversed: Bool) {
                 self.geometry = geometry
                 self.reversed = reversed
             }
         }
 
+        // TODO: proposal: this needs to be renamed to segments of type [GeometriesChain]
         public var entities: [Chained]
         public var isClosed: Bool
 
-        /// Islands left standing inside a closed pocket contour: closed outlines of any
-        /// shape (lines, arcs, polylines, circles...). For `.pocket`,
-        /// `SCEngine.generateToolpaths` fills this in automatically from any closed
-        /// contours nested inside this one in the input list (see
-        /// `SCEngine.resolvePocketIslands`); islands set here by hand are kept and added to.
-        /// Only the `.pocket` operation with the `.concentric` pattern honors them (any other
-        /// pocket pattern throws rather than cutting through an island); every other
-        /// operation ignores them.
+        /// Islands inside this contour
         public var islands: [Contour]
 
         public init(entities: [Chained], isClosed: Bool, islands: [Contour] = []) {
