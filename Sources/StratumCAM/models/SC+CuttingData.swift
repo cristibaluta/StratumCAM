@@ -9,10 +9,6 @@ import Foundation
 
 extension SC {
 
-    /// Describes how a cut is actually performed with a given tool for a given job --
-    /// as opposed to `ToolParams`, which describes the physical tool itself. These values
-    /// change with material, operation, and aggressiveness even when the same physical
-    /// tool is reused, so they're kept separate from the tool's identity.
     public struct CuttingData: Sendable, Equatable {
 
         /// Target spindle speed (RPM).
@@ -29,9 +25,7 @@ extension SC {
 
         /// Radial stepover as a fraction of the tool *diameter*: 0.1 to 0.95 (10% to 95%),
         /// default 0.25 (25%). Stored as a percentage rather than an absolute distance so it
-        /// survives a tool-diameter change without silently becoming too aggressive or too
-        /// conservative -- resolve to mm via `stepoverPercentage * tool.diameter` at the
-        /// point of use.
+        /// survives a tool-diameter change
         public var stepoverPercentage: Double
 
         /// Maximum radial stepover allowance for adaptive motion (mm). Unlike

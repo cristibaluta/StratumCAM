@@ -2,9 +2,6 @@
 //  SC+Geometry.swift
 //  StratumCAM
 //
-//  Library-native input geometry. Replaces `SC.Geometry` so the core has no third-party
-//  dependency; the `StratumCAMDXF` target converts DXF entities to this type.
-//
 
 import Foundation
 import simd
@@ -38,12 +35,5 @@ extension SC {
         /// A marker with no extent, e.g. a drill location.
         case point(at: SIMD2<Double>)
         case polyline(vertices: [Vertex], closed: Bool)
-    }
-}
-
-extension SIMD2 where Scalar == Double {
-
-    var cgPoint: CGPoint {
-        CGPoint(x: x, y: y)
     }
 }

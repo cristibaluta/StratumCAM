@@ -37,8 +37,7 @@ extension SC {
         ///   - direction: Cutting direction used for the facing passes.
         ///   - extensionLength: Distance by which the toolpath extends beyond
         ///     the selected contour's bounding box to ensure complete coverage.
-        case facing(direction: CutDirection,
-                    extensionLength: Double)
+        case facing(direction: CutDirection, extensionLength: Double)
 
         /// Cuts a linear slot or groove along a center curve or constrained by 2 walls
         ///
@@ -114,22 +113,6 @@ extension SC {
         /// The operation progressively clears the interior area using the
         /// selected clearing pattern while maintaining the selected cutting
         /// direction and entry strategy.
-        ///
-        /// ```text
-        /// ┌─────────────────────────┐
-        /// │         POCKET          │
-        /// │                         │
-        /// │   ┌─────────────────┐   │
-        /// │   │                 │   │
-        /// │   │   TOOLPATH      │   │
-        /// │   │     ↓↓↓↓↓       │   │
-        /// │   │   MATERIAL      │   │
-        /// │   │   REMOVAL       │   │
-        /// │   │                 │   │
-        /// │   └─────────────────┘   │
-        /// │                         │
-        /// └─────────────────────────┘
-        /// ```
         ///
         /// - Parameters:
         ///   - direction: Determines the cutting direction, such as climb or

@@ -14,15 +14,6 @@ extension SC {
 
         /// Direct vertical plunge into solid material or pre-drilled entry holes.
         ///
-        /// ```text
-        ///          │  │ (Tool)
-        ///          │  │
-        ///          ▼  ▼
-        ///     ─────────────── (Stock Surface)
-        ///          │  │
-        ///          ▼  ▼
-        /// ```
-        ///
         /// - Real-World Impact: Drives the end mill straight down along the Z-axis into material.
         /// - Pros: Fastest entry method; minimal XY movement during entry.
         /// - Cons: Highest Z-axis cutting load; non-center-cutting end mills will burn or break; causes severe tip wear in hard materials.
@@ -30,16 +21,6 @@ extension SC {
         case plunge
 
         /// Zig-zag motion back and forth at a shallow incline angle down to cut depth.
-        ///
-        /// ```text
-        ///          │  │ (Tool)
-        ///          \  \
-        ///           \  \  /  /
-        ///            \  \/  /
-        ///             \    / ───► (Zig-zag ramp entry at angle θ)
-        ///              \  /
-        ///     ──────────\/───
-        /// ```
         ///
         /// - Real-World Impact: Converts a high-load vertical plunge into a combination of XY linear feeding and shallow Z penetration.
         /// - Pros: Drastically reduces spindle load and tool tip heat compared to plunging; safe for non-center-cutting tools.
@@ -50,14 +31,6 @@ extension SC {
         case ramp(angleDegrees: Double)
 
         /// Downward spiral motion in circular arcs down to cutting depth.
-        ///
-        /// ```text
-        ///           ╭───╮
-        ///          ╭┘   └╮
-        ///         ╭┘ ╭─╮ └╮ ───► (Continuous helical spiral entry)
-        ///        ╭┘  │•│  └╮
-        ///       ─┴───┴─┴───┴─
-        /// ```
         ///
         /// - Real-World Impact: Rotates the cutter smoothly in X, Y, and Z simultaneously, evacuating chips effectively up tool flutes while descending.
         /// - Pros: Smooth continuous machine motion with minimum chatter; evenly distributes load across all flutes; gold standard for pocket entries.
@@ -73,17 +46,7 @@ extension SC {
         case helix(rampAngleDegrees: Double)
 
         /// Feeds in sideways from outside the stock, through an open end of the
-        /// feature, using overlapping trochoidal loops rather than descending
-        /// through solid material at all.
-        ///
-        /// ```text
-        ///   (free air)   (stock edge)      (material)
-        ///        ╭╮  ╭╮  ┊  ╭╮  ╭╮  ╭╮
-        ///        │╰──╯│  ┊  │╰──╯│  ╰──╯ ───► (Loops advance in from outside,
-        ///        ╰────╯  ┊  ╰────╯            engaging gradually as they cross
-        ///                ┊                    the stock edge)
-        /// ```
-        ///
+        /// feature,
         /// Only meaningful for a feature that is genuinely open at the end the
         /// tool starts from -- e.g. a slot that runs off the edge of the stock --
         /// since it relies on there being no material at the starting point to

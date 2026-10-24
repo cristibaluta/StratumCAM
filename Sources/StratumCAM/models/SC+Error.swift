@@ -1,12 +1,4 @@
 //
-//  per.swift
-//  StratumCAM
-//
-//  Created by Cristian Baluta on 15.09.2026.
-//
-
-
-//
 //  Error.swift
 //  StratumCAM
 //
@@ -17,17 +9,7 @@ import Foundation
 
 extension SC {
 
-    /// Errors thrown by `SCEngine` when a toolpath genuinely can't be built for the
-    /// given input -- as opposed to a toolpath that's legitimately empty by design
-    /// (e.g. a DXF `.text` entity, which is never machinable and isn't an error, or
-    /// an operation with no lead-out configured). Cases below are grouped by what
-    /// went wrong, not by which `SCEngine+*.swift` file raised them, since several
-    /// files hit the same underlying problem (a missing drill point, a tool that
-    /// doesn't fit) for their own operation.
-    ///
-    /// Single shared type by design (Step 6.1) -- not one nested enum per operation --
-    /// so callers only ever need to switch on one `Error` type regardless of which
-    /// `generateToolpaths` overload they called.
+    /// Errors thrown by `SCEngine` when a toolpath genuinely can't be built for the given input
     public enum Error: Swift.Error, Sendable, Equatable {
 
         /// The requested operation needs a closed contour (e.g. `.pocket`), but the

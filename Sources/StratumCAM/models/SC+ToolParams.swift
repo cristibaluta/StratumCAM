@@ -9,15 +9,6 @@ import Foundation
 
 extension SC {
 
-    public enum ToolType: String, Sendable, Codable, Equatable {
-        case flatEndMill
-        case ballEndMill
-        case vBit
-        case drill
-        /// Diameter of the tool refers at the tip with the knives. The axe itself is a bit smaller to allow th eknives to cut the thread
-        case threadMill
-    }
-
     /// Describes the physical cutting tool itself
     public struct ToolParams: Sendable, Equatable, Identifiable {
         public var id: UUID
