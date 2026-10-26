@@ -8,31 +8,15 @@
 //  operation has a direction / a pattern / a ramp" or "which values go with which".
 //
 //   - `requirements`   which parameters the operation has, and which values each accepts
-//   - `validate(tool:)` whether the values it carries (and their combinations) are usable
+//   - `validate(tool:)` whether the values it carries (and their combinations) are usable;
+//                      it fails with the library's own `SC.Error`, naming the parameter by its
+//                      `ParameterField` id, e.g. `.invalidParameter("pattern.adaptive.optimalLoad")`
 //   - `direction`, `entry`, ... read and write a parameter without switching over every case
 //
 
 import Foundation
 
 extension SC {
-
-    /// The kind of an `EntryStrategy`, without its parameters.
-    public enum EntryKind: String, Sendable, Codable, CaseIterable, Equatable {
-        case plunge
-        case ramp
-        case helix
-        case fromOpenEnd
-    }
-
-    /// The kind of a pocket or slot clearing pattern, without its parameters.
-    public enum ClearingPatternKind: String, Sendable, Codable, CaseIterable, Equatable {
-        case offset
-        case concentric
-        case raster
-        case spiral
-        case trochoidal
-        case adaptive
-    }
 
     /// Which inputs and parameters an operation reads, and which values it accepts for them.
     ///
@@ -69,22 +53,40 @@ extension SC {
         /// The operation takes holding tabs.
         public var usesHoldingTabs: Bool
 
-        /// The entry strategies the operation accepts, in the order they should be offered.
-        /// Empty when it has no entry strategy at all.
-        public var entryKinds: [EntryKind]
+        /// The entry strategies the operation accepts, in the order they should be offered,
+        /// each with its default parameters (`EntryStrategy.defaults`). Empty when the
+        /// operation has no entry strategy at all.
+        public var entries: [EntryStrategy]
 
-        /// The clearing patterns the operation accepts, in the order they should be offered.
-        /// Empty when it has no clearing pattern at all.
-        public var clearingPatterns: [ClearingPatternKind]
+        /// The pocket clearing patterns on offer, in order, each with its default parameters
+        /// (`PocketClearingPattern.defaults`). Empty unless the operation is a pocket.
+        public var pocketPatterns: [PocketClearingPattern]
+
+        /// The slot clearing patterns on offer, in order, each with its default parameters
+        /// (`SlotClearingPattern.defaults`). Empty unless the operation is a slot.
+        public var slotPatterns: [SlotClearingPattern]
 
         /// The operation has an entry strategy.
         public var usesEntry: Bool {
-            !entryKinds.isEmpty
+            !entries.isEmpty
         }
 
         /// The operation has a clearing pattern.
         public var usesClearingPattern: Bool {
-            !clearingPatterns.isEmpty
+            !pocketPatterns.isEmpty || !slotPatterns.isEmpty
+        }
+
+        /// Whether `entry` is one of the strategies the operation accepts. Only the kind of
+        /// strategy counts, not its parameters (a 3° ramp is as good as the default 2° one).
+        public func accepts(_ entry: EntryStrategy) -> Bool {
+            entries.contains { offered in
+                switch (offered, entry) {
+                    case (.plunge, .plunge), (.ramp, .ramp), (.helix, .helix), (.fromOpenEnd, .fromOpenEnd):
+                        return true
+                    default:
+                        return false
+                }
+            }
         }
 
         public init(usesEndZ: Bool = true,
@@ -94,8 +96,9 @@ extension SC {
                     usesSide: Bool = false,
                     usesLeadInOut: Bool = false,
                     usesHoldingTabs: Bool = false,
-                    entryKinds: [EntryKind] = [],
-                    clearingPatterns: [ClearingPatternKind] = []) {
+                    entries: [EntryStrategy] = [],
+                    pocketPatterns: [PocketClearingPattern] = [],
+                    slotPatterns: [SlotClearingPattern] = []) {
             self.usesEndZ = usesEndZ
             self.usesStepdown = usesStepdown
             self.usesStepover = usesStepover
@@ -103,68 +106,47 @@ extension SC {
             self.usesSide = usesSide
             self.usesLeadInOut = usesLeadInOut
             self.usesHoldingTabs = usesHoldingTabs
-            self.entryKinds = entryKinds
-            self.clearingPatterns = clearingPatterns
-        }
-    }
-
-    /// An operation parameter, or the tool it will run with, that the engine can't work with.
-    ///
-    /// `parameter` is a stable id for the offending value (it matches the `ParameterField`
-    /// ids where there is one, e.g. `"pattern.adaptive.optimalLoad"`), so a caller can point at
-    /// the right control. `message` is written to be shown to the user as it is.
-    public struct ValidationIssue: Swift.Error, LocalizedError, Sendable, Equatable {
-        public var parameter: String
-        public var message: String
-
-        public init(parameter: String, message: String) {
-            self.parameter = parameter
-            self.message = message
-        }
-
-        public var errorDescription: String? {
-            message
+            self.entries = entries
+            self.pocketPatterns = pocketPatterns
+            self.slotPatterns = slotPatterns
         }
     }
 }
 
-// MARK: - Kinds
+// MARK: - What each model offers by default
 
 extension SC.EntryStrategy {
 
-    public var kind: SC.EntryKind {
-        switch self {
-            case .plunge: return .plunge
-            case .ramp: return .ramp
-            case .helix: return .helix
-            case .fromOpenEnd: return .fromOpenEnd
-        }
-    }
+    /// Every entry strategy, with the parameters a freshly picked one starts with.
+    public static let defaults: [SC.EntryStrategy] = [
+        .plunge,
+        .ramp(angleDegrees: 2.0),
+        .helix(rampAngleDegrees: 2.0),
+        .fromOpenEnd(stepoverPercentage: 0.4)
+    ]
 }
 
 extension SC.PocketClearingPattern {
 
-    public var kind: SC.ClearingPatternKind {
-        switch self {
-            case .offset: return .offset
-            case .concentric: return .concentric
-            case .raster: return .raster
-            case .spiral: return .spiral
-            case .trochoidal: return .trochoidal
-            case .adaptive: return .adaptive
-        }
-    }
+    /// Every pocket pattern, with the parameters a freshly picked one starts with.
+    public static let defaults: [SC.PocketClearingPattern] = [
+        .offset,
+        .concentric(direction: .outsideIn),
+        .raster,
+        .spiral(direction: .outsideIn),
+        .trochoidal(settings: .init(radialEngagement: 0.3, loopRadius: 1.0)),
+        .adaptive(settings: .init(optimalLoad: 1.0))
+    ]
 }
 
 extension SC.SlotClearingPattern {
 
-    public var kind: SC.ClearingPatternKind {
-        switch self {
-            case .raster: return .raster
-            case .trochoidal: return .trochoidal
-            case .adaptive: return .adaptive
-        }
-    }
+    /// Every slot pattern, with the parameters a freshly picked one starts with.
+    public static let defaults: [SC.SlotClearingPattern] = [
+        .raster,
+        .trochoidal(settings: .init(radialEngagement: 0.3, loopRadius: 1.0)),
+        .adaptive(settings: .init(optimalLoad: 1.0))
+    ]
 }
 
 // MARK: - Requirements
@@ -174,7 +156,12 @@ extension SC.MachiningOperation {
     public var requirements: SC.OperationRequirements {
         // `.fromOpenEnd` is only meaningful where the feature really is open at the start
         // (a slot running off the stock); anywhere else it is just a plunge.
-        let closedEntries: [SC.EntryKind] = [.plunge, .ramp, .helix]
+        let closedEntries = SC.EntryStrategy.defaults.filter { entry in
+            if case .fromOpenEnd = entry {
+                return false
+            }
+            return true
+        }
 
         switch self {
             case .engrave:
@@ -186,7 +173,7 @@ extension SC.MachiningOperation {
                              usesSide: true,
                              usesLeadInOut: true,
                              usesHoldingTabs: true,
-                             entryKinds: closedEntries)
+                             entries: closedEntries)
 
             case .pocket(_, let pattern, _):
                 // Adaptive clearing is sized by its optimal load; every other pattern
@@ -200,13 +187,13 @@ extension SC.MachiningOperation {
                 return .init(usesStepdown: true,
                              usesStepover: usesStepover,
                              usesDirection: true,
-                             entryKinds: closedEntries,
-                             clearingPatterns: [.offset, .concentric, .raster, .spiral, .trochoidal, .adaptive])
+                             entries: closedEntries,
+                             pocketPatterns: SC.PocketClearingPattern.defaults)
 
             case .slotting:
                 // A slot steps down by its own `depthPerPass`.
-                return .init(entryKinds: SC.EntryKind.allCases,
-                             clearingPatterns: [.raster, .trochoidal, .adaptive])
+                return .init(entries: SC.EntryStrategy.defaults,
+                             slotPatterns: SC.SlotClearingPattern.defaults)
 
             case .facing:
                 return .init(usesDirection: true)
@@ -216,7 +203,7 @@ extension SC.MachiningOperation {
                              usesStepdown: true,
                              usesStepover: true,
                              usesDirection: true,
-                             entryKinds: closedEntries)
+                             entries: closedEntries)
 
             case .chamfer:
                 // The depth comes from the width and the V-bit; the side and direction are part
@@ -300,16 +287,6 @@ extension SC.MachiningOperation {
             }
         }
     }
-
-    /// The kind of clearing pattern, for the operations that have one
-    /// (see `requirements.usesClearingPattern`).
-    public var clearingPatternKind: SC.ClearingPatternKind? {
-        switch self {
-            case .pocket(_, let pattern, _): return pattern.kind
-            case .slotting(_, let pattern, _): return pattern.kind
-            case .facing, .contour, .threadMilling, .engrave, .drilling, .chamfer, .boring, .counterbore: return nil
-        }
-    }
 }
 
 // MARK: - Validation
@@ -319,19 +296,19 @@ extension SC.MachiningOperation {
     /// Checks the operation's own values, and how they combine, against `tool`, before any
     /// geometry is involved.
     ///
-    /// - Throws: `SC.ValidationIssue` for the first value that can't be used.
+    /// - Throws: `SC.Error.invalidParameter` naming the first value that can't be used (by its
+    ///   `ParameterField` id, e.g. `"pattern.adaptive.optimalLoad"`), or
+    ///   `SC.Error.toolIncompatible` when the tool can't do the cut at all.
     public func validate(tool: SC.ToolParams) throws {
-        func require(_ condition: Bool, _ parameter: String, _ message: @autoclosure () -> String) throws {
+        func require(_ condition: Bool, parameter: String) throws {
             guard condition else {
-                throw SC.ValidationIssue(parameter: parameter, message: message())
+                throw SC.Error.invalidParameter(parameter)
             }
         }
 
         // The entry strategy has to be one the operation accepts.
         if let chosen = self.entry {
-            try require(requirements.entryKinds.contains(chosen.kind),
-                        "entry",
-                        "This operation can't use a \(chosen.kind.rawValue) entry.")
+            try require(requirements.accepts(chosen), parameter: "entry")
         }
 
         switch self {
@@ -345,9 +322,7 @@ extension SC.MachiningOperation {
                 if leadIn != nil {
                     switch entry {
                         case .ramp, .helix:
-                            try require(false,
-                                        "contour.leadIn",
-                                        "A lead-in can't be combined with a ramp or helix entry: the entry already eases the tool in.")
+                            throw SC.Error.invalidParameter("contour.leadIn")
                         case .plunge, .fromOpenEnd:
                             break
                     }
@@ -358,82 +333,54 @@ extension SC.MachiningOperation {
                     case .trochoidal(let settings):
                         // Below ~5 % the loops get so tight that the path explodes in size.
                         try require(settings.radialEngagement >= 0.05 - 1e-9 && settings.radialEngagement <= 1 + 1e-9,
-                                    "pattern.trochoidal.radialEngagement",
-                                    "The trochoidal loop pitch must be between 5 % and 100 % of the tool radius.")
+                                    parameter: "pattern.trochoidal.radialEngagement")
 
                     case .adaptive(let settings):
-                        try require(settings.optimalLoad > 0,
-                                    "pattern.adaptive.optimalLoad",
-                                    "The adaptive optimal load must be greater than 0.")
                         // The engine clamps to 2 %...95 % of the diameter; refuse what clamping
                         // would silently change.
-                        try require(tool.diameter <= 0 || settings.optimalLoad <= 0.95 * tool.diameter,
-                                    "pattern.adaptive.optimalLoad",
-                                    "The adaptive optimal load can't exceed 95 % of the tool diameter.")
+                        try require(settings.optimalLoad > 0
+                                        && (tool.diameter <= 0 || settings.optimalLoad <= 0.95 * tool.diameter),
+                                    parameter: "pattern.adaptive.optimalLoad")
 
                     case .offset, .concentric, .raster, .spiral:
                         break
                 }
 
             case .facing(_, let extensionLength):
-                try require(extensionLength >= 0,
-                            "facing.extensionLength",
-                            "The facing extension can't be negative.")
+                try require(extensionLength >= 0, parameter: "facing.extensionLength")
 
             case .slotting(let depthPerPass, _, _):
-                try require(depthPerPass > 0,
-                            "slotting.depthPerPass",
-                            "Depth per pass must be greater than 0.")
+                try require(depthPerPass > 0, parameter: "slotting.depthPerPass")
 
             case .drilling(let peckDepth):
                 if let peckDepth {
-                    try require(peckDepth > 0,
-                                "drilling.peckDepth",
-                                "The peck depth must be greater than 0.")
+                    try require(peckDepth > 0, parameter: "drilling.peckDepth")
                 }
 
             case .counterbore(let diameter, let depth, _, _):
-                try require(depth > 0,
-                            "counterbore.depth",
-                            "The counterbore depth must be greater than 0.")
-                try require(diameter > tool.diameter,
-                            "counterbore.diameter",
-                            "The counterbore diameter must be larger than the tool (Ø\(tool.diameter) mm).")
+                try require(depth > 0, parameter: "counterbore.depth")
+                guard diameter > tool.diameter else {
+                    throw SC.Error.toolIncompatible
+                }
 
             case .boring(let targetDiameter, let dwellTime, _):
-                try require(targetDiameter > 0,
-                            "boring.targetDiameter",
-                            "The finished diameter must be greater than 0.")
+                try require(targetDiameter > 0, parameter: "boring.targetDiameter")
                 if let dwellTime {
-                    try require(dwellTime >= 0,
-                                "boring.dwellTime",
-                                "The dwell time can't be negative.")
+                    try require(dwellTime >= 0, parameter: "boring.dwellTime")
                 }
 
             case .threadMilling(let pitch, _, _, let radialPasses, let targetDiameter):
-                try require(pitch > 0,
-                            "threadMilling.pitch",
-                            "The thread pitch must be greater than 0.")
-                try require(targetDiameter > 0,
-                            "threadMilling.targetDiameter",
-                            "The thread diameter must be greater than 0.")
-                try require(radialPasses >= 1,
-                            "threadMilling.radialPasses",
-                            "The thread needs at least 1 radial pass.")
+                try require(pitch > 0, parameter: "threadMilling.pitch")
+                try require(targetDiameter > 0, parameter: "threadMilling.targetDiameter")
+                try require(radialPasses >= 1, parameter: "threadMilling.radialPasses")
 
             case .chamfer(let params):
-                try require(params.width > 0,
-                            "chamfer.params.width",
-                            "The chamfer width must be greater than 0.")
+                try require(params.width > 0, parameter: "chamfer.params.width")
                 if let depth = params.depth {
-                    try require(depth > 0,
-                                "chamfer.params.depth",
-                                "The chamfer depth must be greater than 0.")
-                } else {
+                    try require(depth > 0, parameter: "chamfer.params.depth")
+                } else if (tool.vAngle ?? 0) <= 0 {
                     // Without a fixed depth the depth comes from the V-bit's included angle.
-                    try require((tool.vAngle ?? 0) > 0,
-                                "chamfer.params.depth",
-                                "A chamfer needs a V-bit: pick a tool with a tip angle, or give the chamfer a fixed depth.")
+                    throw SC.Error.toolIncompatible
                 }
         }
     }

@@ -34,7 +34,9 @@ extension SC {
         /// A parameter on the operation is out of the range the operation needs to
         /// do anything meaningful (e.g. zero radial passes, zero pitch). The
         /// associated string names the parameter for the caller/log, not for
-        /// switching on -- don't pattern-match its contents.
+        /// switching on -- don't pattern-match its contents. `MachiningOperation.validate`
+        /// names it by its `ParameterField` id (e.g. `"pattern.adaptive.optimalLoad"`), so an
+        /// app can point at the right control and word the message itself.
         case invalidParameter(String)
 
         /// The engine's own geometry computation (offsetting, ring-stacking, scanline
