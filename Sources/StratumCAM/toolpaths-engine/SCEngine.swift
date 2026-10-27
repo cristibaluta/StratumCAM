@@ -54,11 +54,12 @@ public final class SCEngine {
                                settings: SC.MachineSettings,
                                operation: SC.MachiningOperation) throws -> SC.OutputToolpath? {
         switch operation {
-            case .engrave:
+            case .engrave(let entry):
                 try buildContourTracingToolpath(for: contour,
                                                 tool: tool,
                                                 settings: settings,
                                                 side: .onContour,
+                                                entry: entry,
                                                 operation: operation)
 
             case .contour(let side, let direction, let entry, let leadIn, let leadOut, let tabs):

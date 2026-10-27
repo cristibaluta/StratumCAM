@@ -165,7 +165,15 @@ extension SC.MachiningOperation {
 
         switch self {
             case .engrave:
-                return .init(usesStepdown: true)
+                // A helix would cut a circle next to the start of the line; only a plunge
+                // or a ramp along the line itself make sense for an engraving.
+                let engraveEntries = closedEntries.filter { entry in
+                    if case .helix = entry {
+                        return false
+                    }
+                    return true
+                }
+                return .init(usesStepdown: true, entries: engraveEntries)
 
             case .contour:
                 return .init(usesStepdown: true,
@@ -266,7 +274,8 @@ extension SC.MachiningOperation {
                 case .contour(_, _, let entry, _, _, _): return entry
                 case .pocket(_, _, let entry): return entry
                 case .counterbore(_, _, _, let entry): return entry
-                case .facing, .threadMilling, .engrave, .drilling, .chamfer, .boring: return nil
+                case .engrave(let entry): return entry
+                case .facing, .threadMilling, .drilling, .chamfer, .boring: return nil
             }
         }
         set {
@@ -282,7 +291,9 @@ extension SC.MachiningOperation {
                     self = .pocket(direction: direction, pattern: pattern, entry: newValue)
                 case .counterbore(let diameter, let depth, let direction, _):
                     self = .counterbore(diameter: diameter, depth: depth, direction: direction, entry: newValue)
-                case .facing, .threadMilling, .engrave, .drilling, .chamfer, .boring:
+                case .engrave:
+                    self = .engrave(entry: newValue)
+                case .facing, .threadMilling, .drilling, .chamfer, .boring:
                     break
             }
         }
@@ -314,6 +325,7 @@ extension SC.MachiningOperation {
         switch self {
 
             case .engrave:
+                // The entry was already checked above against `requirements.entries`.
                 break
 
             case .contour(_, _, let entry, let leadIn, _, _):

@@ -19,11 +19,23 @@ extension SCEngine {
     /// function backs both `.engrave` and `.profile` in `buildToolpath`'s dispatch switch,
     /// so both operations start throwing on empty geometry as of this step, not just
     /// `.profile` -- they share this one pipeline rather than each having their own copy.
+    ///
+    /// `entry` is how the tool gets down to each pass's depth. `.plunge` (and `.fromOpenEnd`,
+    /// which for a trace is the same thing) drops straight onto the start of the line;
+    /// `.ramp` zig-zags along the first segment, starting from the depth the previous pass
+    /// reached, and lands back on the start at full depth, so the whole line is still cut at
+    /// the pass depth. A `.helix` is refused with `SC.Error.invalidParameter("entry")`: it
+    /// would cut a circle beside the start of the line.
     func buildContourTracingToolpath(for contour: SC.Contour,
                                      tool: SC.ToolParams,
                                      settings: SC.MachineSettings,
                                      side: SC.CutSide,
+                                     entry: SC.EntryStrategy = .plunge,
                                      operation: SC.MachiningOperation) throws -> SC.OutputToolpath {
+
+        if case .helix = entry {
+            throw SC.Error.invalidParameter("entry")
+        }
 
         // 1. Normalize DXF Entities into linear/arc segments (handling reversed flag)
         let baseSegments = contour.linearizedSegments
@@ -42,17 +54,84 @@ extension SCEngine {
 
         // 3. Build waypoints per pass
         var passes: [SC.ToolpathPass] = []
+        var previousZ = 0.0 // top of stock -- the first pass ramps down from here, not from safeZ.
         for (i, z) in zDepths.enumerated() {
-            let waypoints = buildWaypoints(for: toolpathSegments, atZ: z, settings: settings)
+            let waypoints: [SC.Waypoint]
+            if case .ramp(let angleDegrees) = entry, let firstSegment = toolpathSegments.first {
+                waypoints = buildRampedTraceWaypoints(for: toolpathSegments,
+                                                      firstSegment: firstSegment,
+                                                      atZ: z,
+                                                      previousZ: previousZ,
+                                                      angleDegrees: angleDegrees,
+                                                      settings: settings)
+            } else {
+                waypoints = buildWaypoints(for: toolpathSegments, atZ: z, settings: settings)
+            }
             passes.append(SC.ToolpathPass(passIndex: i, depthZ: z, waypoints: waypoints))
+            previousZ = z
         }
 
         return SC.OutputToolpath(operation: operation, tool: tool, settings: settings, passes: passes)
     }
 
+    /// One pass of an engraving that enters by ramping: rapid above the start, rapid down to
+    /// the depth the previous pass already reached, ramp down to `z` along the first
+    /// segment (it ends back on the start point), then trace everything at `z` and retract.
+    ///
+    /// Same shape as the `.ramp` entry of `buildContourWaypoints`, minus the lead-in/out and
+    /// tabs an engraving doesn't have.
+    private func buildRampedTraceWaypoints(for segments: [SC.Segment],
+                                           firstSegment: SC.Segment,
+                                           atZ z: Double,
+                                           previousZ: Double,
+                                           angleDegrees: Double,
+                                           settings: SC.MachineSettings) -> [SC.Waypoint] {
+        let start = firstSegment.startPoint
+
+        var waypoints: [SC.Waypoint] = [
+            SC.Waypoint(position: SIMD3(start.x, start.y, settings.safeZ),
+                        motion: .rapid,
+                        feedRate: settings.cutting.feedRate),
+            SC.Waypoint(position: SIMD3(start.x, start.y, previousZ),
+                        motion: .rapid,
+                        feedRate: settings.cutting.feedRate)
+        ]
+        waypoints.append(
+            contentsOf: RampTools.rampWaypoints(firstSegment: firstSegment,
+                                                angleDegrees: angleDegrees,
+                                                fromZ: previousZ,
+                                                toZ: z,
+                                                settings: settings)
+        )
+
+        // The trace itself: same moves as `buildWaypoints` after its plunge.
+        for segment in segments {
+            switch segment {
+                case .line(_, let end):
+                    waypoints.append(SC.Waypoint(position: SIMD3(end.x, end.y, z),
+                                                 motion: .linear,
+                                                 feedRate: settings.cutting.feedRate))
+
+                case .arc(let center, let radius, _, let endAngle, let isCCW):
+                    waypoints.append(SC.Waypoint(position: SIMD3(center.x + radius * cos(endAngle),
+                                                                 center.y + radius * sin(endAngle),
+                                                                 z),
+                                                 motion: isCCW ? .arcCCW(center: center) : .arcCW(center: center),
+                                                 feedRate: settings.cutting.feedRate))
+            }
+        }
+
+        if let last = waypoints.last?.position {
+            waypoints.append(SC.Waypoint(position: SIMD3(last.x, last.y, settings.safeZ),
+                                         motion: .rapid,
+                                         feedRate: settings.cutting.feedRate))
+        }
+        return waypoints
+    }
+
     /// Builds a toolpath for `.contour`, honoring `direction`, `entry`, `leadIn`/`leadOut`,
-    /// and `tabs` -- unlike `.engrave`, which just traces the geometry at cutter-center with
-    /// a plain vertical plunge.
+    /// and `tabs` -- unlike `.engrave`, which just traces the geometry at cutter-center (and
+    /// only takes an entry, no lead-in/out or tabs).
     ///
     /// A `leadIn` is only valid with `.plunge`/`.fromOpenEnd` entries (`SC.Error.invalidParameter`
     /// otherwise); a `leadOut` works with every entry.

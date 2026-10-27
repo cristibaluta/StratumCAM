@@ -80,7 +80,14 @@ extension SC {
         /// Typically follows the selected geometry directly with the tool
         /// centerline positioned according to the engraving operation's
         /// tool compensation rules.
-        case engrave
+        ///
+        /// - Parameter entry: Defines how the tool gets down to each pass's depth: a
+        ///   plunge straight onto the start of the line (the default), or a `.ramp` that
+        ///   zig-zags along the first segment until the angle is honored, so a fine
+        ///   V-bit or engraving bit isn't driven straight into the material. `.helix` is
+        ///   not offered: it would cut a circle beside the start of the line, which is
+        ///   exactly what an engraving must not do (see `requirements.entries`).
+        case engrave(entry: EntryStrategy = .plunge)
 
         /// Machines the outside or inside wall of a closed profile.
         ///

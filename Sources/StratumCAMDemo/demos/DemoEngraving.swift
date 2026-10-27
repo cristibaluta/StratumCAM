@@ -26,7 +26,7 @@ class DemoEngraving: Demo {
             isClosed: false
         )
 
-        return self.run(contour: contour, tool: tool, settings: settings, operation: .engrave)
+        return self.run(contour: contour, tool: tool, settings: settings, operation: .engrave())
     }
 
     func demoLineMultiplePasses() -> Demo.DemoResult {
@@ -44,7 +44,7 @@ class DemoEngraving: Demo {
             isClosed: false
         )
 
-        return self.run(contour: contour, tool: tool, settings: settings, operation: .engrave)
+        return self.run(contour: contour, tool: tool, settings: settings, operation: .engrave())
     }
 
     /// Engraves the character "S" as a single continuous pass, built from two
@@ -80,7 +80,7 @@ class DemoEngraving: Demo {
             isClosed: false
         )
 
-        return self.run(contour: contour, tool: tool, settings: settings, operation: .engrave)
+        return self.run(contour: contour, tool: tool, settings: settings, operation: .engrave())
     }
 
     // MARK: - Word
@@ -114,7 +114,7 @@ class DemoEngraving: Demo {
             contours.append(contentsOf: letter(xOffset))
         }
 
-        return self.run(contours: contours, tool: tool, settings: settings, operation: .engrave)
+        return self.run(contours: contours, tool: tool, settings: settings, operation: .engrave())
     }
 
     // MARK: - Letterforms

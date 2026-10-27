@@ -49,7 +49,7 @@ struct GCode_Arc_Tests {
         return try SCEngine().generateToolpaths(from: [contour],
                                                 tool: SC.ToolParams(diameter: 3),
                                                 settings: settings,
-                                                operation: .engrave)
+                                                operation: .engrave())
     }
 
     @Test("Generic engine: CCW quarter arc has I/J relative to the arc start")

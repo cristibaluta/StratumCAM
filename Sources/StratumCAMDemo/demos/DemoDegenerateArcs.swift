@@ -39,6 +39,6 @@ class DemoDegenerateArcs: Demo {
             isClosed: true
         )
 
-        return self.run(contour: contour, tool: tool, settings: settings, operation: .engrave)
+        return self.run(contour: contour, tool: tool, settings: settings, operation: .engrave())
     }
 }

@@ -18,7 +18,7 @@ struct DegenerateArc_Tests {
                                               targetDepth: -1)
 
     private func toolpath(_ waypoints: [SC.Waypoint]) -> SC.OutputToolpath {
-        SC.OutputToolpath(operation: .engrave,
+        SC.OutputToolpath(operation: .engrave(),
                           tool: SC.ToolParams(diameter: 3),
                           settings: settings,
                           passes: [SC.ToolpathPass(passIndex: 0, depthZ: -1, waypoints: waypoints)])
@@ -102,7 +102,7 @@ struct DegenerateArc_Tests {
         let paths = try SCEngine().generateToolpaths(from: [contour],
                                                      tool: SC.ToolParams(diameter: 3),
                                                      settings: settings,
-                                                     operation: .engrave)
+                                                     operation: .engrave())
 
         #expect(arcLines(try SCMakeraGCodeEngine().generateGCode(from: paths, settings: settings)).isEmpty)
         #expect(arcLines(SCGCodeEngine().generateGCode(from: paths, settings: settings)).isEmpty)
