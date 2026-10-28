@@ -106,11 +106,13 @@ extension SCEngine {
         // stud. Warn, but carry on, when an internal thread has nothing left to cut.
         let availableDiameter = distances.nearest * 2.0
 
-        // A shape drawn *at* the thread's size (the usual way to mark a thread, or a circle
-        // approximated by lines, which falls a little short of its true size) says nothing
-        // about what is already cut. The radial passes then start from the thread's root
-        // (minor) diameter: the depth of an ISO thread is 1.0825 x pitch across the diameter.
-        // Without this a thread drawn at its size would be cut in a single pass.
+        // The radial passes always run, from where the thread starts to its finished size:
+        //  - what already exists, when the shape is clearly smaller (internal) or larger
+        //    (external) than the thread: the pre-drilled hole or the turned stud;
+        //  - otherwise (a shape drawn at the thread's size, or a circle approximated by lines
+        //    that falls a little short of it, or one too big to leave anything to cut) the
+        //    thread's root diameter, i.e. 1.0825 x pitch across the diameter for an ISO thread.
+        // Each pass is one more lap, deeper than the last: the thread's equivalent of a stepover.
         let drawnSizeTolerance = max(1e-6, 0.02 * targetDiameter)
         let threadDepthAcross = 1.0825 * abs(pitch)
 
@@ -122,18 +124,14 @@ extension SCEngine {
 
         let existingDiameter: Double
         if isInternal {
-            if abs(availableDiameter - targetDiameter) <= drawnSizeTolerance {
-                existingDiameter = max(targetDiameter - threadDepthAcross, 0.0)
-            } else {
-                // A hole already wider than the thread starts at the finished size: stepping
-                // "outward" to a smaller diameter would make no sense.
-                existingDiameter = min(availableDiameter, targetDiameter)
-            }
+            existingDiameter = availableDiameter < targetDiameter - drawnSizeTolerance
+                ? availableDiameter
+                : max(targetDiameter - threadDepthAcross, 0.0)
         } else {
             let stud = distances.farthest * 2.0
-            existingDiameter = abs(stud - targetDiameter) <= drawnSizeTolerance
-                ? targetDiameter + threadDepthAcross
-                : stud
+            existingDiameter = stud > targetDiameter + drawnSizeTolerance
+                ? stud
+                : targetDiameter + threadDepthAcross
         }
 
         // Internal threading (a pre-drilled hole) cuts on the inside of the target
