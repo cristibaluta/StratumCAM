@@ -71,6 +71,16 @@ extension SC {
         /// (`SlotClearingPattern.defaults`). Empty unless the operation is a slot.
         public var slotPatterns: [SlotClearingPattern]
 
+        /// The kinds of tool the operation is made for. Not enforced by `validate(tool:)` (a
+        /// different tool still produces a toolpath, and a chamfer / thread has its own size
+        /// rules there); it is for an app to flag a tool that doesn't suit the operation.
+        public var toolTypes: [ToolType]
+
+        /// Whether `type` is one of the tools the operation is made for.
+        public func accepts(toolType type: ToolType) -> Bool {
+            toolTypes.contains(type)
+        }
+
         /// The operation has an entry strategy.
         public var usesEntry: Bool {
             !entries.isEmpty
@@ -104,7 +114,8 @@ extension SC {
                     usesHoldingTabs: Bool = false,
                     entries: [EntryStrategy] = [],
                     pocketPatterns: [PocketClearingPattern] = [],
-                    slotPatterns: [SlotClearingPattern] = []) {
+                    slotPatterns: [SlotClearingPattern] = [],
+                    toolTypes: [ToolType] = ToolType.allCases) {
             self.usesEndZ = usesEndZ
             self.usesStepdown = usesStepdown
             self.usesStepover = usesStepover
@@ -116,6 +127,7 @@ extension SC {
             self.entries = entries
             self.pocketPatterns = pocketPatterns
             self.slotPatterns = slotPatterns
+            self.toolTypes = toolTypes
         }
     }
 }
@@ -160,6 +172,11 @@ extension SC.SlotClearingPattern {
 
 extension SC.MachiningOperation {
 
+    /// Whether `tool` is a kind of tool this operation is made for (`requirements.toolTypes`).
+    public func accepts(tool: SC.ToolParams) -> Bool {
+        requirements.accepts(toolType: tool.type)
+    }
+
     public var requirements: SC.OperationRequirements {
         // `.fromOpenEnd` is only meaningful where the feature really is open at the start
         // (a slot running off the stock); anywhere else it is just a plunge.
@@ -180,7 +197,8 @@ extension SC.MachiningOperation {
                     }
                     return true
                 }
-                return .init(usesStepdown: true, entries: engraveEntries)
+                return .init(usesStepdown: true, entries: engraveEntries,
+                             toolTypes: [.vBit, .flatEndMill, .ballEndMill])
 
             case .contour(let side, _, _, _, _, _):
                 // Stock is left on the side the tool cuts along; on the line there is none.
@@ -190,7 +208,8 @@ extension SC.MachiningOperation {
                              usesSide: true,
                              usesLeadInOut: true,
                              usesHoldingTabs: true,
-                             entries: closedEntries)
+                             entries: closedEntries,
+                             toolTypes: [.flatEndMill, .ballEndMill])
 
             case .pocket(_, let pattern, _):
                 // Adaptive clearing is sized by its optimal load; every other pattern
@@ -206,34 +225,46 @@ extension SC.MachiningOperation {
                              usesAllowance: true,
                              usesDirection: true,
                              entries: closedEntries,
-                             pocketPatterns: SC.PocketClearingPattern.defaults)
+                             pocketPatterns: SC.PocketClearingPattern.defaults,
+                             toolTypes: [.flatEndMill])
 
             case .slotting:
                 // A slot steps down by its own `depthPerPass`.
                 return .init(entries: SC.EntryStrategy.defaults,
-                             slotPatterns: SC.SlotClearingPattern.defaults)
+                             slotPatterns: SC.SlotClearingPattern.defaults,
+                             toolTypes: [.flatEndMill, .ballEndMill])
 
             case .facing:
                 return .init(usesStepdown: true,
                              usesStepover: true,
-                             usesDirection: true)
+                             usesDirection: true,
+                             toolTypes: [.flatEndMill])
 
             case .counterbore:
                 return .init(usesEndZ: false,
                              usesStepdown: true,
                              usesStepover: true,
                              usesDirection: true,
-                             entries: closedEntries)
+                             entries: closedEntries,
+                             toolTypes: [.flatEndMill])
 
             case .chamfer:
                 // The depth comes from the width and the V-bit; the side and direction are part
                 // of `ChamferParams`.
                 return .init(usesEndZ: false,
                              usesDirection: true,
-                             usesSide: true)
+                             usesSide: true,
+                             toolTypes: [.vBit])
 
-            case .drilling, .boring, .threadMilling:
-                return .init()
+            case .drilling:
+                return .init(toolTypes: [.drill])
+
+            case .boring:
+                // Cut by helical interpolation with an end mill, not by a drill.
+                return .init(toolTypes: [.flatEndMill])
+
+            case .threadMilling:
+                return .init(toolTypes: [.threadMill])
         }
     }
 }

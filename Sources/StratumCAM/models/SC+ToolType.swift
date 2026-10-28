@@ -9,7 +9,7 @@ import Foundation
 
 extension SC {
 
-    public enum ToolType: String, Sendable, Codable, Equatable {
+    public enum ToolType: String, Sendable, Codable, Equatable, Hashable, CaseIterable {
         case flatEndMill
         case ballEndMill
         case vBit
