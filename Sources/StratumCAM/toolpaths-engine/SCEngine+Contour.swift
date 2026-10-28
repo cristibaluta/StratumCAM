@@ -403,6 +403,13 @@ extension SCEngine {
 
     // MARK: - Lead-in / lead-out
 
+    /// The side an arc lead swings out to. `.onContour` has no side of its own (its offset is
+    /// zero, which would leave the arc without a centre), so it follows the same convention as
+    /// `orientedForDirection`: it behaves like `.outside`.
+    private func arcSide(for side: SC.CutSide) -> SC.CutSide {
+        side == .onContour ? .outside : side
+    }
+
     /// Resolves where a `.plunge` entry should actually land, and the extra waypoint that
     /// carries the tool from there onto `contourStart`, for a given `LeadInOut` style.
     ///
@@ -428,7 +435,7 @@ extension SCEngine {
                 return (entryPoint, move)
 
             case .arc(let radius, let sweepDegrees):
-                let signedOffset = OffsetTools.offsetDistance(for: side, toolRadius: radius, segments: segments)
+                let signedOffset = OffsetTools.offsetDistance(for: arcSide(for: side), toolRadius: radius, segments: segments)
                 let normal = CGPoint(x: -tangent.y, y: tangent.x)
                 let center = CGPoint(x: contourStart.x + normal.x * signedOffset, y: contourStart.y + normal.y * signedOffset)
                 let isCCW = signedOffset > 0
@@ -466,7 +473,7 @@ extension SCEngine {
                 return (exitPoint, move)
 
             case .arc(let radius, let sweepDegrees):
-                let signedOffset = OffsetTools.offsetDistance(for: side, toolRadius: radius, segments: segments)
+                let signedOffset = OffsetTools.offsetDistance(for: arcSide(for: side), toolRadius: radius, segments: segments)
                 let normal = CGPoint(x: -tangent.y, y: tangent.x)
                 let center = CGPoint(x: contourEnd.x + normal.x * signedOffset, y: contourEnd.y + normal.y * signedOffset)
                 let isCCW = signedOffset > 0

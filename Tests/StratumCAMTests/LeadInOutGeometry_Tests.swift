@@ -158,6 +158,27 @@ struct LeadInOutGeometry_Tests {
         }
     }
 
+    @Test("An arc lead on a contour the tool follows directly still has a centre, on the outside")
+    func testArcLeadsOnContour() throws {
+        let radius = 3.0
+        let lead = SC.LeadInOut(style: .arc(radius: radius, sweepAngleDegrees: 90), feedRate: 250)
+        let width = 40.0, height = 30.0
+
+        for pass in try passes(side: .onContour, direction: .climb, leadIn: lead, leadOut: lead, width: width, height: height) {
+            let entry = pass.waypoints[1].position
+            let leadIn = pass.waypoints[2]
+            let center = try #require(arcCenter(of: leadIn.motion))
+            #expect(abs(hypot(entry.x - center.x, entry.y - center.y) - radius) < 1e-9)
+            #expect(abs(hypot(leadIn.position.x - center.x, leadIn.position.y - center.y) - radius) < 1e-9)
+            #expect(!isInsidePart(center.x, center.y, width: width, height: height))
+
+            let exit = pass.waypoints[pass.waypoints.count - 2]
+            let outCenter = try #require(arcCenter(of: exit.motion))
+            #expect(abs(hypot(exit.position.x - outCenter.x, exit.position.y - outCenter.y) - radius) < 1e-9)
+            #expect(!isInsidePart(outCenter.x, outCenter.y, width: width, height: height))
+        }
+    }
+
     @Test("Lead-in and lead-out repeat at every depth pass")
     func testLeadsRepeatEveryPass() throws {
         let lead = SC.LeadInOut(style: .linear(length: 2), feedRate: 250)
