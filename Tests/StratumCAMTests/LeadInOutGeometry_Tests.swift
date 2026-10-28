@@ -158,6 +158,42 @@ struct LeadInOutGeometry_Tests {
         }
     }
 
+    @Test("A negative sweep mirrors the arc lead-in and lead-out to the other side, with the same radius and sweep")
+    func testNegativeSweepMirrorsArcSide() throws {
+        let radius = 3.0
+        let sweep = 90.0
+        let lead = SC.LeadInOut(style: .arc(radius: radius, sweepAngleDegrees: -sweep), feedRate: 250)
+        let width = 40.0, height = 30.0
+
+        for side in [SC.CutSide.outside, .inside] {
+            for direction in [SC.CutDirection.climb, .conventional] {
+                for pass in try passes(side: side, direction: direction, leadIn: lead, leadOut: lead, width: width, height: height) {
+                    // Lead-in
+                    let entry = pass.waypoints[1].position
+                    let inMove = pass.waypoints[2]
+                    let inCenter = try #require(arcCenter(of: inMove.motion))
+                    #expect(abs(hypot(entry.x - inCenter.x, entry.y - inCenter.y) - radius) < 1e-9)
+                    #expect(abs(hypot(inMove.position.x - inCenter.x, inMove.position.y - inCenter.y) - radius) < 1e-9)
+                    var inDelta = abs(angle(from: inCenter, to: inMove.position) - angle(from: inCenter, to: entry))
+                    if inDelta > .pi { inDelta = 2 * .pi - inDelta }
+                    #expect(abs(inDelta * 180 / .pi - sweep) < 1e-6)
+                    // Centre is on the opposite side to the default: inside the shape for an outside cut, and vice versa.
+                    #expect(isInsidePart(inCenter.x, inCenter.y, width: width, height: height) == (side == .outside))
+
+                    // Lead-out
+                    let exit = pass.waypoints[pass.waypoints.count - 2]
+                    let contourEnd = pass.waypoints[pass.waypoints.count - 3].position
+                    let outCenter = try #require(arcCenter(of: exit.motion))
+                    #expect(abs(hypot(contourEnd.x - outCenter.x, contourEnd.y - outCenter.y) - radius) < 1e-9)
+                    var outDelta = abs(angle(from: outCenter, to: exit.position) - angle(from: outCenter, to: contourEnd))
+                    if outDelta > .pi { outDelta = 2 * .pi - outDelta }
+                    #expect(abs(outDelta * 180 / .pi - sweep) < 1e-6)
+                    #expect(isInsidePart(outCenter.x, outCenter.y, width: width, height: height) == (side == .outside))
+                }
+            }
+        }
+    }
+
     @Test("An arc lead on a contour the tool follows directly still has a centre, on the outside")
     func testArcLeadsOnContour() throws {
         let radius = 3.0

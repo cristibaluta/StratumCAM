@@ -410,6 +410,18 @@ extension SCEngine {
         side == .onContour ? .outside : side
     }
 
+    /// Signed distance from the contour point to an arc lead's centre, along the contour's left
+    /// normal. A positive `sweepDegrees` puts the centre on the free side of `side` (the default);
+    /// a negative one mirrors it to the opposite side, so the arc comes from / leaves toward the
+    /// material instead. The magnitude of the sweep is applied by the callers.
+    private func arcSignedOffset(side: SC.CutSide,
+                                 radius: Double,
+                                 sweepDegrees: Double,
+                                 segments: [SC.Segment]) -> Double {
+        let offset = OffsetTools.offsetDistance(for: arcSide(for: side), toolRadius: radius, segments: segments)
+        return sweepDegrees < 0 ? -offset : offset
+    }
+
     /// Resolves where a `.plunge` entry should actually land, and the extra waypoint that
     /// carries the tool from there onto `contourStart`, for a given `LeadInOut` style.
     ///
@@ -435,12 +447,13 @@ extension SCEngine {
                 return (entryPoint, move)
 
             case .arc(let radius, let sweepDegrees):
-                let signedOffset = OffsetTools.offsetDistance(for: arcSide(for: side), toolRadius: radius, segments: segments)
+                // A negative sweep mirrors the arc to the other side of the contour.
+                let signedOffset = arcSignedOffset(side: side, radius: radius, sweepDegrees: sweepDegrees, segments: segments)
                 let normal = CGPoint(x: -tangent.y, y: tangent.x)
                 let center = CGPoint(x: contourStart.x + normal.x * signedOffset, y: contourStart.y + normal.y * signedOffset)
                 let isCCW = signedOffset > 0
                 let contourAngle = atan2(contourStart.y - center.y, contourStart.x - center.x)
-                let sweepRad = sweepDegrees.degreesToRadians
+                let sweepRad = abs(sweepDegrees).degreesToRadians
                 // Walk backwards from the contour point to find where the lead-in arc starts.
                 let entryAngle = isCCW ? contourAngle - sweepRad : contourAngle + sweepRad
                 let entryPoint = CGPoint(x: center.x + radius * cos(entryAngle), y: center.y + radius * sin(entryAngle))
@@ -473,12 +486,12 @@ extension SCEngine {
                 return (exitPoint, move)
 
             case .arc(let radius, let sweepDegrees):
-                let signedOffset = OffsetTools.offsetDistance(for: arcSide(for: side), toolRadius: radius, segments: segments)
+                let signedOffset = arcSignedOffset(side: side, radius: radius, sweepDegrees: sweepDegrees, segments: segments)
                 let normal = CGPoint(x: -tangent.y, y: tangent.x)
                 let center = CGPoint(x: contourEnd.x + normal.x * signedOffset, y: contourEnd.y + normal.y * signedOffset)
                 let isCCW = signedOffset > 0
                 let contourAngle = atan2(contourEnd.y - center.y, contourEnd.x - center.x)
-                let sweepRad = sweepDegrees.degreesToRadians
+                let sweepRad = abs(sweepDegrees).degreesToRadians
                 let exitAngle = isCCW ? contourAngle + sweepRad : contourAngle - sweepRad
                 let exitPoint = CGPoint(x: center.x + radius * cos(exitAngle), y: center.y + radius * sin(exitAngle))
                 let move = SC.Waypoint(position: SIMD3(exitPoint.x, exitPoint.y, z),
