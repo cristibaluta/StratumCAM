@@ -316,6 +316,9 @@ extension SC.MachiningOperation {
 
 extension SC.MachiningOperation {
 
+    /// How many radial passes a thread may be cut in (the thread's equivalent of a stepover).
+    public static let radialPassesRange: ClosedRange<Int> = 1...10
+
     /// Checks the operation's own values, and how they combine, against `tool`, before any
     /// geometry is involved.
     ///
@@ -396,7 +399,8 @@ extension SC.MachiningOperation {
             case .threadMilling(let pitch, _, _, let radialPasses, let targetDiameter):
                 try require(pitch > 0, parameter: "threadMilling.pitch")
                 try require(targetDiameter > 0, parameter: "threadMilling.targetDiameter")
-                try require(radialPasses >= 1, parameter: "threadMilling.radialPasses")
+                try require(SC.MachiningOperation.radialPassesRange.contains(radialPasses),
+                            parameter: "threadMilling.radialPasses")
 
             case .chamfer(let params):
                 try require(params.width > 0, parameter: "chamfer.params.width")
