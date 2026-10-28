@@ -204,7 +204,9 @@ extension SC.MachiningOperation {
                              slotPatterns: SC.SlotClearingPattern.defaults)
 
             case .facing:
-                return .init(usesDirection: true)
+                return .init(usesStepdown: true,
+                             usesStepover: true,
+                             usesDirection: true)
 
             case .counterbore:
                 return .init(usesEndZ: false,

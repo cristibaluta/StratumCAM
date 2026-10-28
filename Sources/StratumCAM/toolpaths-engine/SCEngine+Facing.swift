@@ -10,6 +10,45 @@ import CoreGraphics
 
 extension SCEngine {
 
+    /// Turns `facingScanlines`' rows into an actual toolpath: chains them with
+    /// `chainedRingSegments` (the same row-linking helper pocketing's raster uses --
+    /// a list of rows is the same "segment groups needing connecting transitions"
+    /// shape either way) and wraps the result with `buildWaypoints`' rapid/plunge/
+    /// retract pass.
+    func buildFacingToolpath(for contour: SC.Contour,
+                             tool: SC.ToolParams,
+                             settings: SC.MachineSettings,
+                             direction: SC.CutDirection,
+                             extensionLength: Double,
+                             operation: SC.MachiningOperation) throws -> SC.OutputToolpath {
+
+        guard let area = facingArea(for: contour, extensionLength: extensionLength),
+              area.maxX - area.minX > 1e-9,
+              area.maxY - area.minY > 1e-9 else {
+            throw SC.Error.invalidContour
+        }
+
+        let rows = facingScanlines(within: contour,
+                                   extensionLength: extensionLength,
+                                   tool: tool,
+                                   direction: direction)
+        guard !rows.isEmpty else {
+            throw SC.Error.geometryCollapsed
+        }
+
+        let toolpathSegments = chainedRingSegments(rows)
+        guard !toolpathSegments.isEmpty else {
+            throw SC.Error.geometryCollapsed
+        }
+
+        let z = -abs(settings.targetDepth)
+        let waypoints = buildWaypoints(for: toolpathSegments, atZ: z, settings: settings)
+
+        let pass = SC.ToolpathPass(passIndex: 0, depthZ: z, waypoints: waypoints)
+
+        return SC.OutputToolpath(operation: operation, tool: tool, settings: settings, passes: [pass])
+    }
+
     /// The XY footprint `.facing` clears: the selected contour's own axis-aligned
     /// bounding box, grown by `extensionLength` on every side so the cutter fully
     /// clears the true part edges (and corners, once the tool's own radius sweeps
@@ -19,19 +58,7 @@ extension SCEngine {
     /// boundary" parameter (per its doc comment on `MachiningOperation.facing`),
     /// not something this function should be second-guessing with its own
     /// additional margin.
-    ///
-    /// `.facing` doesn't trace `contour`'s actual profile -- it just uses this
-    /// bounding box as "the area to cover." That's deliberate: a caller faces
-    /// the finished part's own shape (its outline, not the raw stock block), so
-    /// only the material under that shape gets swept, not whatever extra stock
-    /// surrounds it.
-    ///
-    /// `nil` when `contour` has no measurable geometry (an empty or degenerate
-    /// contour) -- `buildFacingToolpath` is what turns that into a thrown
-    /// `SC.Error.invalidContour`, same split every other geometry helper in this
-    /// file uses between "nothing to build from" and the call site's own
-    /// translation into an error.
-    func facingArea(for contour: SC.Contour, extensionLength: Double) -> (minX: Double, maxX: Double, minY: Double, maxY: Double)? {
+    private func facingArea(for contour: SC.Contour, extensionLength: Double) -> (minX: Double, maxX: Double, minY: Double, maxY: Double)? {
         let box = contour.linearizedSegments.boundingBox
         guard box.minX.isFinite, box.maxX.isFinite, box.minY.isFinite, box.maxY.isFinite else {
             return nil
@@ -43,26 +70,10 @@ extension SCEngine {
                maxY: box.maxY + extensionLength)
     }
 
-    /// Row spacing for `.facing`, derived from the tool instead of taken as a
-    /// caller-supplied parameter.
-    ///
-    /// Facing has no wall to protect the way a pocket does -- `.pocket` uses
-    /// `stepoverPercentage * tool.diameter` (default 0.25) to keep radial
-    /// engagement low against a wall it's about to trim, but a facing pass is
-    /// just a flat-bottom sweep over open ground. There's no finish/chip-load
-    /// tradeoff for a caller to tune, so rather than exposing another number to
-    /// set, the engine runs the tool at close to its own full diameter.
-    ///
-    /// `facingStepoverEngagement` (90%) is deliberately just under 100%, not
-    /// exactly 100%: at exactly one diameter apart, two adjacent passes' swept
-    /// strips only just touch at a shared edge, so a hairline of floating-point
-    /// error could leave an unmilled seam running the full length of the row.
-    /// 90% keeps a real overlap margin so that can't happen, while still being
-    /// close enough to full engagement that facing stays a fast, small-row-count
-    /// operation rather than a fine finishing pass.
+    // TODO: this must be received from settings and capped to 1. from settings it comes as a percentage of tool diam
     private var facingStepoverEngagement: Double { 0.9 }
 
-    func facingStepover(for tool: SC.ToolParams) -> Double {
+    private func facingStepover(for tool: SC.ToolParams) -> Double {
         max(tool.diameter * facingStepoverEngagement, 1e-6)
     }
 
@@ -72,47 +83,10 @@ extension SCEngine {
     /// That's left to `buildFacingToolpath` below, same shape as
     /// `buildPocketWaypoints` turning `rasterScanlines`' rows into an actual rapid/
     /// plunge/retract pass.
-    ///
-    /// Unlike pocketing's `rasterScanlines`, there's no boundary to clip against --
-    /// facing's footprint is already the plain rectangle `facingArea` computes, so
-    /// every row spans its full width directly with no intersection math needed.
-    /// (`contour`'s actual profile is never traced -- only its bounding box, per
-    /// `facingArea`'s doc comment.) Rows run bottom-to-top and alternate direction
-    /// (boustrophedon), the same convention `rasterScanlines` uses, so a future
-    /// waypoint wrapper's connecting move between rows is a short step rather than
-    /// a long retrace. `direction` only decides which way the *first* row travels
-    /// (`.climb` left-to-right, `.conventional` right-to-left) -- same as
-    /// pocketing's raster, there's no wall cut in a plain rectangular fill for
-    /// climb/conventional to otherwise apply to.
-    ///
-    /// The first and last rows are snapped exactly onto the footprint's near/far
-    /// edges rather than landing short -- this is also what keeps every corner of
-    /// the footprint covered: each edge row's start point sits exactly on that
-    /// edge (and exactly on the footprint's corner at its first/last row), so the
-    /// tool's own swept disc at that point has zero distance to close, no matter
-    /// how wide `facingStepoverEngagement` makes the gap between the interior rows.
-    /// The last interior gap is snapped narrower rather than overshooting past the
-    /// far edge -- same fencepost convention `rasterScanlines` and
-    /// `calculateZPasses` use.
-    ///
-    /// Each row is returned as a single-segment `[SC.Segment]`, matching
-    /// `rasterScanlines`' per-row shape, so `buildFacingToolpath` below can reuse
-    /// `chainedRingSegments` to link rows exactly the way pocketing's raster does.
-    /// Not converted to `throws` -- `buildFacingToolpath`'s own top-level bounding-box
-    /// guard already validates `contour` before ever calling this, so that half of
-    /// the guard below is unreachable through the normal call chain (kept only so a
-    /// direct caller -- e.g. a test exercising this helper alone -- gets an empty
-    /// result rather than a crash, same reasoning `counterboreRings`'s own
-    /// unreachable guard gives). `stepover > 1e-6` and both spans `> 1e-9` are
-    /// genuinely reachable (a near-zero `tool.diameter`, or an `extensionLength`
-    /// negative enough to collapse the grown footprint) and genuinely a "nothing to
-    /// raster here" result rather than a broken input -- `buildFacingToolpath`'s own
-    /// `!rows.isEmpty` guard is what turns *that* into a thrown
-    /// `SC.Error.geometryCollapsed`, not this function itself.
-    func facingScanlines(within contour: SC.Contour,
-                         extensionLength: Double,
-                         tool: SC.ToolParams,
-                         direction: SC.CutDirection) -> [[SC.Segment]] {
+    private func facingScanlines(within contour: SC.Contour,
+                                 extensionLength: Double,
+                                 tool: SC.ToolParams,
+                                 direction: SC.CutDirection) -> [[SC.Segment]] {
 
         let stepover = facingStepover(for: tool)
         guard stepover > 1e-6, let area = facingArea(for: contour, extensionLength: extensionLength) else {
@@ -151,77 +125,5 @@ extension SCEngine {
         }
 
         return rows
-    }
-
-    /// Turns `facingScanlines`' rows into an actual toolpath: chains them with
-    /// `chainedRingSegments` (the same row-linking helper pocketing's raster uses --
-    /// a list of rows is the same "segment groups needing connecting transitions"
-    /// shape either way) and wraps the result with `buildWaypoints`' rapid/plunge/
-    /// retract pass.
-    ///
-    /// `contour` is read purely for its bounding box (see `facingArea`'s doc
-    /// comment) -- typically the finished part's own outline, so facing only
-    /// sweeps the area that shape actually occupies rather than a separately
-    /// tracked stock block. This is also what lets `.facing` go through the same
-    /// per-contour `buildToolpath` switch every other operation uses, rather than
-    /// needing its own batch entry point: a caller with several parts to face just
-    /// passes each part's contour to `generateToolpaths(from:tool:settings:operation:)`
-    /// like any other strategy.
-    ///
-    /// Single `ToolpathPass` at `-abs(settings.targetDepth)` -- facing is a one-pass
-    /// datum operation per `MachiningOperation.facing`'s doc comment, not a
-    /// multi-pass Z stepdown like `.pocket`/`.contour`, so there's no
-    /// `calculateZPasses` here. Same sign convention `buildDrillingToolpath` uses
-    /// for its own single-pass plunge depth.
-    ///
-    /// `.facing` has no `EntryStrategy` of its own (see `MachiningOperation.facing`'s
-    /// parameters), so this always uses the plain straight-down plunge `buildWaypoints`
-    /// already provides -- there's no ramp/helix case to route to the way
-    /// `buildPocketWaypoints` does for `.pocket`.
-    ///
-    /// `direction` only decides which way the first scanline row travels (already
-    /// resolved by `facingScanlines`, which alternates every row after that); there's
-    /// no wall cut in a plain rectangular fill for climb/conventional to otherwise
-    /// apply to, same as pocketing's raster.
-    ///
-    /// Throws `SC.Error.invalidContour` when `contour` has no measurable geometry, or
-    /// when its bounding box has zero (or negative) width/height even after
-    /// `extensionLength` is applied -- there's no footprint to face at all. Throws
-    /// `SC.Error.geometryCollapsed` if `facingScanlines` or `chainedRingSegments`
-    /// still comes back empty for an otherwise-valid contour (an unfittable tool, or
-    /// an `extensionLength` negative enough to collapse the grown footprint). See
-    /// `facingScanlines`'s own doc comment for why its internal guards stay
-    /// non-throwing rather than duplicating these checks.
-    func buildFacingToolpath(for contour: SC.Contour,
-                             tool: SC.ToolParams,
-                             settings: SC.MachineSettings,
-                             direction: SC.CutDirection,
-                             extensionLength: Double,
-                             operation: SC.MachiningOperation) throws -> SC.OutputToolpath {
-
-        guard let area = facingArea(for: contour, extensionLength: extensionLength),
-              area.maxX - area.minX > 1e-9,
-              area.maxY - area.minY > 1e-9 else {
-            throw SC.Error.invalidContour
-        }
-
-        let rows = facingScanlines(within: contour,
-                                   extensionLength: extensionLength,
-                                   tool: tool,
-                                   direction: direction)
-        guard !rows.isEmpty else {
-            throw SC.Error.geometryCollapsed
-        }
-
-        let toolpathSegments = chainedRingSegments(rows)
-        guard !toolpathSegments.isEmpty else {
-            throw SC.Error.geometryCollapsed
-        }
-
-        let z = -abs(settings.targetDepth)
-        let waypoints = buildWaypoints(for: toolpathSegments, atZ: z, settings: settings)
-
-        let pass = SC.ToolpathPass(passIndex: 0, depthZ: z, waypoints: waypoints)
-        return SC.OutputToolpath(operation: operation, tool: tool, settings: settings, passes: [pass])
     }
 }
