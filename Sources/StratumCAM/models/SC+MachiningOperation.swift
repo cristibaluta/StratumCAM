@@ -27,11 +27,9 @@ extension SC {
         /// only needs to clean the area the finished part actually occupies, not
         /// whatever extra stock surrounds it.
         ///
-        /// There's no `stepover` parameter: the row spacing between facing passes
-        /// is derived from the tool's own diameter (see
-        /// `SCEngine.facingStepover(for:)`), close to full engagement since facing
-        /// has no wall to protect the way a pocket does -- there's nothing here for
-        /// a caller to tune, only a footprint to fully cover.
+        /// The row spacing between facing passes is `CuttingData.stepoverPercentage` of
+        /// the tool diameter (capped at one full diameter), and the depth is cut in
+        /// layers of `CuttingData.stepdown`, both like a pocket's.
         ///
         /// - Parameters:
         ///   - direction: Cutting direction used for the facing passes.

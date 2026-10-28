@@ -39,6 +39,11 @@ extension SC {
         /// The operation reads the radial stepover (`CuttingData.stepoverPercentage`).
         public var usesStepover: Bool
 
+        /// The operation can leave stock for a finishing pass (`MachineSettings.allowance` and
+        /// `MachineSettings.finishingPass`). False for a contour cut on the line, which has no
+        /// side to leave stock on, and for the operations that cut a single exact size.
+        public var usesAllowance: Bool
+
         // MARK: Parameters of the operation itself
 
         /// The operation has a climb / conventional direction.
@@ -92,6 +97,7 @@ extension SC {
         public init(usesEndZ: Bool = true,
                     usesStepdown: Bool = false,
                     usesStepover: Bool = false,
+                    usesAllowance: Bool = false,
                     usesDirection: Bool = false,
                     usesSide: Bool = false,
                     usesLeadInOut: Bool = false,
@@ -102,6 +108,7 @@ extension SC {
             self.usesEndZ = usesEndZ
             self.usesStepdown = usesStepdown
             self.usesStepover = usesStepover
+            self.usesAllowance = usesAllowance
             self.usesDirection = usesDirection
             self.usesSide = usesSide
             self.usesLeadInOut = usesLeadInOut
@@ -175,8 +182,10 @@ extension SC.MachiningOperation {
                 }
                 return .init(usesStepdown: true, entries: engraveEntries)
 
-            case .contour:
+            case .contour(let side, _, _, _, _, _):
+                // Stock is left on the side the tool cuts along; on the line there is none.
                 return .init(usesStepdown: true,
+                             usesAllowance: side != .onContour,
                              usesDirection: true,
                              usesSide: true,
                              usesLeadInOut: true,
@@ -194,6 +203,7 @@ extension SC.MachiningOperation {
                 }
                 return .init(usesStepdown: true,
                              usesStepover: usesStepover,
+                             usesAllowance: true,
                              usesDirection: true,
                              entries: closedEntries,
                              pocketPatterns: SC.PocketClearingPattern.defaults)

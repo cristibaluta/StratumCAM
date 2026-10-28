@@ -24,6 +24,10 @@ public final class SCEngine {
                                   settings: SC.MachineSettings,
                                   operation: SC.MachiningOperation) throws -> [SC.OutputToolpath] {
 
+        guard settings.allowance.isFinite, settings.allowance >= 0 else {
+            throw SC.Error.invalidParameter("allowance")
+        }
+
         var results: [SC.OutputToolpath] = []
 
         // Pockets leave islands standing: any closed shape nested inside another becomes
@@ -53,6 +57,20 @@ public final class SCEngine {
                                tool: SC.ToolParams,
                                settings: SC.MachineSettings,
                                operation: SC.MachiningOperation) throws -> SC.OutputToolpath? {
+        // Stock to leave only applies to the operations that say so (see
+        // `OperationRequirements.usesAllowance`); the rest cut straight to size.
+        if settings.allowance > 1e-9, operation.requirements.usesAllowance {
+            return try buildToolpathLeavingStock(for: contour, tool: tool, settings: settings, operation: operation)
+        }
+        return try buildPlainToolpath(for: contour, tool: tool, settings: settings, operation: operation)
+    }
+
+    /// One operation on one contour, cut straight to the finished size (no stock left).
+    /// `buildToolpathLeavingStock` builds on it.
+    func buildPlainToolpath(for contour: SC.Contour,
+                            tool: SC.ToolParams,
+                            settings: SC.MachineSettings,
+                            operation: SC.MachiningOperation) throws -> SC.OutputToolpath? {
         switch operation {
             case .engrave(let entry):
                 try buildContourTracingToolpath(for: contour,

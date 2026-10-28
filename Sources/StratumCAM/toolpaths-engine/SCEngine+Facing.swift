@@ -31,6 +31,7 @@ extension SCEngine {
         let rows = facingScanlines(within: contour,
                                    extensionLength: extensionLength,
                                    tool: tool,
+                                   settings: settings,
                                    direction: direction)
         guard !rows.isEmpty else {
             throw SC.Error.geometryCollapsed
@@ -41,12 +42,17 @@ extension SCEngine {
             throw SC.Error.geometryCollapsed
         }
 
-        let z = -abs(settings.targetDepth)
-        let waypoints = buildWaypoints(for: toolpathSegments, atZ: z, settings: settings)
+        // One lap of the rows per Z layer, `settings.cutting.stepdown` deep each (a single
+        // pass when the stepdown is 0 or at least the depth). Every layer starts and ends with
+        // its own rapid at safe Z, so the layers chain without extra connecting moves.
+        let zDepths = EngineTools.calculateZPasses(targetDepth: settings.targetDepth, stepdown: settings.cutting.stepdown)
+        let passes = zDepths.enumerated().map { index, z in
+            SC.ToolpathPass(passIndex: index,
+                            depthZ: z,
+                            waypoints: buildWaypoints(for: toolpathSegments, atZ: z, settings: settings))
+        }
 
-        let pass = SC.ToolpathPass(passIndex: 0, depthZ: z, waypoints: waypoints)
-
-        return SC.OutputToolpath(operation: operation, tool: tool, settings: settings, passes: [pass])
+        return SC.OutputToolpath(operation: operation, tool: tool, settings: settings, passes: passes)
     }
 
     /// The XY footprint `.facing` clears: the selected contour's own axis-aligned
@@ -70,15 +76,15 @@ extension SCEngine {
                maxY: box.maxY + extensionLength)
     }
 
-    // TODO: this must be received from settings and capped to 1. from settings it comes as a percentage of tool diam
-    private var facingStepoverEngagement: Double { 0.9 }
-
-    private func facingStepover(for tool: SC.ToolParams) -> Double {
-        max(tool.diameter * facingStepoverEngagement, 1e-6)
+    /// Row spacing: `CuttingData.stepoverPercentage` of the tool diameter, capped at one full
+    /// diameter (rows further apart would leave uncut strips) and floored at 2 %.
+    private func facingStepover(for tool: SC.ToolParams, settings: SC.MachineSettings) -> Double {
+        let fraction = min(max(settings.cutting.stepoverPercentage, 0.02), 1.0)
+        return max(tool.diameter * fraction, 1e-6)
     }
 
     /// Generates the raster scanline geometry for `.facing`: parallel horizontal
-    /// passes spaced `facingStepover(for: tool)` apart, each spanning the full width
+    /// passes spaced `facingStepover(for:settings:)` apart, each spanning the full width
     /// of `facingArea(for:extensionLength:)` -- geometry only, no waypoints yet.
     /// That's left to `buildFacingToolpath` below, same shape as
     /// `buildPocketWaypoints` turning `rasterScanlines`' rows into an actual rapid/
@@ -86,9 +92,10 @@ extension SCEngine {
     private func facingScanlines(within contour: SC.Contour,
                                  extensionLength: Double,
                                  tool: SC.ToolParams,
+                                 settings: SC.MachineSettings,
                                  direction: SC.CutDirection) -> [[SC.Segment]] {
 
-        let stepover = facingStepover(for: tool)
+        let stepover = facingStepover(for: tool, settings: settings)
         guard stepover > 1e-6, let area = facingArea(for: contour, extensionLength: extensionLength) else {
             return []
         }
