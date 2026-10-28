@@ -19,6 +19,8 @@ extension SC {
         public var passes: [ToolpathPass]
         /// Sharp corners this tool couldn't reach, for a follow-up pass with a smaller tool.
         public var restCorners: [RestCorner]
+        /// Things worth telling the user that did not stop the toolpath from being built.
+        public var warnings: [Warning]
 
         public init(id: UUID = UUID(),
                     name: String = "Toolpath Operation",
@@ -26,7 +28,8 @@ extension SC {
                     tool: ToolParams,
                     settings: MachineSettings,
                     passes: [ToolpathPass],
-                    restCorners: [RestCorner] = []) {
+                    restCorners: [RestCorner] = [],
+                    warnings: [Warning] = []) {
 
             self.id = id
             self.name = name
@@ -35,7 +38,17 @@ extension SC {
             self.settings = settings
             self.passes = passes
             self.restCorners = restCorners
+            self.warnings = warnings
         }
+    }
+
+    /// A non-fatal remark about a generated toolpath. Unlike `SC.Error`, it never prevents
+    /// the toolpath from being built: the caller decides how to show it.
+    public enum Warning: Sendable, Equatable {
+        /// Internal thread milling: the free space around the shape's centre (the diameter
+        /// of the largest circle that fits inside the shape) is already wider than the
+        /// finished thread, so the cutter will mostly move through air.
+        case threadHoleLargerThanTarget(availableDiameter: Double, targetDiameter: Double)
     }
 
     public struct ToolpathPass: Sendable, Equatable {

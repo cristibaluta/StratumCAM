@@ -61,7 +61,7 @@ extension SC {
         ///     meaningful choice for a thread mill, whose winding sense is fixed
         ///     by the handedness of the thread it's cutting.
         ///   - radialPasses: Number of radial passes used to step from the
-        ///     existing diameter (the selected circle) to `targetDiameter`. Each
+        ///     existing diameter (read from the selected closed shape) to `targetDiameter`. Each
         ///     pass retraces the full helix (bottom to top) at its own diameter,
         ///     with the last pass landing exactly on `targetDiameter`. Usually 2
         ///     or 3; must be at least 1.

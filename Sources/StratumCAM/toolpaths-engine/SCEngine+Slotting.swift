@@ -34,7 +34,7 @@ extension SCEngine {
     /// own guard already validates what they need) or a genuinely reachable, genuinely
     /// legitimate non-error result -- see each helper's own doc comment for which case
     /// applies. The boundary-recognition trio in particular follows the precedent
-    /// already set by `contour.drillPoint`/`tapCircle`: a pure shape recognizer that
+    /// already set by `contour.drillPoint`: a pure shape recognizer that
     /// answers "is this drawing that shape?" with `nil` for "no," left for its own
     /// caller (a demo, here, not this function) to decide what a "no" means -- not a
     /// `buildSlottingToolpath` input at all, so not this function's error to throw.
@@ -460,7 +460,7 @@ extension SCEngine {
     /// > that model change lands; until then, circular slots are drawn as their own
     /// > centerline, not derived from a boundary.
     /// Stays optional-returning (not converted to `throws` in Step 6.8): a pure
-    /// recognizer, same role `contour.drillPoint`/`tapCircle` already play for their
+    /// recognizer, same role `contour.drillPoint` already play for their
     /// own operations -- see `buildSlottingToolpath`'s doc comment for why this
     /// function isn't itself an input to that build path at all.
     public func rectangleSlotCenterline(fromBoundary contour: SC.Contour,

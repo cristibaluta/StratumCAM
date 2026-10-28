@@ -17,8 +17,7 @@ extension SC {
         case contourNotClosed
 
         /// The contour has no usable geometry for the requested operation -- e.g. it
-        /// linearizes to zero segments, or (thread milling) isn't the single closed
-        /// circle the operation expects.
+        /// linearizes to zero segments, or (thread milling) has no measurable center.
         case invalidContour
 
         /// A point-based operation (drilling, boring, counterbore) needs a contour

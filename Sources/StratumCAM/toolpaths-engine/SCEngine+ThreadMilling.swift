@@ -11,40 +11,19 @@ import simd
 
 extension SCEngine {
 
-    /// Extracts the *existing* hole (internal thread) or boss (external thread) circle
-    /// that a threadMilling operation starts from -- the geometry the person actually
-    /// selects in the CAM software, e.g. an already-drilled 2.5mm pilot hole. This is
-    /// deliberately not the finished thread diameter; that's `targetDiameter` on the
-    /// `.threadMilling` operation itself, since the finished size isn't something drawn
-    /// in CAD, it's a property of the thread being cut.
-    ///
-    /// Unlike `drillPoint(for:)`, a bare `.point` marker isn't accepted here -- threadMilling
-    /// needs an actual diameter to compensate the tool radius against, and a point alone
-    /// carries no size. Only a single closed `.circle` entity is recognized, the same
-    /// "closed circle marks a feature" convention `drillPoint(for:)` already uses for
-    /// hole centers, just carrying the radius through instead of discarding it.
-    ///
-    /// Stays optional-returning (not converted to `throws` in Step 6.6): this is a pure
-    /// recognizer, same role `drillPoint(for:)` already plays for drilling/boring/
-    /// counterbore -- the caller (`buildThreadMillingToolpath`) is what turns `nil` into
-    /// `SC.Error.invalidContour` at the boundary, so the recognizer itself doesn't need
-    /// to know it's being used in a throwing context.
-    func tapCircle(for contour: SC.Contour) -> (center: CGPoint, diameter: Double)? {
-        guard contour.entities.count == 1, contour.isClosed else {
-            return nil
-        }
-
-        guard case let .circle(center, radius) = contour.entities[0].geometry else {
-            return nil
-        }
-
-        return (center.cgPoint, radius * 2.0)
-    }
-
     /// Builds a thread-milling toolpath: a continuous helix stepping *up* by `pitch`
     /// per full revolution, cutting from the bottom of the thread to the top, working
-    /// outward/inward from the existing hole/boss diameter drawn in `contour` toward
-    /// `targetDiameter`, the finished thread size.
+    /// outward/inward from the existing hole/boss diameter toward `targetDiameter`, the
+    /// finished thread size.
+    ///
+    /// `contour` can be any closed shape, not just a circle (an imported SVG circle is a
+    /// chain of lines, for instance). The thread is centred on the shape's bounding-box
+    /// center (`closedShapeCenter`), and the existing diameter is read from how far the
+    /// boundary is from that center: the free space around it for an internal thread (the
+    /// largest circle that fits inside the hole), the circle around it for an external one
+    /// (the stud). If an internal thread's free space is already wider than
+    /// `targetDiameter`, a `.threadHoleLargerThanTarget` warning is attached to the result;
+    /// the toolpath is still built (as a single pass at the finished diameter).
     ///
     /// Real thread milling cuts bottom-to-top, not top-to-bottom, and enters/exits
     /// through the hole's/boss's own center rather than at the cutting radius:
@@ -94,10 +73,10 @@ extension SCEngine {
     ///
     /// Throws (Step 6.6, same pattern established in 6.2-6.5) at the four validation
     /// guards below: `SC.Error.invalidParameter` for a `radialPasses`/`pitch` that
-    /// can't produce a meaningful helix, `SC.Error.invalidContour` when `contour` isn't
-    /// the single closed circle this operation needs (see `SC.Error.invalidContour`'s
-    /// own doc comment, which names exactly this case), and `SC.Error.toolIncompatible`
-    /// when the tool doesn't fit inside the requested thread at all.
+    /// can't produce a meaningful helix, `SC.Error.contourNotClosed` when `contour` is
+    /// open, `SC.Error.invalidContour` when it has no measurable geometry, and
+    /// `SC.Error.toolIncompatible` when the tool doesn't fit inside the requested thread
+    /// at all.
     func buildThreadMillingToolpath(for contour: SC.Contour,
                                     tool: SC.ToolParams,
                                     settings: SC.MachineSettings,
@@ -112,12 +91,28 @@ extension SCEngine {
             throw SC.Error.invalidParameter("radialPasses")
         }
 
-        guard let hole = tapCircle(for: contour) else {
+        guard contour.isClosed else {
+            throw SC.Error.contourNotClosed
+        }
+
+        guard let center = contour.closedShapeCenter,
+              let distances = contour.boundaryDistances(from: center) else {
             throw SC.Error.invalidContour
         }
 
         let toolRadius = tool.diameter / 2.0
-        let existingDiameter = hole.diameter
+
+        // What exists before the thread is cut: the free space of a hole, or the size of a
+        // stud. Warn, but carry on, when an internal thread has nothing left to cut.
+        let availableDiameter = distances.nearest * 2.0
+        var warnings: [SC.Warning] = []
+        if isInternal, availableDiameter > targetDiameter + 1e-6 {
+            warnings.append(.threadHoleLargerThanTarget(availableDiameter: availableDiameter,
+                                                        targetDiameter: targetDiameter))
+        }
+        // A hole already wider than the thread starts at the finished size: stepping
+        // "outward" to a smaller diameter would make no sense.
+        let existingDiameter = isInternal ? min(availableDiameter, targetDiameter) : distances.farthest * 2.0
 
         // Internal threading (a pre-drilled hole) cuts on the inside of the target
         // diameter -- the mill's own radius eats inward from it, same direction an
@@ -155,8 +150,6 @@ extension SCEngine {
         let boundaries = Array(([0.0] + turnDepths).reversed())
         let bottomZ = boundaries.first ?? 0.0
 
-        let center = hole.center
-
         // Winding sense is dictated purely by thread handedness, not by isInternal --
         // a right-hand nut only ever mates with a right-hand bolt, so internal and
         // external threads of the same handedness wind the same way. Since the cut
@@ -173,9 +166,11 @@ extension SCEngine {
         // diameter and each subsequent pass steps toward `targetDiameter`, with the
         // last pass (index `radialPasses - 1`) landing exactly on it. See
         // `threadMillingPassRadius` for how that radius is derived.
-        let passes: [SC.ToolpathPass] = (0..<radialPasses).map { passIndex in
+        // Nothing to step through (already at the finished size): one pass is enough.
+        let passCount = abs(targetDiameter - existingDiameter) > 1e-9 ? radialPasses : 1
+        let passes: [SC.ToolpathPass] = (0..<passCount).map { passIndex in
             let radius = threadMillingPassRadius(passIndex: passIndex,
-                                                 radialPasses: radialPasses,
+                                                 radialPasses: passCount,
                                                  existingDiameter: existingDiameter,
                                                  targetDiameter: targetDiameter,
                                                  toolRadius: toolRadius,
@@ -192,7 +187,7 @@ extension SCEngine {
             return SC.ToolpathPass(passIndex: passIndex, depthZ: bottomZ, waypoints: waypoints)
         }
 
-        return SC.OutputToolpath(operation: operation, tool: tool, settings: settings, passes: passes)
+        return SC.OutputToolpath(operation: operation, tool: tool, settings: settings, passes: passes, warnings: warnings)
     }
 
     /// Radial engagement for one thread-milling pass: the working *diameter* steps

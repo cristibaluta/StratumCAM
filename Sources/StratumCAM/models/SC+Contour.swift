@@ -98,4 +98,67 @@ extension SC.Contour {
 
         return CGPoint(x: (box.minX + box.maxX) / 2, y: (box.minY + box.maxY) / 2)
     }
+
+    /// How close and how far the boundary of this closed contour is from `point`: the radii
+    /// of the largest circle around `point` that fits inside the shape (`nearest`) and of
+    /// the smallest one that contains it (`farthest`). Thread milling reads the free space
+    /// of a hole (`nearest`) or the size of a stud (`farthest`) from these, without needing
+    /// the shape to be a circle.
+    ///
+    /// Arcs are measured as short chords (2 degrees each), which is off by under 2 microns even
+    /// on a 10 mm radius hole. `nil` for an open contour or one with no geometry.
+    func boundaryDistances(from point: CGPoint) -> (nearest: Double, farthest: Double)? {
+        guard isClosed else {
+            return nil
+        }
+
+        var nearest = Double.infinity
+        var farthest = 0.0
+
+        for segment in linearizedSegments {
+            let points: [CGPoint]
+            switch segment {
+                case .line(let start, let end):
+                    points = [start, end]
+
+                case .arc(let center, let radius, let startAngle, let endAngle, let isCCW):
+                    var sweep = (isCCW ? endAngle - startAngle : startAngle - endAngle)
+                        .truncatingRemainder(dividingBy: 2 * .pi)
+                    if sweep < 1e-9 {
+                        sweep += 2 * .pi
+                    }
+                    let direction: Double = isCCW ? 1 : -1
+                    let steps = max(2, Int((sweep / (.pi / 90)).rounded(.up)))
+                    points = (0...steps).map { i in
+                        let angle = startAngle + direction * sweep * Double(i) / Double(steps)
+                        return CGPoint(x: center.x + radius * cos(angle), y: center.y + radius * sin(angle))
+                    }
+            }
+
+            var previous: CGPoint?
+            for p in points {
+                farthest = max(farthest, hypot(p.x - point.x, p.y - point.y))
+                if let a = previous {
+                    nearest = min(nearest, Self.distance(from: point, toSegment: a, p))
+                }
+                previous = p
+            }
+        }
+
+        guard nearest.isFinite, farthest > 0 else {
+            return nil
+        }
+        return (nearest, farthest)
+    }
+
+    private static func distance(from point: CGPoint, toSegment a: CGPoint, _ b: CGPoint) -> Double {
+        let dx = b.x - a.x
+        let dy = b.y - a.y
+        let lengthSquared = dx * dx + dy * dy
+        guard lengthSquared > 1e-18 else {
+            return hypot(point.x - a.x, point.y - a.y)
+        }
+        let t = max(0, min(1, ((point.x - a.x) * dx + (point.y - a.y) * dy) / lengthSquared))
+        return hypot(point.x - (a.x + t * dx), point.y - (a.y + t * dy))
+    }
 }
