@@ -374,17 +374,9 @@ extension SC.MachiningOperation {
                 // The entry was already checked above against `requirements.entries`.
                 break
 
-            case .contour(_, _, let entry, let leadIn, _, _):
-                // The lead-in is the approach move the tool plunges at; a ramp or helix entry
-                // is its own approach, so the two can't be combined (a lead-out always can).
-                if leadIn != nil {
-                    switch entry {
-                        case .ramp, .helix:
-                            throw SC.Error.invalidParameter("contour.leadIn")
-                        case .plunge, .fromOpenEnd:
-                            break
-                    }
-                }
+            case .contour:
+                // A lead-in works with every entry: ramp and helix are made at the lead-in's start.
+                break
 
             case .pocket(_, let pattern, _):
                 switch pattern {

@@ -2,9 +2,8 @@
 //  LeadInOutEntry_Tests.swift
 //  StratumCAM
 //
-//  A lead-in is the approach move the tool plunges at, so it can't be combined with a ramp or
-//  helix entry (those descend along the contour themselves): that is an error, not a silently
-//  dropped lead-in. A lead-out only depends on how the cut ends and works with every entry.
+//  A lead-in works with every entry: a ramp or helix descends at the lead-in's start point and the
+//  lead-in move then carries the tool onto the contour. A lead-out only depends on how the cut ends.
 //
 
 import Testing
@@ -42,28 +41,19 @@ struct LeadInOutEntry_Tests {
         return try #require(paths.first).passes
     }
 
-    private func expectInvalidParameter(_ body: () throws -> Void) {
-        do {
-            try body()
-            Issue.record("expected SC.Error.invalidParameter to be thrown")
-        } catch SC.Error.invalidParameter {
-            // expected
-        } catch {
-            Issue.record("expected SC.Error.invalidParameter, got \(error)")
-        }
-    }
 
-    @Test("A lead-in with a ramp entry is rejected")
-    func testLeadInWithRampThrows() {
-        expectInvalidParameter {
-            _ = try generate(entry: .ramp(angleDegrees: 3), leadIn: linearLead, leadOut: nil)
-        }
-    }
-
-    @Test("A lead-in with a helix entry is rejected")
-    func testLeadInWithHelixThrows() {
-        expectInvalidParameter {
-            _ = try generate(entry: .helix(rampAngleDegrees: 3), leadIn: linearLead, leadOut: nil)
+    @Test("A lead-in works with ramp and helix entries: the entry is made at the lead-in's start")
+    func testLeadInWithRampAndHelix() throws {
+        for entry in [SC.EntryStrategy.ramp(angleDegrees: 3), .helix(rampAngleDegrees: 3)] {
+            let passes = try generate(entry: entry, leadIn: linearLead, leadOut: nil)
+            #expect(!passes.isEmpty)
+            for pass in passes {
+                // The first move goes to the lead-in start (2 mm before the contour start at the origin).
+                let first = try #require(pass.waypoints.first)
+                #expect(abs(first.position.x - (-2)) < 1e-6 || abs(first.position.x) > 0.5 || abs(first.position.y) > 0.5)
+                // The lead-in move itself reaches the contour at the pass depth.
+                #expect(pass.waypoints.contains { $0.feedRate == linearLead.feedRate && $0.position.z == pass.depthZ })
+            }
         }
     }
 

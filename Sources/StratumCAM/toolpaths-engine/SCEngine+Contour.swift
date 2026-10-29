@@ -133,7 +133,7 @@ extension SCEngine {
     /// and `tabs` -- unlike `.engrave`, which just traces the geometry at cutter-center (and
     /// only takes an entry, no lead-in/out or tabs).
     ///
-    /// A `leadIn` is only valid with `.plunge`/`.fromOpenEnd` entries (`SC.Error.invalidParameter`
+    /// A `leadIn` works with every entry: a ramp or helix is made at the lead-in's start point.
     /// otherwise); a `leadOut` works with every entry.
     ///
     /// Throws (Step 6.4, same pattern established in 6.2/6.3) at its failure sites:
@@ -153,21 +153,6 @@ extension SCEngine {
                               leadOut: SC.LeadInOut?,
                               tabs: [SC.HoldingTab],
                               operation: SC.MachiningOperation) throws -> SC.OutputToolpath {
-
-        // A lead-in is the approach move the tool plunges at. A ramp or helix entry instead
-        // descends *along* the contour (or a helix on its start), so there is no separate
-        // approach to put a lead-in on -- reject the combination rather than silently
-        // dropping the lead-in. (A lead-out has no such conflict and works with every entry.)
-        if leadIn != nil {
-            switch entry {
-                case .ramp:
-                    throw SC.Error.invalidParameter("leadIn: not supported with a ramp entry (the ramp already eases the tool in)")
-                case .helix:
-                    throw SC.Error.invalidParameter("leadIn: not supported with a helix entry (the helix already eases the tool in)")
-                case .plunge, .fromOpenEnd:
-                    break
-            }
-        }
 
         var clock = OffsetTiming.now()
         let totalStart = clock
@@ -313,50 +298,94 @@ extension SCEngine {
                 // reached (0 / top-of-stock for the first pass), not safeZ. Ramping the
                 // full safeZ->z distance on every pass would re-descend through material
                 // that's already open air from earlier passes.
+                // With a lead-in, the ramp runs along the lead-in's approach (from its start point
+                // towards the contour) and the lead-in move then carries the tool onto the contour.
+                let (anchor, leadInMove) = resolveLeadIn(leadIn,
+                                                         side: side,
+                                                         contourStart: contourStart,
+                                                         tangent: startTangent,
+                                                         segments: segments,
+                                                         z: z)
+                let rampSegment: SC.Segment = leadInMove == nil
+                    ? firstSegment
+                    : .line(start: anchor, end: contourStart)
                 waypoints.append(
-                    SC.Waypoint(position: SIMD3(contourStart.x, contourStart.y, settings.safeZ),
+                    SC.Waypoint(position: SIMD3(anchor.x, anchor.y, settings.safeZ),
                                 motion: .rapid,
                                 feedRate: settings.cutting.feedRate)
                 )
                 waypoints.append(
-                    SC.Waypoint(position: SIMD3(contourStart.x, contourStart.y, previousZ),
+                    SC.Waypoint(position: SIMD3(anchor.x, anchor.y, previousZ),
                                 motion: .rapid,
                                 feedRate: settings.cutting.feedRate)
                 )
                 waypoints.append(
-                    contentsOf: RampTools.rampWaypoints(firstSegment: firstSegment,
+                    contentsOf: RampTools.rampWaypoints(firstSegment: rampSegment,
                                                         angleDegrees: angleDegrees,
                                                         fromZ: previousZ,
                                                         toZ: z,
                                                         settings: settings)
                 )
+                if let leadInMove {
+                    waypoints.append(leadInMove)
+                }
 
             case .helix(let angleDegrees):
                 let radius = RampTools.helixRadius(forToolRadius: toolRadius)
                 // Same reasoning as `.ramp` above: travel at safeZ, but helix down only
-                // from the previous pass's depth to this pass's depth.
+                // from the previous pass's depth to this pass's depth. With a lead-in, the helix
+                // is made at the lead-in's start point and the lead-in move follows it.
+                let (anchor, leadInMove) = resolveLeadIn(leadIn,
+                                                         side: side,
+                                                         contourStart: contourStart,
+                                                         tangent: startTangent,
+                                                         segments: segments,
+                                                         z: z)
+                var anchorTangent = startTangent
+                var anchorSegment = firstSegment
+                if let leadIn, leadInMove != nil {
+                    switch leadIn.style {
+                        case .linear:
+                            break
+                        case .arc:
+                            // The tangent of the lead-in arc where it starts.
+                            if case .arcCCW(let center) = leadInMove!.motion {
+                                let a = atan2(anchor.y - center.y, anchor.x - center.x)
+                                anchorTangent = CGPoint(x: -sin(a), y: cos(a))
+                            } else if case .arcCW(let center) = leadInMove!.motion {
+                                let a = atan2(anchor.y - center.y, anchor.x - center.x)
+                                anchorTangent = CGPoint(x: sin(a), y: -cos(a))
+                            }
+                    }
+                    anchorSegment = .line(start: anchor,
+                                          end: CGPoint(x: anchor.x + anchorTangent.x * radius,
+                                                       y: anchor.y + anchorTangent.y * radius))
+                }
                 waypoints.append(
-                    SC.Waypoint(position: SIMD3(contourStart.x, contourStart.y, settings.safeZ),
+                    SC.Waypoint(position: SIMD3(anchor.x, anchor.y, settings.safeZ),
                                 motion: .rapid,
                                 feedRate: settings.cutting.feedRate)
                 )
                 waypoints.append(
-                    SC.Waypoint(position: SIMD3(contourStart.x, contourStart.y, previousZ),
+                    SC.Waypoint(position: SIMD3(anchor.x, anchor.y, previousZ),
                                 motion: .rapid,
                                 feedRate: settings.cutting.feedRate)
                 )
                 waypoints.append(
-                    contentsOf: RampTools.helixEntryWaypoints(contourStart: contourStart,
-                                                              startTangent: startTangent,
+                    contentsOf: RampTools.helixEntryWaypoints(contourStart: anchor,
+                                                              startTangent: anchorTangent,
                                                               side: side,
                                                               segments: segments,
-                                                              firstSegment: firstSegment,
+                                                              firstSegment: anchorSegment,
                                                               radius: radius,
                                                               angleDegrees: angleDegrees,
                                                               fromZ: previousZ,
                                                               toZ: z,
                                                               settings: settings)
                 )
+                if let leadInMove {
+                    waypoints.append(leadInMove)
+                }
 
         }
 
