@@ -108,42 +108,69 @@ extension SCEngine {
             return nil
         }
 
-        // The tool centre moves in arcs around `apex` (where the small tool touches both walls),
-        // from one wall's centre line to the other's, each arc one stepover nearer the apex.
-        let apex = CGPoint(x: corner.corner.x + bisector.x * tNear, y: corner.corner.y + bisector.y * tNear)
-        let farRadius = (tFar - tNear) / cos(halfAngle)
-        let step = max(stepover, 1e-3)
-        let count = max(1, Int(ceil(farRadius / step - 1e-9)))
+        // The tool centre travels on arcs that bulge towards the sharp corner: concentric with the
+        // larger tool's own circle (centre `bigCenter`), which is what left this material. Each
+        // arc runs from the centre line of one wall (point 1) to the other's (point 2); then a
+        // straight line goes back to point 1, which steps one stepover closer to the corner, and
+        // the next arc follows. The last point is where the small tool touches both walls.
+        let c = corner.corner
         let bisectorAngle = atan2(bisector.y, bisector.x)
+        let apex = CGPoint(x: c.x + bisector.x * tNear, y: c.y + bisector.y * tNear)
+        // From the apex, the big tool's centre is straight along the bisector.
+        let centerDistance = (bigRadius - smallRadius) / sin(halfAngle)
+        let bigCenter = CGPoint(x: apex.x + bisector.x * centerDistance, y: apex.y + bisector.y * centerDistance)
+        let cosHalf = cos(halfAngle), sinHalf = sin(halfAngle)
 
+        // How far along a wall's centre line (from the apex) the outermost points are.
+        let farLambda = min(max(along - tNear * cosHalf, 1e-6), centerDistance * cosHalf)
+        func ringRadius(forLambda lambda: Double) -> Double {
+            let d = centerDistance * cosHalf - lambda
+            return hypot(centerDistance * sinHalf, d)
+        }
+        let farRadius = ringRadius(forLambda: farLambda)
+        guard centerDistance > farRadius + 1e-6 else {
+            return nil
+        }
+        let count = max(1, Int(ceil((centerDistance - farRadius) / max(stepover, 1e-3) - 1e-9)))
+
+        // The point on wall `side`'s centre line at distance `radius` from `bigCenter`, the one
+        // nearer the apex.
         func point(radius: Double, side: Double) -> CGPoint {
+            let lambda = max(0, centerDistance * cosHalf
+                             - sqrt(max(0, radius * radius - centerDistance * centerDistance * sinHalf * sinHalf)))
             let angle = bisectorAngle + side * halfAngle
-            return CGPoint(x: apex.x + radius * cos(angle), y: apex.y + radius * sin(angle))
+            return CGPoint(x: apex.x + lambda * cos(angle), y: apex.y + lambda * sin(angle))
+        }
+        func angle(of p: CGPoint) -> Double {
+            atan2(p.y - bigCenter.y, p.x - bigCenter.x)
         }
 
-        // Entry: the middle of the two wall ends, then out to one end.
-        let entry = CGPoint(x: apex.x + bisector.x * farRadius * cos(halfAngle),
-                            y: apex.y + bisector.y * farRadius * cos(halfAngle))
-        var side = -1.0
-        var current = point(radius: farRadius, side: side)
-        var segments: [SC.Segment] = [.line(start: entry, end: current)]
+        // Entry: the middle of the first arc's two ends, then out to point 1.
+        let first1 = point(radius: farRadius, side: -1)
+        let first2 = point(radius: farRadius, side: 1)
+        let entry = CGPoint(x: (first1.x + first2.x) / 2, y: (first1.y + first2.y) / 2)
+        var segments: [SC.Segment] = [.line(start: entry, end: first1)]
+        var current = first1
 
         for i in 0..<count {
-            let radius = farRadius * (1 - Double(i) / Double(count))
+            let radius = farRadius + (centerDistance - farRadius) * Double(i) / Double(count)
+            let point1 = point(radius: radius, side: -1)
+            let point2 = point(radius: radius, side: 1)
             if i > 0 {
-                // Step in along the wall to the next radius.
-                let next = point(radius: radius, side: side)
-                segments.append(.line(start: current, end: next))
-                current = next
+                // Advance along the first wall to this ring.
+                segments.append(.line(start: current, end: point1))
             }
-            // Arc across to the other wall; side -1 -> +1 turns counter-clockwise.
-            let startAngle = bisectorAngle + side * halfAngle
-            let endAngle = bisectorAngle - side * halfAngle
-            segments.append(.arc(center: apex, radius: radius, startAngle: startAngle, endAngle: endAngle, isCCW: side < 0))
-            current = point(radius: radius, side: -side)
-            side = -side
+            // Concentric move, point 1 to point 2 (clockwise around the big tool's centre).
+            segments.append(.arc(center: bigCenter,
+                                 radius: radius,
+                                 startAngle: angle(of: point1),
+                                 endAngle: angle(of: point2),
+                                 isCCW: false))
+            // Straight back to point 1.
+            segments.append(.line(start: point2, end: point1))
+            current = point1
         }
-        // The last step in reaches the apex itself.
+        // The last advance reaches the corner itself.
         segments.append(.line(start: current, end: apex))
         return segments
     }

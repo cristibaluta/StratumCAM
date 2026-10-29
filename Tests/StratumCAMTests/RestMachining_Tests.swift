@@ -70,7 +70,7 @@ struct RestMachining_Tests {
         #expect(abs(last.x - 1) < 1e-6 && abs(last.y - 1) < 1e-6)
         // Starts at the wall ends, a wall's tangent distance (3) and more away from the corner.
         #expect(first.x + first.y > 2)
-        #expect(hypot(first.x - 1, first.y - 1) > 2)
+        #expect(hypot(first.x - 1, first.y - 1) > 1)
     }
 
     @Test func toolNotSmallerThanTheBigOneIsRejected() throws {
