@@ -17,6 +17,12 @@ extension SC {
         public var safeZ: Double
         /// Short lift clearance between close cuts
         public var retractZ: Double
+        /// Height above the top of the stock (Z0, mm, positive) where the tool slows down from
+        /// rapid to the entry feed: it rapids from `safeZ` down to here, then feeds in at the
+        /// plunge rate and the entry strategy (plunge, ramp, helix) is applied from there.
+        /// `nil` (the default) keeps the old behaviour, where the entry feed starts at `safeZ`.
+        /// Ignored when it is not below `safeZ`.
+        public var entryZ: Double?
         /// Total depth of cut (positive depth into stock)
         public var targetDepth: Double
         /// What the tool does between Z layers of a multi-pass operation.
@@ -43,6 +49,7 @@ extension SC {
         public init(cutting: CuttingData = CuttingData(),
                     safeZ: Double = 5.0,
                     retractZ: Double = 1.0,
+                    entryZ: Double? = nil,
                     targetDepth: Double = 3.0,
                     retractPolicy: RetractPolicy = .safeZ,
                     allowance: Double = 0.0,
@@ -51,6 +58,7 @@ extension SC {
             self.cutting = cutting
             self.safeZ = safeZ
             self.retractZ = retractZ
+            self.entryZ = entryZ
             self.targetDepth = targetDepth
             self.retractPolicy = retractPolicy
             self.allowance = allowance

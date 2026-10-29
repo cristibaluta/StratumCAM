@@ -44,7 +44,7 @@ public final class SCEngine {
 
         for contour in contours {
             if let toolpath = try buildToolpath(for: contour, tool: tool, settings: settings, operation: operation) {
-                results.append(toolpath)
+                results.append(applyEntryHeight(to: toolpath))
             }
         }
 
