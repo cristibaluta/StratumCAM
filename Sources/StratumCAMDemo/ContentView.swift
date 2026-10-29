@@ -170,6 +170,20 @@ struct ContentView: View {
                         show(DemoPocketing().demoTrochoidalCircle())
                     }
                 }
+                Section("Rest Machining") {
+                    demoButton("Square 20x20 (Ø6 then Ø2)") {
+                        show(DemoRestMachining().demoSquare())
+                    }
+                    demoButton("Rectangle 40x24 (Ø6 then Ø2)") {
+                        show(DemoRestMachining().demoRectangle())
+                    }
+                    demoButton("L-Shape (reflex corner skipped)") {
+                        show(DemoRestMachining().demoLShape())
+                    }
+                    demoButton("Triangle (acute corners)") {
+                        show(DemoRestMachining().demoTriangle())
+                    }
+                }
                 Section("Drilling") {
                     demoButton("Plain Drill") {
                         show(DemoDrilling().demoPlainDrill())

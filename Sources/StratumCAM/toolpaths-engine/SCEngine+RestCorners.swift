@@ -14,7 +14,19 @@ extension SCEngine {
     /// Only line-line vertices are handled for now. A vertex leaves material when the
     /// pocket interior angle there is below 180 degrees. The leftover region is bounded by
     /// the two wall lines up to the tangent points and the tool-circle arc between them.
-    func restCorners(in boundary: [SC.Segment], toolRadius: Double) -> [SC.RestCorner] {
+    ///
+    /// - Parameters:
+    ///   - minDepth: corners where the tool leaves less than this (mm, measured from the corner
+    ///     point to the tool circle) are ignored. Keeps a polygon-approximated circle from
+    ///     reporting a corner at every vertex.
+    ///
+    /// Known limits: line-to-arc corners, concave arcs tighter than the tool, and islands
+    /// (only the given outer boundary is looked at) are not handled.
+    ///
+    /// A wall shorter than the tangent distance keeps its corner: the tangent points are
+    /// clamped to the wall ends and the region is closed with a straight chord instead of
+    /// the tool arc (a slightly larger region, never a smaller one).
+    func restCorners(in boundary: [SC.Segment], toolRadius: Double, minDepth: Double = 0.03) -> [SC.RestCorner] {
 
         guard boundary.count >= 3, toolRadius > 1e-9 else {
             return []
@@ -54,13 +66,13 @@ extension SCEngine {
             let halfAngle = interior / 2
             let tangentDistance = toolRadius / tan(halfAngle)
 
-            // Tangent points must lie on the walls themselves.
-            guard tangentDistance <= inLen + 1e-9, tangentDistance <= outLen + 1e-9 else {
-                continue
-            }
+            // A wall shorter than the tangent distance: clamp the tangent points to its end.
+            let isClamped = tangentDistance > inLen + 1e-9 || tangentDistance > outLen + 1e-9
+            let in1 = min(tangentDistance, inLen)
+            let out1 = min(tangentDistance, outLen)
 
-            let t1 = CGPoint(x: c.x - tin.x * tangentDistance, y: c.y - tin.y * tangentDistance)
-            let t2 = CGPoint(x: c.x + tout.x * tangentDistance, y: c.y + tout.y * tangentDistance)
+            let t1 = CGPoint(x: c.x - tin.x * in1, y: c.y - tin.y * in1)
+            let t2 = CGPoint(x: c.x + tout.x * out1, y: c.y + tout.y * out1)
 
             // Tool center: along the interior bisector, at toolRadius from both walls.
             let bx = tout.x - tin.x, by = tout.y - tin.y
@@ -71,6 +83,15 @@ extension SCEngine {
             let centerDistance = toolRadius / sin(halfAngle)
             let o = CGPoint(x: c.x + bx / bLen * centerDistance, y: c.y + by / bLen * centerDistance)
 
+            // Too shallow to be worth a pass.
+            guard centerDistance - toolRadius >= minDepth else {
+                continue
+            }
+            // The tool centre has to be inside the pocket, otherwise the tool doesn't fit here.
+            guard Self.isPoint(o, insidePolygonOf: boundary) else {
+                continue
+            }
+
             let angle1 = atan2(t1.y - o.y, t1.x - o.x)
             let angle2 = atan2(t2.y - o.y, t2.x - o.x)
             // The leftover arc is the short way (< 180 degrees) from t2 back to t1.
@@ -78,10 +99,13 @@ extension SCEngine {
             let v1 = CGPoint(x: t1.x - o.x, y: t1.y - o.y)
             let arcIsCCW = (v2.x * v1.y - v2.y * v1.x) > 0
 
+            let closing: SC.Segment = isClamped
+                ? .line(start: t2, end: t1)
+                : .arc(center: o, radius: toolRadius, startAngle: angle2, endAngle: angle1, isCCW: arcIsCCW)
             let region: [SC.Segment] = [
                 .line(start: t1, end: c),
                 .line(start: c, end: t2),
-                .arc(center: o, radius: toolRadius, startAngle: angle2, endAngle: angle1, isCCW: arcIsCCW)
+                closing
             ]
 
             result.append(SC.RestCorner(corner: c,
@@ -89,9 +113,27 @@ extension SCEngine {
                                         tangentOut: tout,
                                         interiorAngle: interior,
                                         toolRadius: toolRadius,
-                                        region: region))
+                                        region: region,
+                                        incomingWallLength: inLen,
+                                        outgoingWallLength: outLen))
         }
 
         return result
+    }
+
+    /// Even-odd test against the boundary's segment start points (the boundary is linearised).
+    private static func isPoint(_ p: CGPoint, insidePolygonOf boundary: [SC.Segment]) -> Bool {
+        let pts = boundary.map { $0.startPoint }
+        var inside = false
+        var j = pts.count - 1
+        for i in 0..<pts.count {
+            let a = pts[i], b = pts[j]
+            if (a.y > p.y) != (b.y > p.y),
+               p.x < (b.x - a.x) * (p.y - a.y) / (b.y - a.y) + a.x {
+                inside.toggle()
+            }
+            j = i
+        }
+        return inside
     }
 }

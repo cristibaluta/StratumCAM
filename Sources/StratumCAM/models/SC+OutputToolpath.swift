@@ -49,6 +49,9 @@ extension SC {
         /// of the largest circle that fits inside the shape) is already wider than the
         /// finished thread, so the cutter will mostly move through air.
         case threadHoleLargerThanTarget(availableDiameter: Double, targetDiameter: Double)
+        /// Rest machining: this many corners were left alone because the smaller tool
+        /// can't improve on what the larger one left, or the corner is too narrow for it.
+        case restCornersSkipped(count: Int)
     }
 
     public struct ToolpathPass: Sendable, Equatable {
@@ -96,19 +99,27 @@ extension SC {
         public var toolRadius: Double
         /// Closed contour of the leftover sliver: wall, wall, then the tool-circle arc.
         public var region: [Segment]
+        /// Length of the pocket wall arriving at / leaving the corner (mm). A rest pass must not
+        /// reach further along a wall than this.
+        public var incomingWallLength: Double
+        public var outgoingWallLength: Double
 
         public init(corner: CGPoint,
                     tangentIn: CGPoint,
                     tangentOut: CGPoint,
                     interiorAngle: Double,
                     toolRadius: Double,
-                    region: [Segment]) {
+                    region: [Segment],
+                    incomingWallLength: Double = .infinity,
+                    outgoingWallLength: Double = .infinity) {
             self.corner = corner
             self.tangentIn = tangentIn
             self.tangentOut = tangentOut
             self.interiorAngle = interiorAngle
             self.toolRadius = toolRadius
             self.region = region
+            self.incomingWallLength = incomingWallLength
+            self.outgoingWallLength = outgoingWallLength
         }
     }
 
