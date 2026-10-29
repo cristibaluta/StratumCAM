@@ -51,6 +51,28 @@ struct RestMachining_Tests {
         }
     }
 
+    @Test func restPassSweepsFromTheWallEndsInToTheCorner() throws {
+        let engine = SCEngine()
+        let big = SC.ToolParams(diameter: 6.0)
+        let operation = SC.MachiningOperation.pocket(direction: .climb, pattern: .offset, entry: .plunge)
+        let pocket = try engine.generateToolpaths(from: [square(20)], tool: big, settings: settings, operation: operation)
+        let allCorners = pocket.first?.restCorners ?? []
+        guard let corner = allCorners.first(where: { $0.corner == CGPoint(x: 0, y: 0) }),
+              let sweep = engine.restSweep(for: corner, smallRadius: 1.0, stepover: 0.8),
+              let firstSegment = sweep.first,
+              case .line(_, let last) = sweep[sweep.count - 1] else {
+            Issue.record("no corner or sweep")
+            return
+        }
+        let first = firstSegment.startPoint
+
+        // Ends at the single point where the small tool touches both walls, (1, 1).
+        #expect(abs(last.x - 1) < 1e-6 && abs(last.y - 1) < 1e-6)
+        // Starts at the wall ends, a wall's tangent distance (3) and more away from the corner.
+        #expect(first.x + first.y > 2)
+        #expect(hypot(first.x - 1, first.y - 1) > 2)
+    }
+
     @Test func toolNotSmallerThanTheBigOneIsRejected() throws {
         let engine = SCEngine()
         let big = SC.ToolParams(diameter: 6.0)

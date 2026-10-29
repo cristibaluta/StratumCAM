@@ -50,28 +50,96 @@ extension SCEngine {
         var skipped = 0
 
         for (index, corner) in corners.enumerated() {
-            guard let contour = restPocket(for: corner, smallRadius: smallRadius) else {
+            guard let sweep = restSweep(for: corner, smallRadius: smallRadius, stepover: tool.diameter * settings.cutting.stepoverPercentage) else {
                 skipped += 1
                 continue
             }
-            do {
-                var built = try generateToolpaths(from: [contour], tool: tool, settings: rest, operation: operation)
-                for i in built.indices {
-                    built[i].name = "Rest corner \(index + 1)"
-                    // The small tool's own corners aren't the ones to hand to another rest pass.
-                    built[i].restCorners = []
-                }
-                outputs += built
-            } catch SC.Error.geometryCollapsed {
-                // The corner is too narrow for this tool.
-                skipped += 1
+            let zDepths = EngineTools.calculateZPasses(targetDepth: rest.targetDepth, stepdown: rest.cutting.stepdown)
+            let passes = zDepths.enumerated().map { i, z in
+                SC.ToolpathPass(passIndex: i, depthZ: z, waypoints: buildWaypoints(for: sweep, atZ: z, settings: rest))
             }
+            outputs.append(SC.OutputToolpath(name: "Rest corner \(index + 1)",
+                                             operation: operation,
+                                             tool: tool,
+                                             settings: rest,
+                                             passes: passes))
         }
 
         if skipped > 0, !outputs.isEmpty {
             outputs[0].warnings.append(.restCornersSkipped(count: skipped))
         }
         return outputs
+    }
+
+    /// The tool-centre path that clears one corner: straight passes across the corner (between
+    /// the two wall ends where the larger tool stopped), each one stepover closer to the sharp
+    /// corner, alternating direction, until the last one reaches the corner itself.
+    /// Nil when the smaller tool wouldn't improve on the larger one by a worthwhile amount.
+    func restSweep(for corner: SC.RestCorner, smallRadius: Double, stepover: Double) -> [SC.Segment]? {
+
+        let bigRadius = corner.toolRadius
+        let halfAngle = corner.interiorAngle / 2
+        guard halfAngle > 1e-6, halfAngle < Double.pi / 2 + 1e-9 else {
+            return nil
+        }
+        let factor = 1 / sin(halfAngle) - 1
+        guard bigRadius * factor - smallRadius * factor >= 0.01 else {
+            return nil
+        }
+
+        let tin = corner.tangentIn
+        let tout = corner.tangentOut
+        let bx = tout.x - tin.x, by = tout.y - tin.y
+        let bLength = hypot(bx, by)
+        guard bLength > 1e-9 else {
+            return nil
+        }
+        let bisector = CGPoint(x: bx / bLength, y: by / bLength)   // into the pocket
+        let across = CGPoint(x: -bisector.y, y: bisector.x)
+
+        // Distance along the bisector from the corner to the tool centre when the small tool
+        // touches both walls: the innermost pass, a single point.
+        let tNear = smallRadius / sin(halfAngle)
+        // Outermost pass: where the tool centre is level with the wall ends (the larger tool's
+        // tangent points, plus a margin, never past the end of a wall).
+        let tangentDistance = bigRadius / tan(halfAngle)
+        let along = min(tangentDistance + smallRadius, corner.incomingWallLength, corner.outgoingWallLength)
+        let tFar = along * cos(halfAngle) + smallRadius * sin(halfAngle)
+        guard tFar > tNear + 1e-6 else {
+            return nil
+        }
+
+        // Evenly spaced levels no further apart than the stepover, ending exactly on the corner.
+        let step = max(stepover, 1e-3)
+        let count = max(1, Int(ceil((tFar - tNear) / step - 1e-9)))
+        let c = corner.corner
+        let tanHalf = tan(halfAngle)
+
+        func point(t: Double, side: Double) -> CGPoint {
+            let halfWidth = (t - tNear) * tanHalf
+            return CGPoint(x: c.x + bisector.x * t + across.x * halfWidth * side,
+                           y: c.y + bisector.y * t + across.y * halfWidth * side)
+        }
+
+        var segments: [SC.Segment] = []
+        var side = -1.0
+        var current = point(t: tFar, side: side)
+        for i in 0...count {
+            let t = tFar - (tFar - tNear) * Double(i) / Double(count)
+            if i > 0 {
+                // Step in along the wall to the next level, then cross.
+                let along = point(t: t, side: side)
+                segments.append(.line(start: current, end: along))
+                current = along
+            }
+            let end = point(t: t, side: -side)
+            if hypot(end.x - current.x, end.y - current.y) > 1e-9 {
+                segments.append(.line(start: current, end: end))
+                current = end
+            }
+            side = -side
+        }
+        return segments.isEmpty ? nil : segments
     }
 
     /// The small pocket that covers one corner's leftover, or nil when the smaller tool
