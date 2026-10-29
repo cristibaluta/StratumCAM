@@ -71,7 +71,7 @@ extension SCEngine {
         return outputs
     }
 
-    /// The tool-centre path that clears one corner: straight passes across the corner (between
+    /// The tool-centre path that clears one corner: arcs around the corner (between
     /// the two wall ends where the larger tool stopped), each one stepover closer to the sharp
     /// corner, alternating direction, until the last one reaches the corner itself.
     /// Nil when the smaller tool wouldn't improve on the larger one by a worthwhile amount.
@@ -95,7 +95,6 @@ extension SCEngine {
             return nil
         }
         let bisector = CGPoint(x: bx / bLength, y: by / bLength)   // into the pocket
-        let across = CGPoint(x: -bisector.y, y: bisector.x)
 
         // Distance along the bisector from the corner to the tool centre when the small tool
         // touches both walls: the innermost pass, a single point.
@@ -109,37 +108,44 @@ extension SCEngine {
             return nil
         }
 
-        // Evenly spaced levels no further apart than the stepover, ending exactly on the corner.
+        // The tool centre moves in arcs around `apex` (where the small tool touches both walls),
+        // from one wall's centre line to the other's, each arc one stepover nearer the apex.
+        let apex = CGPoint(x: corner.corner.x + bisector.x * tNear, y: corner.corner.y + bisector.y * tNear)
+        let farRadius = (tFar - tNear) / cos(halfAngle)
         let step = max(stepover, 1e-3)
-        let count = max(1, Int(ceil((tFar - tNear) / step - 1e-9)))
-        let c = corner.corner
-        let tanHalf = tan(halfAngle)
+        let count = max(1, Int(ceil(farRadius / step - 1e-9)))
+        let bisectorAngle = atan2(bisector.y, bisector.x)
 
-        func point(t: Double, side: Double) -> CGPoint {
-            let halfWidth = (t - tNear) * tanHalf
-            return CGPoint(x: c.x + bisector.x * t + across.x * halfWidth * side,
-                           y: c.y + bisector.y * t + across.y * halfWidth * side)
+        func point(radius: Double, side: Double) -> CGPoint {
+            let angle = bisectorAngle + side * halfAngle
+            return CGPoint(x: apex.x + radius * cos(angle), y: apex.y + radius * sin(angle))
         }
 
-        var segments: [SC.Segment] = []
+        // Entry: the middle of the two wall ends, then out to one end.
+        let entry = CGPoint(x: apex.x + bisector.x * farRadius * cos(halfAngle),
+                            y: apex.y + bisector.y * farRadius * cos(halfAngle))
         var side = -1.0
-        var current = point(t: tFar, side: side)
-        for i in 0...count {
-            let t = tFar - (tFar - tNear) * Double(i) / Double(count)
+        var current = point(radius: farRadius, side: side)
+        var segments: [SC.Segment] = [.line(start: entry, end: current)]
+
+        for i in 0..<count {
+            let radius = farRadius * (1 - Double(i) / Double(count))
             if i > 0 {
-                // Step in along the wall to the next level, then cross.
-                let along = point(t: t, side: side)
-                segments.append(.line(start: current, end: along))
-                current = along
+                // Step in along the wall to the next radius.
+                let next = point(radius: radius, side: side)
+                segments.append(.line(start: current, end: next))
+                current = next
             }
-            let end = point(t: t, side: -side)
-            if hypot(end.x - current.x, end.y - current.y) > 1e-9 {
-                segments.append(.line(start: current, end: end))
-                current = end
-            }
+            // Arc across to the other wall; side -1 -> +1 turns counter-clockwise.
+            let startAngle = bisectorAngle + side * halfAngle
+            let endAngle = bisectorAngle - side * halfAngle
+            segments.append(.arc(center: apex, radius: radius, startAngle: startAngle, endAngle: endAngle, isCCW: side < 0))
+            current = point(radius: radius, side: -side)
             side = -side
         }
-        return segments.isEmpty ? nil : segments
+        // The last step in reaches the apex itself.
+        segments.append(.line(start: current, end: apex))
+        return segments
     }
 
     /// The small pocket that covers one corner's leftover, or nil when the smaller tool
