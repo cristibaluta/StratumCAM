@@ -121,7 +121,7 @@ struct RampTools {
     }
 
     /// `path` cut after `length`: the part before and the part after.
-    private static func split(_ path: [SC.Segment], atLength length: Double) -> ([SC.Segment], [SC.Segment]) {
+    static func split(_ path: [SC.Segment], atLength length: Double) -> ([SC.Segment], [SC.Segment]) {
         var head: [SC.Segment] = []
         var remaining = length
         for (index, segment) in path.enumerated() {

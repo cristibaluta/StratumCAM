@@ -249,7 +249,7 @@ extension SCEngine {
 
     // MARK: - Waypoint assembly
 
-    private func buildContourWaypoints(for segments: [SC.Segment],
+    private func buildContourWaypoints(for loopSegments: [SC.Segment],
                                        firstSegment: SC.Segment,
                                        atZ z: Double,
                                        previousZ: Double,
@@ -259,13 +259,31 @@ extension SCEngine {
                                        entry: SC.EntryStrategy,
                                        leadIn: SC.LeadInOut?,
                                        leadOut: SC.LeadInOut?,
-                                       tabs: [SC.HoldingTab],
+                                       tabs originalTabs: [SC.HoldingTab],
                                        toolRadius: Double) -> [SC.Waypoint] {
 
-        let contourStart = firstSegment.startPoint
-        let startTangent = direction(of: firstSegment, atEnd: false)
+        let loopLength = loopSegments.pathLength
+        let isClosed = Self.isClosedLoop(loopSegments)
+
+        // Where the cut starts: a closed loop can begin anywhere along its length, which the
+        // lead-in's position picks (so the approach can be moved away from a corner or a wall it
+        // would cut into). `origin` is that start as a distance from the loop's own start, kept to
+        // place the holding tabs, whose positions are relative to the loop's own start.
+        var segments = loopSegments
+        var origin = 0.0
+        if isClosed, loopLength > 1e-9, let ratio = leadIn?.positionRatio, ratio > 1e-6 {
+            origin = (ratio.truncatingRemainder(dividingBy: 1.0)) * loopLength
+            segments = Self.rotated(loopSegments, by: origin)
+        }
+
+        let first = segments[0]
+        let contourStart = first.startPoint
+        let startTangent = direction(of: first, atEnd: false)
 
         var waypoints: [SC.Waypoint] = []
+        // What is cut at full depth after the entry: the loop starting where the entry ends.
+        var traceSegments = segments
+        var traceOrigin = origin
 
         switch entry {
             case .plunge, .fromOpenEnd:
@@ -295,20 +313,15 @@ extension SCEngine {
             case .ramp(let angleDegrees):
                 // Travel at safeZ, but the ramp itself only needs to cover this pass's
                 // fresh stepdown -- it starts at the depth the previous pass already
-                // reached (0 / top-of-stock for the first pass), not safeZ. Ramping the
-                // full safeZ->z distance on every pass would re-descend through material
-                // that's already open air from earlier passes.
-                // With a lead-in, the ramp runs along the lead-in's approach (from its start point
-                // towards the contour) and the lead-in move then carries the tool onto the contour.
+                // reached (0 / top-of-stock for the first pass), not safeZ.
+                // The ramp follows the path the tool is going to cut anyway: the lead-in (if any)
+                // and then the contour, so it descends along them instead of beside them.
                 let (anchor, leadInMove) = resolveLeadIn(leadIn,
                                                          side: side,
                                                          contourStart: contourStart,
                                                          tangent: startTangent,
                                                          segments: segments,
                                                          z: z)
-                let rampSegment: SC.Segment = leadInMove == nil
-                    ? firstSegment
-                    : .line(start: anchor, end: contourStart)
                 waypoints.append(
                     SC.Waypoint(position: SIMD3(anchor.x, anchor.y, settings.safeZ),
                                 motion: .rapid,
@@ -319,15 +332,46 @@ extension SCEngine {
                                 motion: .rapid,
                                 feedRate: settings.cutting.feedRate)
                 )
-                waypoints.append(
-                    contentsOf: RampTools.rampWaypoints(firstSegment: rampSegment,
-                                                        angleDegrees: angleDegrees,
-                                                        fromZ: previousZ,
-                                                        toZ: z,
-                                                        settings: settings)
-                )
-                if let leadInMove {
-                    waypoints.append(leadInMove)
+
+                let leadSegment = leadInMove.map { Self.segment(of: $0, from: anchor) }
+                let path = (leadSegment.map { [$0] } ?? []) + segments
+
+                if let ramped = RampTools.pathRampWaypoints(path: path,
+                                                            angleDegrees: angleDegrees,
+                                                            fromZ: previousZ,
+                                                            toZ: z,
+                                                            settings: settings) {
+                    waypoints.append(contentsOf: ramped.ramp)
+
+                    // The part of the lead-in the ramp didn't use is cut at depth, at its own feed.
+                    var rest = ramped.remaining
+                    let leadRemaining = rest.pathLength - loopLength
+                    if leadRemaining > 1e-7, let leadIn {
+                        let (leadPart, loopPart) = RampTools.split(rest, atLength: leadRemaining)
+                        waypoints.append(contentsOf: Self.waypoints(of: leadPart, z: z, feedRate: leadIn.feedRate))
+                        rest = loopPart
+                    }
+
+                    // The ramp already went over the start of the loop, at a sloping depth: cut
+                    // the rest first and finish with that start at full depth.
+                    let rampedLength = loopLength - rest.pathLength
+                    if rampedLength > 1e-6, loopLength > 1e-9 {
+                        traceSegments = Self.rotated(segments, by: rampedLength)
+                        traceOrigin = origin + rampedLength
+                    }
+                } else {
+                    // Too short a path for the angle: zig-zag back and forth near the start.
+                    let rampSegment: SC.Segment = leadInMove == nil ? first : .line(start: anchor, end: contourStart)
+                    waypoints.append(
+                        contentsOf: RampTools.rampWaypoints(firstSegment: rampSegment,
+                                                            angleDegrees: angleDegrees,
+                                                            fromZ: previousZ,
+                                                            toZ: z,
+                                                            settings: settings)
+                    )
+                    if let leadInMove {
+                        waypoints.append(leadInMove)
+                    }
                 }
 
             case .helix(let angleDegrees):
@@ -342,20 +386,17 @@ extension SCEngine {
                                                          segments: segments,
                                                          z: z)
                 var anchorTangent = startTangent
-                var anchorSegment = firstSegment
-                if let leadIn, leadInMove != nil {
-                    switch leadIn.style {
-                        case .linear:
+                var anchorSegment = first
+                if let leadInMove {
+                    switch leadInMove.motion {
+                        case .arcCCW(let center):
+                            let a = atan2(anchor.y - center.y, anchor.x - center.x)
+                            anchorTangent = CGPoint(x: -sin(a), y: cos(a))
+                        case .arcCW(let center):
+                            let a = atan2(anchor.y - center.y, anchor.x - center.x)
+                            anchorTangent = CGPoint(x: sin(a), y: -cos(a))
+                        default:
                             break
-                        case .arc:
-                            // The tangent of the lead-in arc where it starts.
-                            if case .arcCCW(let center) = leadInMove!.motion {
-                                let a = atan2(anchor.y - center.y, anchor.x - center.x)
-                                anchorTangent = CGPoint(x: -sin(a), y: cos(a))
-                            } else if case .arcCW(let center) = leadInMove!.motion {
-                                let a = atan2(anchor.y - center.y, anchor.x - center.x)
-                                anchorTangent = CGPoint(x: sin(a), y: -cos(a))
-                            }
                     }
                     anchorSegment = .line(start: anchor,
                                           end: CGPoint(x: anchor.x + anchorTangent.x * radius,
@@ -386,20 +427,37 @@ extension SCEngine {
                 if let leadInMove {
                     waypoints.append(leadInMove)
                 }
-
         }
 
         // Trace the contour itself, clamping Z at any holding tabs.
         waypoints.append(
-            contentsOf: tracedWaypoints(for: segments,
+            contentsOf: tracedWaypoints(for: traceSegments,
                                         atZ: z,
                                         totalDepth: totalDepth,
-                                        tabs: tabs,
+                                        tabs: Self.remapped(originalTabs, loopLength: loopLength, origin: traceOrigin, newLength: loopLength),
                                         settings: settings)
         )
 
+        // The lead-out's position moves where it leaves the contour: the cut carries on along
+        // the loop (already cut, so at the same depth) for that fraction of its length first.
+        var endSegments = traceSegments
+        if isClosed, loopLength > 1e-9, let ratio = leadOut?.positionRatio, ratio > 1e-6 {
+            let tailLength = min(ratio, 0.999) * loopLength
+            let (tail, _) = RampTools.split(traceSegments, atLength: tailLength)
+            if !tail.isEmpty {
+                waypoints.append(
+                    contentsOf: tracedWaypoints(for: tail,
+                                                atZ: z,
+                                                totalDepth: totalDepth,
+                                                tabs: Self.remapped(originalTabs, loopLength: loopLength, origin: traceOrigin, newLength: tail.pathLength),
+                                                settings: settings)
+                )
+                endSegments = tail
+            }
+        }
+
         // Lead-out + retract.
-        guard let lastSegment = segments.last else {
+        guard let lastSegment = endSegments.last else {
             return waypoints
         }
         let contourEnd = lastSegment.endPoint
@@ -411,7 +469,7 @@ extension SCEngine {
                                                          side: side,
                                                          contourEnd: contourEnd,
                                                          tangent: endTangent,
-                                                         segments: segments,
+                                                         segments: endSegments,
                                                          z: z) {
             waypoints.append(leadOutMove)
             waypoints.append(
@@ -428,6 +486,87 @@ extension SCEngine {
                         feedRate: settings.cutting.feedRate)
         )
         return waypoints
+    }
+
+    // MARK: - Loop helpers
+
+    /// A chain that ends where it starts.
+    private static func isClosedLoop(_ segments: [SC.Segment]) -> Bool {
+        guard let first = segments.first, let last = segments.last else {
+            return false
+        }
+        let a = first.startPoint
+        let b = last.endPoint
+        return hypot(a.x - b.x, a.y - b.y) < 1e-6
+    }
+
+    /// The closed loop starting `length` further along: the same cut, begun somewhere else.
+    private static func rotated(_ segments: [SC.Segment], by length: Double) -> [SC.Segment] {
+        let total = segments.pathLength
+        guard total > 1e-9 else {
+            return segments
+        }
+        let offset = length.truncatingRemainder(dividingBy: total)
+        guard offset > 1e-9 else {
+            return segments
+        }
+        let (head, rest) = RampTools.split(segments, atLength: offset)
+        return rest + head
+    }
+
+    /// The holding tabs as seen from a path that starts `origin` along the loop and is
+    /// `newLength` long: their positions are ratios of that path. Tabs outside it are dropped.
+    private static func remapped(_ tabs: [SC.HoldingTab], loopLength: Double, origin: Double, newLength: Double) -> [SC.HoldingTab] {
+        guard loopLength > 1e-9, newLength > 1e-9 else {
+            return tabs
+        }
+        return tabs.compactMap { tab in
+            var distance = (tab.positionRatio * loopLength - origin).truncatingRemainder(dividingBy: loopLength)
+            if distance < 0 {
+                distance += loopLength
+            }
+            let ratio = distance / newLength
+            guard ratio <= 1 else {
+                return nil
+            }
+            var moved = tab
+            moved.positionRatio = ratio
+            return moved
+        }
+    }
+
+    /// The lead-in move as a segment, from the point the tool enters at to where the move ends.
+    private static func segment(of move: SC.Waypoint, from start: CGPoint) -> SC.Segment {
+        let end = CGPoint(x: move.position.x, y: move.position.y)
+        switch move.motion {
+            case .arcCCW(let center), .arcCW(let center):
+                var isCCW = false
+                if case .arcCCW = move.motion {
+                    isCCW = true
+                }
+                return .arc(center: center,
+                            radius: hypot(start.x - center.x, start.y - center.y),
+                            startAngle: atan2(start.y - center.y, start.x - center.x),
+                            endAngle: atan2(end.y - center.y, end.x - center.x),
+                            isCCW: isCCW)
+            default:
+                return .line(start: start, end: end)
+        }
+    }
+
+    /// One move per segment, to the segment's end, at `z` and `feedRate`.
+    private static func waypoints(of segments: [SC.Segment], z: Double, feedRate: Double) -> [SC.Waypoint] {
+        segments.map { segment in
+            let end = segment.endPoint
+            switch segment {
+                case .line:
+                    return SC.Waypoint(position: SIMD3(end.x, end.y, z), motion: .linear, feedRate: feedRate)
+                case .arc(let center, _, _, _, let isCCW):
+                    return SC.Waypoint(position: SIMD3(end.x, end.y, z),
+                                       motion: isCCW ? .arcCCW(center: center) : .arcCW(center: center),
+                                       feedRate: feedRate)
+            }
+        }
     }
 
     // MARK: - Lead-in / lead-out
@@ -451,6 +590,20 @@ extension SCEngine {
         return sweepDegrees < 0 ? -offset : offset
     }
 
+    /// A straight lead's direction split into the part along the contour and the part towards the
+    /// free side, per unit of length: `angleDegrees` from the contour (0 = along it, positive leans
+    /// towards the free side, negative towards the material).
+    private func linearLean(side: SC.CutSide,
+                            tangent: CGPoint,
+                            angleDegrees: Double,
+                            segments: [SC.Segment]) -> (along: CGPoint, away: CGPoint) {
+        let angle = angleDegrees.degreesToRadians
+        let freeSign: Double = OffsetTools.offsetDistance(for: arcSide(for: side), toolRadius: 1, segments: segments) >= 0 ? 1 : -1
+        let normal = CGPoint(x: -tangent.y * freeSign, y: tangent.x * freeSign)
+        return (CGPoint(x: tangent.x * cos(angle), y: tangent.y * cos(angle)),
+                CGPoint(x: normal.x * sin(angle), y: normal.y * sin(angle)))
+    }
+
     /// Resolves where a `.plunge` entry should actually land, and the extra waypoint that
     /// carries the tool from there onto `contourStart`, for a given `LeadInOut` style.
     ///
@@ -471,7 +624,10 @@ extension SCEngine {
 
         switch leadIn.style {
             case .linear(let length):
-                let entryPoint = CGPoint(x: contourStart.x - tangent.x * length, y: contourStart.y - tangent.y * length)
+                // The run comes from the free side at `angleDegrees` to the contour (0 = in line with it).
+                let lean = linearLean(side: side, tangent: tangent, angleDegrees: leadIn.angleDegrees, segments: segments)
+                let entryPoint = CGPoint(x: contourStart.x - lean.along.x * length + lean.away.x * length,
+                                         y: contourStart.y - lean.along.y * length + lean.away.y * length)
                 let move = SC.Waypoint(position: SIMD3(contourStart.x, contourStart.y, z), motion: .linear, feedRate: leadIn.feedRate)
                 return (entryPoint, move)
 
@@ -508,7 +664,9 @@ extension SCEngine {
 
         switch leadOut.style {
             case .linear(let length):
-                let exitPoint = CGPoint(x: contourEnd.x + tangent.x * length, y: contourEnd.y + tangent.y * length)
+                let lean = linearLean(side: side, tangent: tangent, angleDegrees: leadOut.angleDegrees, segments: segments)
+                let exitPoint = CGPoint(x: contourEnd.x + (lean.along.x + lean.away.x) * length,
+                                        y: contourEnd.y + (lean.along.y + lean.away.y) * length)
                 let move = SC.Waypoint(position: SIMD3(exitPoint.x, exitPoint.y, z),
                                        motion: .linear,
                                        feedRate: leadOut.feedRate)

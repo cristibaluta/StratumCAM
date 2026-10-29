@@ -22,10 +22,21 @@ extension SC {
 
         public var style: Style
         public var feedRate: Double
+        /// Moves the move along a closed contour, as a fraction (0...1) of its length.
+        /// For a lead-in it is where the cut starts, counted from the contour's own start point.
+        /// For a lead-out it is how far the cut carries on past where it would end before leaving.
+        /// Open contours ignore it.
+        public var positionRatio: Double
+        /// For a linear lead: the angle between the run and the contour, in degrees. 0 is in line
+        /// with the contour; positive leans towards the free side, negative towards the material.
+        /// Arcs ignore it (their sweep is the angle).
+        public var angleDegrees: Double
 
-        public init(style: Style, feedRate: Double) {
+        public init(style: Style, feedRate: Double, positionRatio: Double = 0, angleDegrees: Double = 0) {
+            self.angleDegrees = angleDegrees
             self.style = style
             self.feedRate = feedRate
+            self.positionRatio = positionRatio
         }
     }
 }
