@@ -84,6 +84,26 @@ class DemoFacing: Demo {
         return self.run(contour: contour, tool: tool, settings: settings, operation: .facing(direction: .climb, extensionLength: 1.0))
     }
 
+    // MARK: - Multiple selected objects
+
+    /// Three separate part shapes selected together (as when several objects are picked on the
+    /// canvas): facing produces ONE toolpath over the bounding box of the whole selection --
+    /// including the empty space between the shapes -- instead of one toolpath per shape.
+    func demoFacingMultipleObjectsSingleToolpath() -> Demo.DemoResult {
+        let tool = SC.ToolParams(type: .flatEndMill, diameter: 6.0)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: 0.5)
+
+        let contours = [
+            rectangleContour(width: 20, height: 10),
+            rectangleContour(width: 15, height: 25, originX: 35, originY: 5),
+            rectangleContour(width: 25, height: 12, originX: 10, originY: 35)
+        ]
+
+        return self.run(contours: contours, tool: tool, settings: settings,
+                        operation: .facing(direction: .climb, extensionLength: 2.0))
+    }
+
     // MARK: - Batch
 
     /// Faces two independent part shapes back to back with different tools/settings.

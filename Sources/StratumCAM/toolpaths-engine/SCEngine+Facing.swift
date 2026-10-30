@@ -55,6 +55,39 @@ extension SCEngine {
         return SC.OutputToolpath(operation: operation, tool: tool, settings: settings, passes: passes)
     }
 
+    /// Folds every selected contour into one closed rectangle spanning the union of their
+    /// bounding boxes, so `.facing` machines the whole selection with a single toolpath
+    /// instead of one per shape. `nil` when there is nothing with a finite extent to
+    /// combine (the caller then leaves the contours alone and per-contour validation
+    /// reports the problem).
+    func facingBoundingContour(of contours: [SC.Contour]) -> SC.Contour? {
+        var minX = Double.infinity, maxX = -Double.infinity
+        var minY = Double.infinity, maxY = -Double.infinity
+
+        for contour in contours {
+            let box = contour.linearizedSegments.boundingBox
+            guard box.minX.isFinite, box.maxX.isFinite, box.minY.isFinite, box.maxY.isFinite else {
+                continue
+            }
+            minX = Swift.min(minX, box.minX)
+            maxX = Swift.max(maxX, box.maxX)
+            minY = Swift.min(minY, box.minY)
+            maxY = Swift.max(maxY, box.maxY)
+        }
+        guard minX.isFinite, maxX.isFinite, minY.isFinite, maxY.isFinite else {
+            return nil
+        }
+
+        let bottomLeft = SIMD2<Double>(minX, minY), bottomRight = SIMD2<Double>(maxX, minY)
+        let topRight = SIMD2<Double>(maxX, maxY), topLeft = SIMD2<Double>(minX, maxY)
+        return SC.Contour(entities: [
+            .init(geometry: .line(a: bottomLeft, b: bottomRight), reversed: false),
+            .init(geometry: .line(a: bottomRight, b: topRight), reversed: false),
+            .init(geometry: .line(a: topRight, b: topLeft), reversed: false),
+            .init(geometry: .line(a: topLeft, b: bottomLeft), reversed: false)
+        ], isClosed: true)
+    }
+
     /// The XY footprint `.facing` clears: the selected contour's own axis-aligned
     /// bounding box, grown by `extensionLength` on every side so the cutter fully
     /// clears the true part edges (and corners, once the tool's own radius sweeps

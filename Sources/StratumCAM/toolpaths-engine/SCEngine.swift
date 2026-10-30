@@ -42,6 +42,13 @@ public final class SCEngine {
             contours = mergingTouchingIslands(contours)
         }
 
+        // Facing clears one area for the whole selection: every selected shape folds into a
+        // single rectangle (the union of their bounding boxes), so it yields one toolpath
+        // rather than one per shape.
+        if case .facing = operation, let combined = facingBoundingContour(of: contours) {
+            contours = [combined]
+        }
+
         for contour in contours {
             if let toolpath = try buildToolpath(for: contour, tool: tool, settings: settings, operation: operation) {
                 results.append(applyEntryHeight(to: toolpath))

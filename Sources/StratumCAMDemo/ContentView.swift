@@ -257,6 +257,9 @@ struct ContentView: View {
                     demoButton("Large Stock, Small Tool") {
                         show(DemoFacing().demoFacingLargeStockSmallTool())
                     }
+                    demoButton("Multiple Objects (Single Toolpath)") {
+                        show(DemoFacing().demoFacingMultipleObjectsSingleToolpath())
+                    }
                     demoButton("Batch (Two Stocks)") {
                         show(DemoFacing().demoFacingBatch())
                     }

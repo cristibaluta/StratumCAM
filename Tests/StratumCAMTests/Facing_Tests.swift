@@ -12,8 +12,8 @@ import simd
 
 // `.facing` sweeps the bounding box of whatever contour is passed in -- typically
 // the finished part's own shape, not the raw stock block -- and goes through the
-// same per-contour `generateToolpaths(from:tool:settings:operation:)` pipeline
-// every other operation uses.
+// same `generateToolpaths(from:tool:settings:operation:)` pipeline
+// every other operation uses -- except that several contours are folded into ONE toolpath over their union bounding box.
 
 struct Facing_Tests {
 
@@ -249,22 +249,63 @@ struct Facing_Tests {
         #expect(ys.max()! <= 10.0 + 1e-9, "Test Failed: expected the toolpath to stay within the part shape's own height")
     }
 
-    @Test("A batch of contours produces one facing toolpath per contour, independent settings")
-    func testFacingBatchProducesOneToolpathPerContour() {
+    @Test("Several contours produce ONE facing toolpath over the union bounding box")
+    func testFacingMultipleContoursProduceSingleToolpath() throws {
         let engine = SCEngine()
-        let smallTool = SC.ToolParams(diameter: 6.0)
-        let bigTool = SC.ToolParams(diameter: 10.0)
-        let settingsA = SC.MachineSettings(cutting: SC.CuttingData(stepoverPercentage: 0.4), safeZ: 5.0, targetDepth: 0.5)
+        let tool = SC.ToolParams(diameter: 6.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(stepoverPercentage: 0.4), safeZ: 5.0, targetDepth: 0.5)
 
+        // Union box: x 0...60, y 0...15
         let contours = [rectangleContour(width: 20, height: 10), rectangleContour(width: 30, height: 15, originX: 30)]
 
-        let toolpaths = try! engine.generateToolpaths(from: contours, tool: smallTool, settings: settingsA,
-                                                       operation: .facing(direction: .climb, extensionLength: 0))
+        let toolpaths = try engine.generateToolpaths(from: contours, tool: tool, settings: settings,
+                                                     operation: .facing(direction: .climb, extensionLength: 0))
 
-        #expect(toolpaths.count == 2, "Test Failed: expected one output toolpath per contour")
-        #expect(toolpaths[0].tool == smallTool && toolpaths[1].tool == smallTool,
-                "Test Failed: a single generateToolpaths call shares one tool across its contours")
-        _ = bigTool // kept for parity with other batch tests exercising a second tool elsewhere
+        #expect(toolpaths.count == 1, "Test Failed: expected a single facing toolpath for the whole selection")
+
+        let waypoints = toolpaths[0].passes.flatMap { $0.waypoints }
+        let xs = waypoints.map { $0.position.x }
+        let ys = waypoints.map { $0.position.y }
+        #expect(xs.min()! ~= 0.0, "Test Failed: expected the toolpath to start at the union's left edge")
+        #expect(xs.max()! ~= 60.0, "Test Failed: expected the toolpath to reach the union's right edge")
+        #expect(ys.min()! ~= 0.0, "Test Failed: expected the toolpath to start at the union's bottom edge")
+        #expect(ys.max()! ~= 15.0, "Test Failed: expected the toolpath to reach the union's top edge")
+    }
+
+    @Test("Facing extensionLength grows the combined bounding box, not each contour's")
+    func testFacingMultipleContoursExtensionAppliesToUnion() throws {
+        let engine = SCEngine()
+        let tool = SC.ToolParams(diameter: 6.0)
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(stepoverPercentage: 0.4), safeZ: 5.0, targetDepth: 0.5)
+        let contours = [rectangleContour(width: 10, height: 10),
+                        rectangleContour(width: 10, height: 10, originX: 40, originY: 20)]
+
+        let toolpaths = try engine.generateToolpaths(from: contours, tool: tool, settings: settings,
+                                                     operation: .facing(direction: .climb, extensionLength: 3))
+
+        #expect(toolpaths.count == 1)
+        let waypoints = toolpaths[0].passes.flatMap { $0.waypoints }
+        let xs = waypoints.map { $0.position.x }
+        let ys = waypoints.map { $0.position.y }
+        #expect(xs.min()! ~= -3.0 && xs.max()! ~= 53.0, "Test Failed: expected x span -3...53")
+        #expect(ys.min()! ~= -3.0 && ys.max()! ~= 33.0, "Test Failed: expected y span -3...33")
+    }
+
+    @Test("Combined facing area also covers the gap between separated contours")
+    func testFacingMultipleContoursCoversGapBetweenShapes() throws {
+        let engine = SCEngine()
+        let combined = try #require(engine.facingBoundingContour(of: [
+            rectangleContour(width: 10, height: 10),
+            rectangleContour(width: 10, height: 10, originX: 90)
+        ]))
+        let box = combined.linearizedSegments.boundingBox
+        #expect(box.minX ~= 0.0 && box.maxX ~= 100.0 && box.minY ~= 0.0 && box.maxY ~= 10.0)
+        #expect(combined.isClosed)
+    }
+
+    @Test("No contours with finite extent yields no combined facing contour")
+    func testFacingBoundingContourOfNothingIsNil() {
+        #expect(SCEngine().facingBoundingContour(of: []) == nil)
     }
 
     @Test("A degenerate (zero-area) contour throws invalidContour")
