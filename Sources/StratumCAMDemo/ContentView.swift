@@ -97,6 +97,12 @@ struct ContentView: View {
                     demoButton("Rect (Auto Islands)") {
                         show(DemoPocketing().demoPocketRectangleConcentricAutoIslands())
                     }
+                    demoButton("3D Pocket (2 Islands)") {
+                        show(DemoPocketing().demoPocket3DTwoIslands())
+                    }
+                    demoButton("3D Pocket (Adaptive)") {
+                        show(DemoPocketing().demoPocket3DTwoIslandsAdaptive())
+                    }
                     demoButton("Rect (Shaped Islands)") {
                         show(DemoPocketing().demoPocketRectangleConcentricShapedIslands())
                     }

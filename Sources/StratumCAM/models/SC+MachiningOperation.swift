@@ -134,6 +134,32 @@ extension SC {
                     pattern: PocketClearingPattern,
                     entry: EntryStrategy)
 
+        /// Removes material from inside a closed boundary in layers from the top, where every
+        /// island has its own top height (`SC.Contour.topZ`).
+        ///
+        /// Layers above an island's top cut straight over it, as if it weren't there. The layer
+        /// that ends exactly on the top leaves the island a flat top face, and every layer
+        /// below goes around it and leaves it standing, down to the pocket floor. Every island
+        /// is a vertical-walled column from the floor up to its top, so the result is a height
+        /// map made of flat levels (sloped surfaces are out of scope).
+        ///
+        /// It takes the same parameters as `.pocket` and supports the same patterns and
+        /// entries; islands, like for `.pocket`, work with `.concentric` (plunge or ramp) and
+        /// `.adaptive` only. An island without a `topZ` stands through every layer, so
+        /// without any `topZ` it gives the same passes as `.pocket`.
+        ///
+        /// Phase 1 cuts roughing only: `MachineSettings.allowance` must be 0 and
+        /// `finishingPass` off.
+        ///
+        /// - Parameters:
+        ///   - direction: Determines the cutting direction, such as climb or conventional.
+        ///   - pattern: Defines how the material is cleared in each layer.
+        ///   - entry: Defines how the cutter enters the material, such as a plunge, ramp or
+        ///     helical entry.
+        case pocket3D(direction: CutDirection,
+                      pattern: PocketClearingPattern,
+                      entry: EntryStrategy)
+
         /// Drills one or more holes at the specified locations.
         ///
         /// Optionally uses peck drilling, where the tool repeatedly retracts
@@ -214,6 +240,7 @@ extension SC.MachiningOperation {
         case engrave
         case contour
         case pocket
+        case pocket3D
         case drilling
         case chamfer
         case boring
@@ -233,6 +260,7 @@ extension SC.MachiningOperation {
             case .engrave:       return .engrave
             case .contour:       return .contour
             case .pocket:        return .pocket
+            case .pocket3D:      return .pocket3D
             case .drilling:      return .drilling
             case .chamfer:       return .chamfer
             case .boring:        return .boring

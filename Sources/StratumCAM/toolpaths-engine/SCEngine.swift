@@ -41,6 +41,19 @@ public final class SCEngine {
             contours = resolvePocketIslands(contours)
             contours = mergingTouchingIslands(contours)
         }
+        // A 3D pocket detects its islands the same way, but does not merge the ones touching the
+        // wall here: whether such an island is part of the wall depends on the layer, so each
+        // band of layers does it for its own standing islands (see `buildPocket3DToolpath`).
+        if case .pocket3D = operation {
+            contours = closingOpenContours(contours)
+            let resolved = resolvePocketIslandsReportingDepth(contours)
+            // A shape inside an island would be a pocket again for the 2D engine, but its
+            // height is not defined.
+            guard resolved.maxDepth < 2 else {
+                throw SC.Error.invalidParameter("nested islands are not supported")
+            }
+            contours = resolved.contours
+        }
 
         // Facing clears one area for the whole selection: every selected shape folds into a
         // single rectangle (the union of their bounding boxes), so it yields one toolpath
@@ -122,6 +135,15 @@ public final class SCEngine {
                                         entry: entry,
                                         operation: operation
                 )
+
+            case .pocket3D(let direction, let pattern, let entry):
+                try buildPocket3DToolpath(for: contour,
+                                          tool: tool,
+                                          settings: settings,
+                                          direction: direction,
+                                          pattern: pattern,
+                                          entry: entry,
+                                          operation: operation)
 
             case .facing(let direction, let extensionLength):
                 try buildFacingToolpath(for: contour,

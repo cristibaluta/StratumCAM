@@ -52,6 +52,11 @@ extension SC {
         /// Rest machining: this many corners were left alone because the smaller tool
         /// can't improve on what the larger one left, or the corner is too narrow for it.
         case restCornersSkipped(count: Int)
+        /// 3D pocket: an island whose top is at or below the pocket floor never stands up out of
+        /// it, so it was left out of the toolpath.
+        case islandBelowFloor(topZ: Double, floorZ: Double)
+        /// 3D pocket: the pocket is deeper than the tool's cutting edge is long.
+        case depthExceedsFluteLength(depth: Double, fluteLength: Double)
     }
 
     public struct ToolpathPass: Sendable, Equatable {

@@ -211,7 +211,7 @@ extension SC.MachiningOperation {
                              entries: closedEntries,
                              toolTypes: [.flatEndMill, .ballEndMill])
 
-            case .pocket(_, let pattern, _):
+            case .pocket(_, let pattern, _), .pocket3D(_, let pattern, _):
                 // Adaptive clearing is sized by its optimal load; every other pattern
                 // steps over by the stepover.
                 let usesStepover: Bool
@@ -220,9 +220,17 @@ extension SC.MachiningOperation {
                 } else {
                     usesStepover = true
                 }
+                // A 3D pocket only roughs for now (phase 1 of PLAN_3D_POCKETING): no stock to
+                // leave, no finishing pass.
+                let is3D: Bool
+                if case .pocket3D = self {
+                    is3D = true
+                } else {
+                    is3D = false
+                }
                 return .init(usesStepdown: true,
                              usesStepover: usesStepover,
-                             usesAllowance: true,
+                             usesAllowance: !is3D,
                              usesDirection: true,
                              entries: closedEntries,
                              pocketPatterns: SC.PocketClearingPattern.defaults,
@@ -281,6 +289,7 @@ extension SC.MachiningOperation {
                 case .facing(let direction, _): return direction
                 case .contour(_, let direction, _, _, _, _): return direction
                 case .pocket(let direction, _, _): return direction
+                case .pocket3D(let direction, _, _): return direction
                 case .counterbore(_, _, let direction, _): return direction
                 case .chamfer(let params): return params.direction
                 case .slotting, .threadMilling, .engrave, .drilling, .boring: return nil
@@ -297,6 +306,8 @@ extension SC.MachiningOperation {
                     self = .contour(side: side, direction: newValue, entry: entry, leadIn: leadIn, leadOut: leadOut, tabs: tabs)
                 case .pocket(_, let pattern, let entry):
                     self = .pocket(direction: newValue, pattern: pattern, entry: entry)
+                case .pocket3D(_, let pattern, let entry):
+                    self = .pocket3D(direction: newValue, pattern: pattern, entry: entry)
                 case .counterbore(let diameter, let depth, _, let entry):
                     self = .counterbore(diameter: diameter, depth: depth, direction: newValue, entry: entry)
                 case .chamfer(var params):
@@ -316,6 +327,7 @@ extension SC.MachiningOperation {
                 case .slotting(_, _, let entry): return entry
                 case .contour(_, _, let entry, _, _, _): return entry
                 case .pocket(_, _, let entry): return entry
+                case .pocket3D(_, _, let entry): return entry
                 case .counterbore(_, _, _, let entry): return entry
                 case .engrave(let entry): return entry
                 case .facing, .threadMilling, .drilling, .chamfer, .boring: return nil
@@ -332,6 +344,8 @@ extension SC.MachiningOperation {
                     self = .contour(side: side, direction: direction, entry: newValue, leadIn: leadIn, leadOut: leadOut, tabs: tabs)
                 case .pocket(let direction, let pattern, _):
                     self = .pocket(direction: direction, pattern: pattern, entry: newValue)
+                case .pocket3D(let direction, let pattern, _):
+                    self = .pocket3D(direction: direction, pattern: pattern, entry: newValue)
                 case .counterbore(let diameter, let depth, let direction, _):
                     self = .counterbore(diameter: diameter, depth: depth, direction: direction, entry: newValue)
                 case .engrave:
@@ -378,7 +392,7 @@ extension SC.MachiningOperation {
                 // A lead-in works with every entry: ramp and helix are made at the lead-in's start.
                 break
 
-            case .pocket(_, let pattern, _):
+            case .pocket(_, let pattern, _), .pocket3D(_, let pattern, _):
                 switch pattern {
                     case .trochoidal(let settings):
                         // Below ~5 % the loops get so tight that the path explodes in size.

@@ -29,10 +29,23 @@ extension SC {
         /// Islands inside this contour
         public var islands: [Contour]
 
-        public init(entities: [Chained], isClosed: Bool, islands: [Contour] = []) {
+        /// Islands of a `.pocket3D`: the Z of the island's top face, in the same coordinates as
+        /// the pass depths. Z0 is the top of the stock and going down is negative: -3 is 3 mm
+        /// below the stock top, a positive value is a boss standing above the stock top.
+        /// `nil` stands up through every layer (same as a boss).
+        ///
+        /// The value is used as given, with no `abs()`: its sign carries meaning. This differs
+        /// from `MachineSettings.targetDepth`, which is a depth and stays positive (the engine
+        /// reads its absolute value, as everywhere else).
+        ///
+        /// Only read for the islands of a `.pocket3D`; every other operation ignores it.
+        public var topZ: Double?
+
+        public init(entities: [Chained], isClosed: Bool, islands: [Contour] = [], topZ: Double? = nil) {
             self.entities = entities
             self.isClosed = isClosed
             self.islands = islands
+            self.topZ = topZ
         }
     }
 }

@@ -27,9 +27,16 @@ extension SCEngine {
     /// Containment means every sampled point of the inner contour lies inside the outer
     /// one. Contours that cross each other are not nested and stay independent pockets.
     func resolvePocketIslands(_ contours: [SC.Contour]) -> [SC.Contour] {
+        resolvePocketIslandsReportingDepth(contours).contours
+    }
+
+    /// `resolvePocketIslands`, plus the deepest nesting it found: 0 for shapes that are not
+    /// inside anything, 1 for an island, 2 for a shape inside an island. A `.pocket3D` refuses
+    /// depth 2 and up, because the height of such a shape is not defined.
+    func resolvePocketIslandsReportingDepth(_ contours: [SC.Contour]) -> (contours: [SC.Contour], maxDepth: Int) {
 
         guard contours.count > 1 else {
-            return contours
+            return (contours, 0)
         }
 
         struct Shape {
@@ -59,7 +66,7 @@ extension SCEngine {
         }
 
         guard shapes.count > 1 else {
-            return contours
+            return (contours, 0)
         }
 
         /// True when `inner` lies fully inside `outer`.
@@ -84,6 +91,8 @@ extension SCEngine {
                 containers[i].append(j)
             }
         }
+
+        let maxDepth = containers.map { $0.count }.max() ?? 0
 
         // Nesting depth is the number of containers. The direct parent is the smallest one.
         var parent: [Int?] = Array(repeating: nil, count: shapes.count)
@@ -110,7 +119,7 @@ extension SCEngine {
             }
             result.append(pocket)
         }
-        return result
+        return (result, maxDepth)
     }
 
     // MARK: - Sampling

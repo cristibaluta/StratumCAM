@@ -66,4 +66,48 @@ struct EngineTools {
             return -depth
         }
     }
+
+    /// Gives the list of layer floors of a cut from Z0 down to `-abs(targetDepth)` that has to
+    /// land exactly on every Z in `breakpoints` (e.g. the tops of the islands of a 3D pocket),
+    /// top to bottom.
+    ///
+    /// The cut is split at the breakpoints and each stretch between two of them is divided by
+    /// `calculateZPasses`: full stepdowns from the top of the stretch, then whatever remains as
+    /// the last (thinner) layer. So no layer is thicker than `stepdown` and every breakpoint is
+    /// the floor of a layer. Breakpoints are Z values as they are used for islands (Z0 = top of the stock,
+    /// negative downwards). Those that are not strictly between Z0 and the floor (within
+    /// `tolerance`) are ignored, and breakpoints closer than `tolerance` to each other count
+    /// once. With no usable breakpoint this is exactly `calculateZPasses`.
+    static func calculateLayeredZPasses(targetDepth: Double,
+                                        stepdown: Double,
+                                        breakpoints: [Double],
+                                        tolerance: Double = 1e-6) -> [Double] {
+
+        let floorZ = -abs(targetDepth)
+        guard abs(floorZ) > tolerance else {
+            return calculateZPasses(targetDepth: targetDepth, stepdown: stepdown)
+        }
+
+        // Strictly between the top of the stock and the floor, deepest last, one per distinct Z.
+        var inner: [Double] = []
+        for z in breakpoints.filter({ $0.isFinite && $0 < -tolerance && $0 > floorZ + tolerance }).sorted(by: >) {
+            if let last = inner.last, abs(last - z) <= tolerance {
+                continue
+            }
+            inner.append(z)
+        }
+
+        let levels = [0.0] + inner + [floorZ]
+        var layers: [Double] = []
+        for i in 0..<(levels.count - 1) {
+            let top = levels[i]
+            let bottom = levels[i + 1]
+            let stretch = calculateZPasses(targetDepth: top - bottom, stepdown: stepdown)
+            for (k, relative) in stretch.enumerated() {
+                // The last layer of a stretch is exactly the breakpoint, with no rounding drift.
+                layers.append(k == stretch.count - 1 ? bottom : top + relative)
+            }
+        }
+        return layers
+    }
 }

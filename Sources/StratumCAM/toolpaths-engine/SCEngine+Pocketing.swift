@@ -72,6 +72,26 @@ extension SCEngine {
                                  restCorners: restCorners(in: plan.baseSegments, toolRadius: tool.diameter / 2.0))
     }
 
+    // MARK: - Island support
+
+    /// Throws when `pattern` with `entry` can't cut around islands. Shared by `planPocket` and
+    /// the `.pocket3D` builder, which checks it up front for every island that stands.
+    func requireIslandSupport(pattern: SC.PocketClearingPattern, entry: SC.EntryStrategy) throws {
+        switch pattern {
+            case .concentric:
+                switch entry {
+                    case .plunge, .fromOpenEnd, .ramp:
+                        break
+                    case .helix:
+                        throw SC.Error.invalidParameter("islands support plunge and ramp entries only")
+                }
+            case .adaptive:
+                break // handles every entry, the helix goes in the middle of the free area
+            default:
+                throw SC.Error.invalidParameter("islands are only supported by the .concentric and .adaptive patterns")
+        }
+    }
+
     // MARK: - Pocket plan (XY only)
 
     /// Validates the inputs and plans the XY geometry of a pocket: no Z layers yet.
@@ -109,19 +129,7 @@ extension SCEngine {
         // Islands would be gouged by any pattern that doesn't know about them, so refuse
         // instead of silently cutting through.
         if !contour.islands.isEmpty {
-            switch pattern {
-                case .concentric:
-                    switch entry {
-                        case .plunge, .fromOpenEnd, .ramp:
-                            break
-                        case .helix:
-                            throw SC.Error.invalidParameter("islands support plunge and ramp entries only")
-                    }
-                case .adaptive:
-                    break // handles every entry, the helix goes in the middle of the free area
-                default:
-                    throw SC.Error.invalidParameter("islands are only supported by the .concentric and .adaptive patterns")
-            }
+            try requireIslandSupport(pattern: pattern, entry: entry)
         }
 
         var timingClock = OffsetTiming.now()

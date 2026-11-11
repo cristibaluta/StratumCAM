@@ -65,6 +65,14 @@ class DemoPocketing: Demo {
         ], isClosed: true)
     }
 
+    /// A circle at `center`; `topZ` is the height of the top face when it is an island of a
+    /// `.pocket3D` (Z0 = top of the stock, negative downwards).
+    private func circleContour(center: (Double, Double), radius: Double, topZ: Double? = nil) -> SC.Contour {
+        SC.Contour(entities: [
+            SC.Contour.Chained(geometry: .circle(center: SIMD2<Double>(center.0, center.1), radius: radius), reversed: false)
+        ], isClosed: true, topZ: topZ)
+    }
+
     /// A heart, about 40 wide, as a closed polyline of 96 vertices: an irregular shape with a
     /// notch, two lobes and a point.
     private func heartContour(scale: Double = 1.25) -> SC.Contour {
@@ -182,6 +190,42 @@ class DemoPocketing: Demo {
 
         let shapes = [rectangleContour(width: 40, height: 24)]
             + randomCircleIslands(count: 3, seed: 7, toolRadius: tool.diameter / 2.0, width: 40, height: 24)
+        return self.run(contours: shapes, tool: tool, settings: settings, operation: operation)
+    }
+
+    /// A 3D pocket: a 60x36 rectangle cleared down to Z = -8 around two round islands of
+    /// different heights, island A (top at Z = -3) and island B (top at Z = -6), passed as
+    /// plain shapes in one flat list like the auto-islands demo.
+    ///
+    /// Layers -1..-3 cut one plain rectangle (A's top is the layer that ends at -3), -4..-6 go
+    /// around A, and -7..-8 around A and B (see PLAN_3D_POCKETING, section 3.2).
+    func demoPocket3DTwoIslands() -> Demo.DemoResult {
+        let tool = SC.ToolParams(diameter: 2.0)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: 8.0)
+
+        let operation: SC.MachiningOperation = .pocket3D(direction: .climb, pattern: .concentric(direction: .insideOut), entry: .plunge)
+
+        let shapes = [rectangleContour(width: 60, height: 36),
+                      circleContour(center: (18, 18), radius: 7, topZ: -3),
+                      circleContour(center: (42, 18), radius: 6, topZ: -6)]
+        return self.run(contours: shapes, tool: tool, settings: settings, operation: operation)
+    }
+
+    /// The same 3D pocket cleared with the adaptive pattern and a helix entry: every band
+    /// starts its own helixes in the middle of the free area around the islands that stand.
+    func demoPocket3DTwoIslandsAdaptive() -> Demo.DemoResult {
+        let tool = SC.ToolParams(diameter: 2.0)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: 8.0)
+
+        let operation: SC.MachiningOperation = .pocket3D(direction: .climb,
+                                                         pattern: .adaptive(settings: SC.AdaptiveSettings(optimalLoad: 1.2)),
+                                                         entry: .helix(rampAngleDegrees: 3.0))
+
+        let shapes = [rectangleContour(width: 60, height: 36),
+                      circleContour(center: (18, 18), radius: 7, topZ: -3),
+                      circleContour(center: (42, 18), radius: 6, topZ: -6)]
         return self.run(contours: shapes, tool: tool, settings: settings, operation: operation)
     }
 

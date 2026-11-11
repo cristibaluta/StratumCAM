@@ -86,7 +86,8 @@ extension SCEngine {
                 result.append(contour)
                 continue
             }
-            result.append(self.contour(from: island))
+            // The closed island is the same shape as the open outline: it keeps its height.
+            result.append(self.contour(from: island, topZ: contour.topZ))
         }
         return result
     }
@@ -136,7 +137,7 @@ extension SCEngine {
                 loops.remove(at: index)
                 loops.append(contentsOf: pieces.filter { OffsetTools.isCCWWinding($0) })
                 // A clockwise leftover is a hole the island left in the pocket.
-                free.append(contentsOf: pieces.filter { !OffsetTools.isCCWWinding($0) }.map { self.contour(from: $0) })
+                free.append(contentsOf: pieces.filter { !OffsetTools.isCCWWinding($0) }.map { self.contour(from: $0, topZ: island.topZ) })
             }
 
             guard didMerge else {
@@ -337,8 +338,9 @@ extension SCEngine {
     }
 
     /// An `SC.Contour` that traces `segments` (a closed loop), as one closed polyline whose
-    /// arcs are carried by bulges.
-    func contour(from segments: [SC.Segment]) -> SC.Contour {
+    /// arcs are carried by bulges. `topZ` is the height of an island rebuilt from its own
+    /// outline (see `SC.Contour.topZ`).
+    func contour(from segments: [SC.Segment], topZ: Double? = nil) -> SC.Contour {
         var vertices: [SC.Geometry.Vertex] = []
         for segment in segments {
             let start = segment.startPoint
@@ -350,6 +352,7 @@ extension SCEngine {
             vertices.append(SC.Geometry.Vertex(SIMD2<Double>(start.x, start.y), bulge: bulge))
         }
         return SC.Contour(entities: [SC.Contour.Chained(geometry: .polyline(vertices: vertices, closed: true), reversed: false)],
-                          isClosed: true)
+                          isClosed: true,
+                          topZ: topZ)
     }
 }

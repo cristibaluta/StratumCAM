@@ -70,7 +70,7 @@ Input: `targetDepth` (floor), `stepdown`, and each island's `topZ` (Z0 = stock t
 3. **Layers per segment.** For each consecutive pair of breakpoints, call `calculateZPasses` on that segment's thickness and offset the result.
    - Layers never exceed `stepdown`.
    - The cut lands exactly on every island top, so each island gets an exact flat top.
-   - Layers between breakpoints are evenly split by the existing function, so there are no sliver layers except where an island top is itself very close to another breakpoint.
+   - `calculateZPasses` cuts full stepdowns from the top of the segment and leaves the remainder as the last layer (3 mm at stepdown 2 gives -2, -3, not -1.5, -3). So a segment can end in a thinner layer; it is never an extra sliver beyond that remainder, and it is exactly what `.pocket` does today. Evening out the split would change `.pocket` too, so it is left alone.
 4. **Active set for a layer that ends at `z`:** islands with `topZ > z + eps`. An island whose top is flush with `z` is already inactive, because that layer is the one that creates its top.
 5. **Bands:** consecutive layers with the same active set.
 
@@ -207,8 +207,22 @@ Rules:
 **Phase 0 — Refactor (no behaviour change) — DONE in code, not yet built**
 Split `buildPocketToolpath` into plan and emit (`PocketPlan`, `planPocket`, `pocketPassWaypoints`, `applyPocketRetractPolicy`, all in `SCEngine+Pocketing.swift`). The code was written without a Swift toolchain, so it has not been compiled. Still to do on a Mac: build, then check that every existing pocket demo gives an identical toolpath before and after (§7, test 5).
 
-**Phase 1 — Roughing, allowance = 0**
+**Phase 1 — Roughing, allowance = 0 — DONE in code, not yet built**
 `topZ`, `.pocket3D`, breakpoints and bands, per-band island merge, the band loop, validation, warnings, demo. Throw `invalidParameter("allowance")` if `allowance > 0` or `finishingPass` is on, rather than doing it wrong silently.
+
+Written without a Swift toolchain, like phase 0, so it has not been compiled or run. Where things are:
+- `SCEngine+Pocket3D.swift`: `pocket3DLayout` (breakpoints, active sets, bands) and `buildPocket3DToolpath` (the band loop).
+- `EngineTools.calculateLayeredZPasses`: the pure layer calculation.
+- `SCEngine.swift`: `.pocket3D` pre-processing (close, detect islands, reject nesting depth >= 2; no global merge) and dispatch.
+- `SCEngine+Pocketing.swift`: `requireIslandSupport`, shared by `planPocket` and the 3D builder.
+- `Pocket3D_Tests.swift`: tests 1-4 and 6-10 of section 7 (5 is the phase 0 check, 11 is phase 2b). They are in their own file, not in `Pocket_Tests.swift`.
+- Demo: `demoPocket3DTwoIslands`, `demoPocket3DTwoIslandsAdaptive`, two buttons, outlines drawn at their `topZ`. Not done: the struts from island tops to the floor, and the wedding-cake and wall-touching demos.
+
+Choices the plan left open:
+- Rest corners come from the deepest band (every island standing), so corners that only exist in a shallower band are not reported.
+- A band whose islands fill the whole pocket emits no layers; if that leaves no layers at all it throws `geometryCollapsed`.
+- Where islands split a band's pocket into several pieces, the pieces of one layer share one `ToolpathPass`, and that band keeps the full retract.
+- `islandBelowFloor` and `depthExceedsFluteLength` are the two new `Warning` cases.
 
 **Phase 2 — Stock to leave and finishing**
 - Rough with the existing "wider stand-in tool" trick for walls.

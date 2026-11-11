@@ -122,6 +122,7 @@ let toolpaths = try engine.generateToolpaths(
 | `.engrave` | any | Traces the geometry at cutter centre, no tool compensation. |
 | `.contour(side:direction:entry:leadIn:leadOut:tabs:)` | any | `side`: `.inside`, `.outside`, `.onContour`. Optional lead-in/out (`SC.LeadInOut`) and holding tabs (`SC.HoldingTab`). Lead-in is not allowed with `.ramp`/`.helix` entry. |
 | `.pocket(direction:pattern:entry:)` | closed | Islands supported with `.concentric`. See patterns below. |
+| `.pocket3D(direction:pattern:entry:)` | closed | A pocket cleared in layers where each island has its own top height (`SC.Contour.topZ`). Same patterns and island rules as `.pocket`. Roughing only for now: `allowance` must be 0 and `finishingPass` off. See below. |
 | `.facing(direction:extensionLength:)` | any | Rasters the contour's bounding box (the part footprint). Stepover is derived from tool diameter. |
 | `.slotting(depthPerPass:pattern:entry:)` | centre curve | `pattern` is `.raster` or `.trochoidal`. Helpers to derive the centreline from a slot outline: `rectangleSlotCenterline`, `openEndedSlotCenterline`, `bothEndsOpenSlotCenterline`. |
 | `.drilling(peckDepth:)` | point / closed circle | Any other closed shape drills at its bounding-box centre. `peckDepth: nil` = straight plunge. |
@@ -171,6 +172,26 @@ let toolpaths = try engine.generateToolpaths(
 ```
 
 You can also set `SC.Contour.islands` manually.
+
+### 3D pockets (islands of different heights)
+
+`.pocket3D` clears the pocket in layers from the top. Give each island a `topZ` (Z0 = top of the stock, going down is negative: `-3` is 3 mm below the stock top). Layers above an island's top cut straight over it, the layer that ends on the top leaves a flat top face, and every layer below goes around the island, down to the floor (`targetDepth`, a positive depth as everywhere else). An island with no `topZ`, or a positive one (a boss above the stock), is avoided in every layer.
+
+```swift
+var islandA = circle(center: (18, 18), radius: 7); islandA.topZ = -3
+var islandB = circle(center: (42, 18), radius: 6); islandB.topZ = -6
+
+let toolpaths = try engine.generateToolpaths(
+    from: [outerBoundary, islandA, islandB],
+    tool: tool,
+    settings: settings,   // targetDepth: 8, stepdown: 1
+    operation: .pocket3D(direction: .climb,
+                         pattern: .concentric(direction: .insideOut),
+                         entry: .plunge)
+)
+```
+
+The result is one `OutputToolpath` with all layers top to bottom. An island at or below the floor is ignored (`SC.Warning.islandBelowFloor`); islands nested inside islands are rejected.
 
 ### Other examples
 
