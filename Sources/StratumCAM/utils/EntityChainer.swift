@@ -94,7 +94,8 @@ public enum EntityChainer {
 
         for i in remaining.indices where !remaining[i].used {
             contours.append(
-                SC.Contour(entities: [SC.Contour.Chained(geometry: remaining[i].geometry, reversed: false)], isClosed: true)
+                SC.Contour(entities: [SC.Contour.Chained(geometry: remaining[i].geometry, reversed: false)],
+                           isClosed: true)
             )
             remaining[i].used = true
         }

@@ -139,7 +139,7 @@ extension SC.Contour {
             for p in points {
                 farthest = max(farthest, hypot(p.x - point.x, p.y - point.y))
                 if let a = previous {
-                    nearest = min(nearest, Self.distance(from: point, toSegment: a, p))
+                    nearest = min(nearest, point.distanceToSegment(a, p))
                 }
                 previous = p
             }
@@ -149,16 +149,5 @@ extension SC.Contour {
             return nil
         }
         return (nearest, farthest)
-    }
-
-    private static func distance(from point: CGPoint, toSegment a: CGPoint, _ b: CGPoint) -> Double {
-        let dx = b.x - a.x
-        let dy = b.y - a.y
-        let lengthSquared = dx * dx + dy * dy
-        guard lengthSquared > 1e-18 else {
-            return hypot(point.x - a.x, point.y - a.y)
-        }
-        let t = max(0, min(1, ((point.x - a.x) * dx + (point.y - a.y) * dy) / lengthSquared))
-        return hypot(point.x - (a.x + t * dx), point.y - (a.y + t * dy))
     }
 }
