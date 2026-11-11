@@ -10,9 +10,9 @@ import Foundation
 extension SC {
 
     /// How the tool eases onto and off of a profile cut, instead of engaging or disengaging the wall directly.
-    public struct LeadInOut: Sendable, Equatable {
+    public struct LeadInOut: Sendable, Equatable, Hashable, Codable {
 
-        public enum Style: Sendable, Equatable {
+        public enum Style: Sendable, Equatable, Hashable, Codable {
             case linear(length: Double)
             /// A tangent arc. The magnitude of `sweepAngleDegrees` is the arc's sweep; its sign picks the
             /// side the arc swings to: positive (default) puts it in the free space beside the wall,
@@ -37,6 +37,20 @@ extension SC {
             self.style = style
             self.feedRate = feedRate
             self.positionRatio = positionRatio
+        }
+
+        private enum CodingKeys: String, CodingKey {
+            case style, feedRate, positionRatio, angleDegrees
+        }
+
+        /// `positionRatio` and `angleDegrees` are optional, so a lead saved before they
+        /// existed still decodes (with 0, like the initializer's defaults).
+        public init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            style = try container.decode(Style.self, forKey: .style)
+            feedRate = try container.decode(Double.self, forKey: .feedRate)
+            positionRatio = try container.decodeIfPresent(Double.self, forKey: .positionRatio) ?? 0
+            angleDegrees = try container.decodeIfPresent(Double.self, forKey: .angleDegrees) ?? 0
         }
     }
 }
