@@ -10,6 +10,27 @@ import CoreGraphics
 
 extension SCEngine {
 
+    /// Everything about a pocket that depends on XY only: the tool-centre path, the wall, the
+    /// island groups and the helix data. It is planned once and then reused for every Z layer
+    /// (`pocketPassWaypoints`), so a caller that needs several Z ranges (see PLAN_3D_POCKETING)
+    /// can plan once per range.
+    struct PocketPlan {
+        /// The pocket wall as given (linearised), before any orientation or offset.
+        var baseSegments: [SC.Segment]
+        /// The tool-centre path, all groups joined.
+        var toolpathSegments: [SC.Segment]
+        /// The real, closed pocket-wall boundary (the wall offset for `.raster`).
+        var boundarySegments: [SC.Segment]
+        /// Set when islands split the toolpath into separately-plunged groups.
+        var islandGroups: [[SC.Segment]]?
+        /// Adaptive only: the helix each group starts with, if any (same order as `islandGroups`).
+        var groupHelices: [(center: CGPoint, radius: Double, startAngle: Double, isCCW: Bool)?]
+        /// Where the tool centre may be; only filled for a helix entry.
+        var toolCenterRegion: [SC.Segment]
+        /// Which way the cut winds; only meaningful for a helix entry.
+        var helixIsCCW: Bool
+    }
+
     func buildPocketToolpath(for contour: SC.Contour,
                              tool: SC.ToolParams,
                              settings: SC.MachineSettings,
@@ -17,6 +38,49 @@ extension SCEngine {
                              pattern: SC.PocketClearingPattern,
                              entry: SC.EntryStrategy,
                              operation: SC.MachiningOperation) throws -> SC.OutputToolpath {
+
+        let plan = try planPocket(for: contour,
+                                  tool: tool,
+                                  settings: settings,
+                                  direction: direction,
+                                  pattern: pattern,
+                                  entry: entry)
+
+        var timingClock = OffsetTiming.now()
+        let zDepths = EngineTools.calculateZPasses(targetDepth: settings.targetDepth, stepdown: settings.cutting.stepdown)
+
+        var passes: [SC.ToolpathPass] = []
+        var previousZ = 0.0 // top of stock -- pass 0 ramps/helixes down from here, same convention `.contour` uses.
+        for (i, z) in zDepths.enumerated() {
+            let waypoints = pocketPassWaypoints(plan: plan,
+                                                toolRadius: tool.diameter / 2.0,
+                                                atZ: z,
+                                                previousZ: previousZ,
+                                                settings: settings,
+                                                entry: entry)
+            passes.append(SC.ToolpathPass(passIndex: i, depthZ: z, waypoints: waypoints))
+            OffsetTiming.log("[pocket] pass \(i) entry waypoints: \(OffsetTiming.lap(&timingClock)) ms (\(waypoints.count) waypoints)")
+            previousZ = z
+        }
+
+        applyPocketRetractPolicy(to: &passes, plan: plan, pattern: pattern, tool: tool, settings: settings)
+
+        return SC.OutputToolpath(operation: operation,
+                                 tool: tool,
+                                 settings: settings,
+                                 passes: passes,
+                                 restCorners: restCorners(in: plan.baseSegments, toolRadius: tool.diameter / 2.0))
+    }
+
+    // MARK: - Pocket plan (XY only)
+
+    /// Validates the inputs and plans the XY geometry of a pocket: no Z layers yet.
+    func planPocket(for contour: SC.Contour,
+                    tool: SC.ToolParams,
+                    settings: SC.MachineSettings,
+                    direction: SC.CutDirection,
+                    pattern: SC.PocketClearingPattern,
+                    entry: SC.EntryStrategy) throws -> PocketPlan {
 
         guard contour.isClosed else {
             throw SC.Error.contourNotClosed
@@ -241,8 +305,6 @@ extension SCEngine {
         }
         OffsetTiming.log("[pocket] \(pattern) toolpath segments: \(OffsetTiming.lap(&timingClock)) ms (\(toolpathSegments.count) segments)")
 
-        let zDepths = EngineTools.calculateZPasses(targetDepth: settings.targetDepth, stepdown: settings.cutting.stepdown)
-
         // Where the tool centre may be (the wall offset by the tool radius) and which way the
         // cut winds -- only a helix entry needs them, to place its circle inside the pocket.
         var toolCenterRegion: [SC.Segment] = []
@@ -260,62 +322,72 @@ extension SCEngine {
 
         OffsetTiming.log("[pocket] tool-centre region: \(OffsetTiming.lap(&timingClock)) ms")
 
-        var passes: [SC.ToolpathPass] = []
-        var previousZ = 0.0 // top of stock -- pass 0 ramps/helixes down from here, same convention `.contour` uses.
-        for (i, z) in zDepths.enumerated() {
-            let waypoints: [SC.Waypoint]
-            if let groups = islandGroups {
-                // Each group is entered and retracted on its own so no move crosses an island.
-                var all: [SC.Waypoint] = []
-                for (index, group) in groups.enumerated() {
-                    if case .helix(let angleDegrees) = entry, index < groupHelices.count, let helix = groupHelices[index] {
-                        all.append(contentsOf: buildHelixGroupWaypoints(for: group,
-                                                                        helix: helix,
-                                                                        angleDegrees: angleDegrees,
-                                                                        atZ: z,
-                                                                        previousZ: previousZ,
-                                                                        settings: settings))
-                    } else {
-                        all.append(contentsOf: buildIslandGroupWaypoints(for: group, atZ: z, previousZ: previousZ, settings: settings, entry: entry))
-                    }
-                }
-                waypoints = all
-            } else {
-                waypoints = buildEntryWaypoints(for: toolpathSegments,
-                                                boundary: boundarySegments,
-                                                toolRadius: tool.diameter / 2.0,
-                                                toolCenterRegion: toolCenterRegion,
-                                                helixIsCCW: helixIsCCW,
-                                                atZ: z,
-                                                previousZ: previousZ,
-                                                settings: settings,
-                                                entry: entry)
-            }
-            passes.append(SC.ToolpathPass(passIndex: i, depthZ: z, waypoints: waypoints))
-            OffsetTiming.log("[pocket] pass \(i) entry waypoints: \(OffsetTiming.lap(&timingClock)) ms (\(waypoints.count) waypoints)")
-            previousZ = z
-        }
+        return PocketPlan(baseSegments: baseSegments,
+                          toolpathSegments: toolpathSegments,
+                          boundarySegments: boundarySegments,
+                          islandGroups: islandGroups,
+                          groupHelices: groupHelices,
+                          toolCenterRegion: toolCenterRegion,
+                          helixIsCCW: helixIsCCW)
+    }
 
+    // MARK: - Pocket pass (one Z layer)
+
+    /// The waypoints of one Z layer of a planned pocket, entry included.
+    func pocketPassWaypoints(plan: PocketPlan,
+                             toolRadius: Double,
+                             atZ z: Double,
+                             previousZ: Double,
+                             settings: SC.MachineSettings,
+                             entry: SC.EntryStrategy) -> [SC.Waypoint] {
+        if let groups = plan.islandGroups {
+            // Each group is entered and retracted on its own so no move crosses an island.
+            var all: [SC.Waypoint] = []
+            for (index, group) in groups.enumerated() {
+                if case .helix(let angleDegrees) = entry, index < plan.groupHelices.count, let helix = plan.groupHelices[index] {
+                    all.append(contentsOf: buildHelixGroupWaypoints(for: group,
+                                                                    helix: helix,
+                                                                    angleDegrees: angleDegrees,
+                                                                    atZ: z,
+                                                                    previousZ: previousZ,
+                                                                    settings: settings))
+                } else {
+                    all.append(contentsOf: buildIslandGroupWaypoints(for: group, atZ: z, previousZ: previousZ, settings: settings, entry: entry))
+                }
+            }
+            return all
+        }
+        return buildEntryWaypoints(for: plan.toolpathSegments,
+                                   boundary: plan.boundarySegments,
+                                   toolRadius: toolRadius,
+                                   toolCenterRegion: plan.toolCenterRegion,
+                                   helixIsCCW: plan.helixIsCCW,
+                                   atZ: z,
+                                   previousZ: previousZ,
+                                   settings: settings,
+                                   entry: entry)
+    }
+
+    /// Shortcuts between layers (`RetractPolicy`), for a plan without islands.
+    func applyPocketRetractPolicy(to passes: inout [SC.ToolpathPass],
+                                  plan: PocketPlan,
+                                  pattern: SC.PocketClearingPattern,
+                                  tool: SC.ToolParams,
+                                  settings: SC.MachineSettings) {
         // Islands stand in the way of any shortcut between layers, so they keep the full retract.
-        if settings.retractPolicy != .safeZ, islandGroups == nil {
+        if settings.retractPolicy != .safeZ, plan.islandGroups == nil {
             // Where the tool centre may travel: already the wall offset for raster and for
             // helix entries, otherwise offset it here.
-            var travelRegion = toolCenterRegion
+            var travelRegion = plan.toolCenterRegion
             if travelRegion.isEmpty {
                 if case .raster = pattern {
-                    travelRegion = boundarySegments
+                    travelRegion = plan.boundarySegments
                 } else {
-                    travelRegion = offsetContour(boundarySegments, side: .inside, toolRadius: tool.diameter / 2.0, isClosed: true)
+                    travelRegion = offsetContour(plan.boundarySegments, side: .inside, toolRadius: tool.diameter / 2.0, isClosed: true)
                 }
             }
             applyRetractPolicy(to: &passes, settings: settings, within: travelRegion)
         }
-
-        return SC.OutputToolpath(operation: operation,
-                                 tool: tool,
-                                 settings: settings,
-                                 passes: passes,
-                                 restCorners: restCorners(in: baseSegments, toolRadius: tool.diameter / 2.0))
     }
 
     // MARK: - Pocket entry
