@@ -198,3 +198,45 @@ extension SC {
     }
 
 }
+
+extension SC.MachiningOperation {
+
+    /// Which kind of operation this is, without its parameters.
+    ///
+    /// `MachiningOperation` carries its parameters as associated values, so it can't be
+    /// stored as a plain tag, listed, or used as an identifier. `Kind` is that tag: one case
+    /// per `MachiningOperation` case, with the same names. Apps use it to persist the chosen
+    /// operation, populate pickers and key per-operation data (defaults, icons, help text).
+    public enum Kind: String, CaseIterable, Codable, Hashable, Sendable, Identifiable {
+        case facing
+        case slotting
+        case threadMilling
+        case engrave
+        case contour
+        case pocket
+        case drilling
+        case chamfer
+        case boring
+        case counterbore
+
+        public var id: String {
+            rawValue
+        }
+    }
+
+    /// The kind of this operation, whatever its parameters.
+    public var kind: Kind {
+        switch self {
+            case .facing:        return .facing
+            case .slotting:      return .slotting
+            case .threadMilling: return .threadMilling
+            case .engrave:       return .engrave
+            case .contour:       return .contour
+            case .pocket:        return .pocket
+            case .drilling:      return .drilling
+            case .chamfer:       return .chamfer
+            case .boring:        return .boring
+            case .counterbore:   return .counterbore
+        }
+    }
+}
