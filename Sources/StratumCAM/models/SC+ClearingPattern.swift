@@ -67,7 +67,7 @@ extension SC {
     /// This controls the ordering of the spiral passes, not the cutting
     /// direction (`climb` / `conventional`), which is controlled separately
     /// by `MachiningOperation`.
-    public enum SpiralDirection: String, Sendable, Codable, Equatable {
+    public enum SpiralDirection: String, CaseIterable, Sendable, Codable, Equatable {
 
         /// Opening turn holds at the innermost radius; closing turn holds
         /// at the outer (wall) radius.
@@ -260,5 +260,35 @@ extension SC {
         /// - Standard Use: Deep narrow slots, channels, keyways, and other
         ///   narrow regions requiring controlled radial engagement.
         case trochoidal(settings: TrochoidalSettings)
+    }
+}
+
+extension SC.PocketClearingPattern {
+
+    /// Which pattern this is, without its parameters (spiral direction, trochoidal or
+    /// adaptive settings). Lets apps store, list and label the choice on its own.
+    public enum Kind: String, CaseIterable, Codable, Hashable, Sendable, Identifiable {
+        case offset
+        case concentric
+        case raster
+        case spiral
+        case trochoidal
+        case adaptive
+
+        public var id: String {
+            rawValue
+        }
+    }
+
+    /// The kind of this pattern, whatever its parameters.
+    public var kind: Kind {
+        switch self {
+            case .offset:     return .offset
+            case .concentric: return .concentric
+            case .raster:     return .raster
+            case .spiral:     return .spiral
+            case .trochoidal: return .trochoidal
+            case .adaptive:   return .adaptive
+        }
     }
 }

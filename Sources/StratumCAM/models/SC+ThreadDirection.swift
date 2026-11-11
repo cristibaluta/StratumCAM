@@ -10,7 +10,7 @@ import Foundation
 extension SC {
 
     /// Defines the handedness of a thread being milled.
-    public enum ThreadDirection: String, Sendable, Codable, Equatable {
+    public enum ThreadDirection: String, CaseIterable, Sendable, Codable, Equatable {
 
         /// A standard right-hand thread: winds clockwise when viewed from the end
         /// the tool is advancing away from, i.e. the helix advances upward (+Z)

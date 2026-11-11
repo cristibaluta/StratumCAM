@@ -10,7 +10,7 @@ import Foundation
 extension SC {
 
     /// Defines the relative direction between cutter rotation and tool feed.
-    public enum CutDirection: String, Sendable, Codable, Equatable {
+    public enum CutDirection: String, CaseIterable, Sendable, Codable, Equatable {
 
         /// Cutter rotates WITH the direction of feed (thick chip to thin chip).
         ///
