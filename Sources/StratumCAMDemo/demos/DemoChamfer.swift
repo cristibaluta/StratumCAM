@@ -28,14 +28,15 @@ class DemoChamfer: Demo {
 
     // MARK: - Top edge
 
-    /// The contour is the bevel's UPPER edge: the bevel starts on it at Z 0 and descends outward,
-    /// so the toolpath sits one bevel width outside the outline. 90 degree V-bit, so width and
-    /// depth are both 1.5mm. Three stepdown passes on the SAME XY path -- only Z changes, and the
-    /// bevel widens with each pass until the last one reaches the outline.
+    /// The contour is the edge on the top surface (Z 0). The bevel is cut from Z 0 down by its
+    /// depth and the tool tip finishes ON the outline, so with a sharp tip and no tip offset the
+    /// tool center follows the outline itself. 90 degree V-bit, so width and depth are both
+    /// 0.5mm. Stepdown passes on the SAME XY path -- only Z changes, and the bevel widens with
+    /// each pass until the last one.
     func demoChamferTopEdge() -> Demo.DemoResult {
-        let fluteLength = (3.175 - 0) / 2 / tan(90 / 2) // 1.59
-        let tool = SC.ToolParams(name: "90° V-bit", type: .vBit, diameter: 3.175, vAngle: 90.0, fluteLength: fluteLength)
-        let params = SC.ChamferParams(width: 0.5, side: .outside, direction: .climb, edge: .top)
+        let fluteLength = (3.175 - 0) / 2 / tan((90.0 / 2).degreesToRadians) // 1.59
+        let tool = SC.ToolParams(name: "90° V-bit", type: .vBit, diameter: 3.175, vAngle: 90.0, tipWidth: 0, fluteLength: fluteLength)
+        let params = SC.ChamferParams(width: 0.5, side: .outside, direction: .climb, edge: .top, tipOffset: 0)
 
         return run(contour: rectangleContour(),
                    tool: tool,
@@ -49,19 +50,27 @@ class DemoChamfer: Demo {
     /// below the stock top. The bevel is cut from the top down and ends on the outline: the tool
     /// center follows the outline itself (sharp tip) and only Z steps down.
     func demoChamferBottomEdge() -> Demo.DemoResult {
-        let tool = SC.ToolParams(name: "90° V-bit", type: .vBit, diameter: 6.0, vAngle: 90.0)
-        let params = SC.ChamferParams(width: 1.5, side: .outside, direction: .climb, edge: .bottom)
+        let fluteLength = (3.175 - 0) / 2 / tan((90.0 / 2).degreesToRadians) // 1.59
+        let tool = SC.ToolParams(name: "90° V-bit", type: .vBit, diameter: 3.175, vAngle: 90.0, tipWidth: 0, fluteLength: fluteLength)
+        let params = SC.ChamferParams(width: 0.5, side: .outside, direction: .climb, edge: .bottom, tipOffset: 0)
 
-        return run(contour: rectangleContour(), tool: tool, settings: settings(stepdown: 0.5), operation: .chamfer(params: params))
+        return run(contour: rectangleContour(),
+                   tool: tool,
+                   settings: settings(stepdown: 0.1),
+                   operation: .chamfer(params: params))
     }
 
     /// Bottom edge of a wall that sits 4mm below the stock top (`edgeZ` = -4): the bevel runs from
     /// Z -4 up to Z -2.5, and the tool tip finishes at -4. Conventional direction.
     func demoChamferBottomEdgeAtDepth() -> Demo.DemoResult {
-        let tool = SC.ToolParams(name: "90° V-bit", type: .vBit, diameter: 6.0, vAngle: 90.0)
-        let params = SC.ChamferParams(width: 1.5, side: .outside, direction: .conventional, edge: .bottom, edgeZ: -4.0)
+        let fluteLength = (3.175 - 0) / 2 / tan((90.0 / 2).degreesToRadians) // 1.59
+        let tool = SC.ToolParams(name: "90° V-bit", type: .vBit, diameter: 3.175, vAngle: 90.0, tipWidth: 0, fluteLength: fluteLength)
+        let params = SC.ChamferParams(width: 0.5, side: .outside, direction: .conventional, edge: .bottom, edgeZ: -2.0, tipOffset: 0)
 
-        return run(contour: rectangleContour(), tool: tool, settings: settings(stepdown: 0.75), operation: .chamfer(params: params))
+        return run(contour: rectangleContour(),
+                   tool: tool,
+                   settings: settings(stepdown: 0.1),
+                   operation: .chamfer(params: params))
     }
 
     // MARK: - Inside
@@ -69,10 +78,14 @@ class DemoChamfer: Demo {
     /// Breaks the rim of a rectangular opening: the tool works inside the outline, the contour is the
     /// bevel's top edge, the bevel descends toward the tool.
     func demoChamferInsideRim() -> Demo.DemoResult {
-        let tool = SC.ToolParams(name: "90° V-bit", type: .vBit, diameter: 6.0, vAngle: 90.0)
-        let params = SC.ChamferParams(width: 1.0, side: .inside, direction: .climb, edge: .top)
+        let fluteLength = (3.175 - 0) / 2 / tan((90.0 / 2).degreesToRadians) // 1.59
+        let tool = SC.ToolParams(name: "90° V-bit", type: .vBit, diameter: 3.175, vAngle: 90.0, tipWidth: 0, fluteLength: fluteLength)
+        let params = SC.ChamferParams(width: 0.5, side: .inside, direction: .climb, edge: .top, tipOffset: 0.5)
 
-        return run(contour: rectangleContour(), tool: tool, settings: settings(stepdown: 0.5), operation: .chamfer(params: params))
+        return run(contour: rectangleContour(),
+                   tool: tool,
+                   settings: settings(stepdown: 0.5),
+                   operation: .chamfer(params: params))
     }
 
     // MARK: - Other tools
@@ -80,28 +93,24 @@ class DemoChamfer: Demo {
     /// A 60 degree V-bit: the bevel is steeper, so a 1mm wide bevel is 1.73mm deep (width and depth
     /// are equal only for a 90 degree bit). The tool's flank is 5.2mm tall.
     func demoChamfer60DegreeBit() -> Demo.DemoResult {
-        let tool = SC.ToolParams(name: "60° V-bit", type: .vBit, diameter: 6.0, vAngle: 60.0)
-        let params = SC.ChamferParams(width: 1.0, side: .outside, direction: .climb, edge: .top)
+        let fluteLength = (3.175 - 0.3) / 2 / tan((60.0 / 2).degreesToRadians) //
+        let tool = SC.ToolParams(name: "60° V-bit 0.3mm tip", type: .vBit, diameter: 3.175, vAngle: 60.0, tipWidth: 0.3, fluteLength: fluteLength)
+        let params = SC.ChamferParams(width: 1.0, side: .outside, direction: .climb, edge: .top, tipOffset: 0)
 
-        return run(contour: rectangleContour(), tool: tool, settings: settings(stepdown: 0.6), operation: .chamfer(params: params))
+        return run(contour: rectangleContour(),
+                   tool: tool,
+                   settings: settings(stepdown: 0.1),
+                   operation: .chamfer(params: params))
     }
 
-    /// A V-bit with a 1mm flat at its tip, cut with the flank 0.5mm above the tip (`tipOffset`):
-    /// the tip runs 0.5mm below the bevel's bottom and the tool center sits further out to match.
-    /// Flank height = (6 - 1) / 2 = 2.5mm, bevel 1mm + offset 0.5mm fits.
     func demoChamferTipFlatAndTipOffset() -> Demo.DemoResult {
-        let tool = SC.ToolParams(name: "90° V-bit, 1mm tip", type: .vBit, diameter: 6.0, vAngle: 90.0, tipWidth: 1.0)
-        let params = SC.ChamferParams(width: 1.0, side: .outside, direction: .climb, edge: .top, tipOffset: 0.5)
+        let fluteLength = (3.175 - 0) / 2 / tan((90.0 / 2).degreesToRadians) // 1.59
+        let tool = SC.ToolParams(name: "90° V-bit", type: .vBit, diameter: 3.175, vAngle: 90.0, tipWidth: 0, fluteLength: fluteLength)
+        let params = SC.ChamferParams(width: 0.5, side: .outside, direction: .climb, edge: .top, tipOffset: 0.5)
 
-        return run(contour: rectangleContour(), tool: tool, settings: settings(stepdown: 0.5), operation: .chamfer(params: params))
-    }
-
-    /// A single full-depth pass (stepdown 0 = no stepping): same bevel as `demoChamferTopEdge` in
-    /// one lap.
-    func demoChamferSinglePass() -> Demo.DemoResult {
-        let tool = SC.ToolParams(name: "90° V-bit", type: .vBit, diameter: 6.0, vAngle: 90.0)
-        let params = SC.ChamferParams(width: 1.5, side: .outside, direction: .climb, edge: .top)
-
-        return run(contour: rectangleContour(), tool: tool, settings: settings(stepdown: 0), operation: .chamfer(params: params))
+        return run(contour: rectangleContour(),
+                   tool: tool,
+                   settings: settings(stepdown: 0.1),
+                   operation: .chamfer(params: params))
     }
 }

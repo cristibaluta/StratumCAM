@@ -8,7 +8,7 @@
 import Foundation
 
 extension Double {
-    var degreesToRadians: Double {
+    public var degreesToRadians: Double {
         return self * .pi / 180
     }
 }

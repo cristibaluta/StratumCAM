@@ -13,18 +13,22 @@ extension SCEngine {
     /// Cuts a bevel with a V-bit's angled flank.
     ///
     /// The tool follows ONE path around the contour, at a fixed XY offset, and only Z changes from
-    /// pass to pass. The offset is the one at which the FINAL pass puts the flank exactly on the
-    /// bevel (θ = half the V-bit angle, t = the tool's tip flat, h0 = `tipOffset`, z0 = Z of the
-    /// selected contour, zTip = the final tip Z):
+    /// pass to pass. The final pass plunges the tool tip ON the selected contour, so the offset
+    /// does not depend on the bevel's size, only on the tool and on `tipOffset` (θ = half the V-bit
+    /// angle, t = the tool's tip flat, h0 = `tipOffset`):
     ///
-    ///     offset = t/2 + (z0 - zTip) * tan θ
+    ///     offset = t/2 + h0 * tan θ
     ///
-    /// - `.bottom` edge (contour = the wall at the bevel's lower end): zTip = z0 - h0, so with a
-    ///   sharp tip the tool center runs ON the contour; a tip flat moves it out by t/2 (the flat's
-    ///   outer corner then touches the edge), a tip offset by h0 * tan θ more. The bevel is cut
-    ///   from the top down and ends on the edge.
-    /// - `.top` edge (contour = the bevel's upper edge): the tool runs one bevel width (plus the
-    ///   same tip terms) away from the contour, toward the tool side.
+    /// A sharp tip with no tip offset therefore runs with the tool center exactly on the contour;
+    /// a tip flat moves it out by t/2 (the flat's outer corner then touches the edge) and a tip
+    /// offset by h0 * tan θ more, in the direction of the tool side.
+    ///
+    /// The bevel itself lies on the other side of the contour, rising from the edge and running
+    /// back toward the part:
+    /// - `.bottom` edge (contour = the wall at the bevel's lower end): the bevel is cut from
+    ///   `edgeZ + depth` down to `edgeZ`, the tip finishes at `edgeZ - h0`.
+    /// - `.top` edge (contour = the edge on the top surface, at `edgeZ`, default 0): the bevel is
+    ///   cut from `edgeZ` down to `edgeZ - depth`, the tip finishes at `edgeZ - depth - h0`.
     ///
     /// A shallower tip makes a smaller cone that sits inside the final one, so the stepdown passes
     /// never gouge: every pass removes a wedge and the last one leaves the finished bevel.
@@ -52,13 +56,10 @@ extension SCEngine {
 
         let tanHalf = tan((vAngle / 2.0).degreesToRadians)
         let range = params.bevelZRange(depth: bevel.depth)
-        // Z of the selected contour: the bevel's top for a top edge, its bottom for a bottom edge.
-        let contourZ = (params.edge == .top) ? range.top : range.bottom
 
-        // The fixed tool-center offset, taken from the final pass (the tip `tipOffset` below the
-        // bevel's bottom).
-        let finalTipZ = range.bottom - params.tipOffset
-        let centerOffset = max(tool.tipWidth / 2 + (contourZ - finalTipZ) * tanHalf, 0)
+        // The fixed tool-center offset: the final pass puts the tip on the contour, so only the
+        // tip flat and the tip offset move the tool center away from it.
+        let centerOffset = max(tool.tipWidth / 2 + params.tipOffset * tanHalf, 0)
 
         // Orient the chain so travel direction matches the requested climb/conventional cut,
         // same as `.contour`, then offset it once for all passes.

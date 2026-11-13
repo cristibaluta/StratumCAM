@@ -12,12 +12,12 @@ extension SC {
     /// Which end of the bevel the selected contour marks.
     public enum ChamferEdge: String, Sendable, Codable, Equatable, CaseIterable {
 
-        /// The contour is the bevel's UPPER edge. The bevel starts at the contour (at `edgeZ`,
-        /// the top surface by default) and runs down and away from it, toward the tool's `side`.
+        /// The contour is the edge on the top surface, at `edgeZ` (default 0). The bevel is cut from
+        /// `edgeZ` down by its depth; the tool tip finishes on the contour, at the bevel's bottom.
         case top
 
-        /// The contour is the bevel's LOWER edge -- typically the part's wall. The bevel starts
-        /// at the contour and runs up and away from it, to the side opposite the tool.
+        /// The contour is the bevel's LOWER edge -- typically the part's wall. The tool tip finishes
+        /// on the contour and the bevel runs up and away from it, to the side opposite the tool.
         case bottom
     }
 
@@ -43,7 +43,8 @@ extension SC {
         public var edge: ChamferEdge
 
         /// Z of the selected contour (mm, 0 = top of the stock, negative = below it).
-        /// - `.top`: the bevel starts here and goes down by its depth. Default 0.
+        /// - `.top`: the bevel starts here and goes down by its depth (the tip finishes below
+        ///   it by `depth`). Default 0.
         /// - `.bottom`: the bevel ENDS here: it is cut from `edgeZ + depth` (the top) down to
         ///   `edgeZ`. Default (nil) is `-depth`, which puts the top of the bevel on the stock's
         ///   top surface (Z = 0) -- the edge itself sits below the stock top.
@@ -52,7 +53,8 @@ extension SC {
         /// Which part of the tool's angled flank makes the bevel: the height (mm, along the
         /// tool axis) above the tool tip at which the bevel's lowest point is cut. 0 uses the
         /// tip; a larger value cuts with the flank higher up, which spreads the wear and moves
-        /// the tool center away from the edge by `tipOffset * tan(vAngle / 2)`.
+        /// the tool center away from the contour by `tipOffset * tan(vAngle / 2)`
+        /// (added to `tipWidth / 2`, the offset of a tool with a flat tip).
         /// `tipOffset + depth` must not exceed `ToolParams.flankHeight`.
         public var tipOffset: Double
 

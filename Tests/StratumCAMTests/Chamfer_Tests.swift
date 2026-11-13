@@ -110,10 +110,10 @@ struct Chamfer_Tests {
 
     // MARK: - Offset direction
 
-    @Test("Outside chamfer offsets the bevel away from the contour")
+    @Test("Outside chamfer puts the tool center outside the contour")
     func testChamferOutsideOffsetsAwayFromContour() throws {
         let engine = SCEngine()
-        let tool = SC.ToolParams(type: .vBit, diameter: 6.0, vAngle: 90.0)
+        let tool = SC.ToolParams(type: .vBit, diameter: 6.0, vAngle: 90.0, tipWidth: 2.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4), safeZ: 5.0, targetDepth: -1.0)
         let params = SC.ChamferParams(width: 1.0, side: .outside, direction: .conventional)
 
@@ -124,17 +124,17 @@ struct Chamfer_Tests {
         #expect(toolpaths.count == 1)
         let box = bbox(toolpaths[0].passes[0].waypoints)
 
-        // width 1.0 at 90deg -> horizontal reach 1.0 -> bbox expands to [-1, 11] on both axes.
+        // tipWidth 2 -> center offset 1.0 -> bbox expands to [-1, 11] on both axes.
         #expect(box.minX ~= -1.0, "Test Failed: outside chamfer minX mismatch")
         #expect(box.maxX ~= 11.0, "Test Failed: outside chamfer maxX mismatch")
         #expect(box.minY ~= -1.0, "Test Failed: outside chamfer minY mismatch")
         #expect(box.maxY ~= 11.0, "Test Failed: outside chamfer maxY mismatch")
     }
 
-    @Test("Inside chamfer offsets the bevel toward the contour center")
+    @Test("Inside chamfer puts the tool center inside the contour")
     func testChamferInsideOffsetsTowardContourCenter() throws {
         let engine = SCEngine()
-        let tool = SC.ToolParams(type: .vBit, diameter: 6.0, vAngle: 90.0)
+        let tool = SC.ToolParams(type: .vBit, diameter: 6.0, vAngle: 90.0, tipWidth: 2.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4), safeZ: 5.0, targetDepth: -1.0)
         let params = SC.ChamferParams(width: 1.0, side: .inside, direction: .conventional)
 
@@ -142,7 +142,7 @@ struct Chamfer_Tests {
         #expect(toolpaths.count == 1)
         let box = bbox(toolpaths[0].passes[0].waypoints)
 
-        // width 1.0 at 90deg -> horizontal reach 1.0 -> bbox shrinks to [1, 9] on both axes.
+        // tipWidth 2 -> center offset 1.0 -> bbox shrinks to [1, 9] on both axes.
         #expect(box.minX ~= 1.0, "Test Failed: inside chamfer minX mismatch")
         #expect(box.maxX ~= 9.0, "Test Failed: inside chamfer maxX mismatch")
         #expect(box.minY ~= 1.0, "Test Failed: inside chamfer minY mismatch")
@@ -154,7 +154,7 @@ struct Chamfer_Tests {
     @Test("Chamfer honors climb vs conventional direction")
     func testChamferHonorsDirection() throws {
         let engine = SCEngine()
-        let tool = SC.ToolParams(type: .vBit, diameter: 6.0, vAngle: 90.0)
+        let tool = SC.ToolParams(type: .vBit, diameter: 6.0, vAngle: 90.0, tipWidth: 2.0)
         let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4), safeZ: 5.0, targetDepth: -1.0)
 
         let climbParams = SC.ChamferParams(width: 1.0, side: .outside, direction: .conventional)
@@ -245,13 +245,13 @@ struct Chamfer_Tests {
                                          operation: .chamfer(params: params))[0].passes
     }
 
-    @Test("Top edge: the bevel starts at the contour's Z and descends; tip ends one depth lower")
+    @Test("Top edge: the bevel starts at the contour's Z and descends; the tip ends one depth lower, on the contour")
     func testTopEdgeStartsAtEdgeZ() throws {
         let p = try passes(SC.ChamferParams(width: 1.0, side: .outside, edge: .top, edgeZ: -2.0))
         #expect(p.count == 1)
         #expect(p[0].depthZ ~= -3.0, "Test Failed: top edge at Z -2 with depth 1 should put the tip at -3")
         let box = bbox(p[0].waypoints)
-        #expect(box.minX ~= -1.0 && box.maxX ~= 11.0, "Test Failed: tool center should sit one bevel width outside the top edge")
+        #expect(box.minX ~= 0.0 && box.maxX ~= 10.0, "Test Failed: sharp tip, no tip offset -> tool center runs on the contour")
     }
 
     @Test("Bottom edge: the tool tip sits ON the contour at the bevel's bottom, the bevel rises from there")
@@ -273,19 +273,31 @@ struct Chamfer_Tests {
 
     // MARK: - Tip offset and tip flat
 
-    @Test("Tip offset moves the cut up the flank: tip goes lower, tool center moves further out")
+    @Test("Tip offset moves the cut up the flank: tip goes lower, tool center moves out by tipOffset * tan(half angle)")
     func testTipOffset() throws {
         let p = try passes(SC.ChamferParams(width: 1.0, side: .outside, edge: .top, tipOffset: 1.0))
         #expect(p[0].depthZ ~= -2.0, "Test Failed: tip should be tipOffset below the bevel's bottom")
         let box = bbox(p[0].waypoints)
-        #expect(box.minX ~= -2.0 && box.maxX ~= 12.0, "Test Failed: flank radius grows by tipOffset, so the center moves out by it")
+        #expect(box.minX ~= -1.0 && box.maxX ~= 11.0, "Test Failed: center offset is tipOffset * tan(45deg) = 1 outside the contour")
     }
 
     @Test("A tip flat widens the tool-center offset by half its width")
     func testTipFlatOffsetsToolCenter() throws {
         let p = try passes(SC.ChamferParams(width: 1.0, side: .outside, edge: .top), tool: tool90(tipWidth: 1.0))
         let box = bbox(p[0].waypoints)
-        #expect(box.minX ~= -1.5 && box.maxX ~= 11.5, "Test Failed: expected width 1 + tipWidth/2 = 1.5 outside the contour")
+        #expect(box.minX ~= -0.5 && box.maxX ~= 10.5, "Test Failed: expected tipWidth/2 = 0.5 outside the contour")
+    }
+
+    @Test("Sharp tip, no tip offset: the tool plunges exactly on the contour, whatever the edge and bevel size")
+    func testNoOffsetPlungesOnContour() throws {
+        for edge in [SC.ChamferEdge.top, .bottom] {
+            let p = try passes(SC.ChamferParams(width: 0.5, side: .outside, edge: edge), stepdown: 0.1)
+            for pass in p {
+                let box = bbox(pass.waypoints)
+                #expect(box.minX ~= 0.0 && box.maxX ~= 10.0 && box.minY ~= 0.0 && box.maxY ~= 10.0,
+                        "Test Failed: \(edge) edge should run on the contour")
+            }
+        }
     }
 
     // MARK: - Reach errors
@@ -337,7 +349,7 @@ struct Chamfer_Tests {
         #expect(p[0].depthZ ~= -0.5 && p[1].depthZ ~= -1.0)
         for pass in p {
             let box = bbox(pass.waypoints)
-            #expect(box.minX ~= -1.0 && box.maxX ~= 11.0, "Test Failed: every pass should run the same full-width-out path")
+            #expect(box.minX ~= 0.0 && box.maxX ~= 10.0, "Test Failed: every pass should run the same path, on the contour")
         }
         #expect(p[0].waypoints.map { [$0.position.x, $0.position.y] } == p[1].waypoints.map { [$0.position.x, $0.position.y] },
                 "Test Failed: passes must differ only in Z")
