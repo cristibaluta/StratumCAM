@@ -416,9 +416,7 @@ struct ContentView: View {
                 batches.append(slicedBatch)
             }
             if let markerPoint = Demo.interpolatedPoint(toolpathPoints, at: scrubIndex),
-               let marker = previewDemo.markerBatch(at: markerPoint,
-                                                    diameter: Float(activeTool.diameter),
-                                                    height: Float(activeTool.fluteLength)) {
+               let marker = previewDemo.toolMarkerBatch(at: markerPoint, tool: activeTool) {
                 batches.append(marker)
             }
         }

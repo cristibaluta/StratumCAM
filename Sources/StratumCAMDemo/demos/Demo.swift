@@ -423,6 +423,75 @@ class Demo {
                            primitiveType: .line)
     }
 
+    // MARK: - V-bit marker
+
+    /// Wireframe silhouette of a V-bit with its tip at `point`: a ring of radius `tipWidth / 2`
+    /// at the tip (omitted for a sharp point, where the struts meet in one point), the angled flank
+    /// rising to a ring of radius `diameter / 2` at `flankHeight`, and a straight shank above it.
+    /// Height and radii come straight from `SC.ToolParams`, so the picture matches what the
+    /// chamfer engine assumes. Falls back to the plain cylinder when `tool` isn't a V-bit.
+    static func markerToolVertices(at point: SIMD3<Float>,
+                                   tool: SC.ToolParams,
+                                   segments: Int = 28,
+                                   strutCount: Int = 8,
+                                   color: SIMD4<Float> = SIMD4<Float>(1.0, 0.05, 0.05, 1.0)) -> [RenderVertex] {
+        guard let flank = tool.flankHeight, flank > 0 else {
+            return markerCylinderVertices(at: point,
+                                          diameter: Float(tool.diameter),
+                                          height: Float(tool.fluteLength),
+                                          color: color)
+        }
+        let clampedSegments = max(3, segments)
+        let tipRadius = Float(max(0, tool.tipWidth)) / 2
+        let topRadius = Float(tool.diameter) / 2
+        let flankTopZ = point.z + Float(flank)
+        let shankTopZ = flankTopZ + Float(max(tool.fluteLength - flank, tool.diameter))
+
+        func ringPoint(_ i: Int, radius: Float, z: Float) -> SIMD3<Float> {
+            let angle = Float(i) / Float(clampedSegments) * 2 * Float.pi
+            return SIMD3<Float>(point.x + radius * cos(angle), point.y + radius * sin(angle), z)
+        }
+
+        var vertices: [RenderVertex] = []
+        func line(_ a: SIMD3<Float>, _ b: SIMD3<Float>) {
+            vertices.append(RenderVertex(position: a, color: color, dist: 0))
+            vertices.append(RenderVertex(position: b, color: color, dist: 0))
+        }
+
+        for i in 0..<clampedSegments {
+            // Tip flat, flank-top ring and shank-top ring.
+            if tipRadius > 0 {
+                line(ringPoint(i, radius: tipRadius, z: point.z), ringPoint(i + 1, radius: tipRadius, z: point.z))
+            }
+            line(ringPoint(i, radius: topRadius, z: flankTopZ), ringPoint(i + 1, radius: topRadius, z: flankTopZ))
+            line(ringPoint(i, radius: topRadius, z: shankTopZ), ringPoint(i + 1, radius: topRadius, z: shankTopZ))
+        }
+
+        let struts = max(0, strutCount)
+        for s in 0..<struts {
+            let i = (s * clampedSegments) / max(1, struts)
+            // Flank: from the tip flat's edge (or the sharp tip) up to the full diameter.
+            line(ringPoint(i, radius: tipRadius, z: point.z), ringPoint(i, radius: topRadius, z: flankTopZ))
+            // Shank.
+            line(ringPoint(i, radius: topRadius, z: flankTopZ), ringPoint(i, radius: topRadius, z: shankTopZ))
+        }
+        return vertices
+    }
+
+    /// Marker batch for `tool`: the V-bit silhouette for a V-bit, the cylinder otherwise.
+    func toolMarkerBatch(at point: SIMD3<Float>, tool: SC.ToolParams) -> RenderBatch? {
+        let vertices = Demo.markerToolVertices(at: point, tool: tool)
+        guard !vertices.isEmpty,
+              let buffer = device.makeBuffer(bytes: vertices,
+                                             length: vertices.count * MemoryLayout<RenderVertex>.stride,
+                                             options: .storageModeShared) else {
+            return nil
+        }
+        return RenderBatch(vertexBuffer: buffer,
+                           vertexCount: vertices.count,
+                           primitiveType: .line)
+    }
+
     /// `buildWaypoints`/toolpath passes only carry the *endpoints* of each move (plus a
     /// center + direction for arcs) since that's all a real controller needs for `G02`/`G03`.
     /// For the on-screen preview we need actual curvature, so this walks the waypoints and,
