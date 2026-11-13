@@ -88,16 +88,13 @@ extension SCEngine {
         ], isClosed: true)
     }
 
-    /// The XY footprint `.facing` clears: the selected contour's own axis-aligned
-    /// bounding box, grown by `extensionLength` on every side so the cutter fully
-    /// clears the true part edges (and corners, once the tool's own radius sweeps
-    /// past a raster row's endpoint) rather than stopping exactly at the nominal
-    /// boundary. Geometry only -- no tool-radius compensation is folded in here,
-    /// since `extensionLength` is the operation's own explicit "how far past the
-    /// boundary" parameter (per its doc comment on `MachiningOperation.facing`),
-    /// not something this function should be second-guessing with its own
-    /// additional margin.
-    private func facingArea(for contour: SC.Contour, extensionLength: Double) -> (minX: Double, maxX: Double, minY: Double, maxY: Double)? {
+    /// The XY region `.facing` is allowed to cut: the selected contour's own axis-aligned
+    /// bounding box, grown by `extensionLength` on every side. This is the boundary of the
+    /// *material removed* -- the cutter's edge never crosses it. `extensionLength` is the
+    /// operation's own explicit "how far past the part" parameter (per its doc comment on
+    /// `MachiningOperation.facing`); with the default of 0 the tool stays inside the bounding
+    /// box. Not the tool-center path -- see `facingToolCenterArea`.
+    func facingArea(for contour: SC.Contour, extensionLength: Double) -> (minX: Double, maxX: Double, minY: Double, maxY: Double)? {
         let box = contour.linearizedSegments.boundingBox
         guard box.minX.isFinite, box.maxX.isFinite, box.minY.isFinite, box.maxY.isFinite else {
             return nil
@@ -109,6 +106,32 @@ extension SCEngine {
                maxY: box.maxY + extensionLength)
     }
 
+    /// The area the tool *center* travels so the cutter's edge stays inside `facingArea`.
+    /// The footprint is inset by the tool radius on every side; the first/last rows and the
+    /// row ends therefore put the cutter's edge exactly on the footprint boundary instead of
+    /// a radius past it. On an axis where the footprint is narrower than the tool the cutter
+    /// cannot fit, so the path collapses to the footprint's center line on that axis (the
+    /// unavoidable overhang is split evenly on both sides).
+    func facingToolCenterArea(for contour: SC.Contour,
+                              extensionLength: Double,
+                              tool: SC.ToolParams) -> (minX: Double, maxX: Double, minY: Double, maxY: Double)? {
+        guard let area = facingArea(for: contour, extensionLength: extensionLength) else {
+            return nil
+        }
+        let radius = max(tool.diameter, 0) / 2
+
+        func inset(_ lo: Double, _ hi: Double) -> (Double, Double) {
+            if hi - lo <= 2 * radius {
+                let mid = (lo + hi) / 2
+                return (mid, mid)
+            }
+            return (lo + radius, hi - radius)
+        }
+        let x = inset(area.minX, area.maxX)
+        let y = inset(area.minY, area.maxY)
+        return (minX: x.0, maxX: x.1, minY: y.0, maxY: y.1)
+    }
+
     /// Row spacing: `CuttingData.stepoverPercentage` of the tool diameter, capped at one full
     /// diameter (rows further apart would leave uncut strips) and floored at 2 %.
     private func facingStepover(for tool: SC.ToolParams, settings: SC.MachineSettings) -> Double {
@@ -118,36 +141,42 @@ extension SCEngine {
 
     /// Generates the raster scanline geometry for `.facing`: parallel horizontal
     /// passes spaced `facingStepover(for:settings:)` apart, each spanning the full width
-    /// of `facingArea(for:extensionLength:)` -- geometry only, no waypoints yet.
+    /// of `facingToolCenterArea(for:extensionLength:tool:)` (the footprint inset by the tool
+    /// radius, so the cutter never leaves `facingArea`) -- geometry only, no waypoints yet.
     /// That's left to `buildFacingToolpath` below, same shape as
     /// `buildPocketWaypoints` turning `rasterScanlines`' rows into an actual rapid/
     /// plunge/retract pass.
-    private func facingScanlines(within contour: SC.Contour,
-                                 extensionLength: Double,
-                                 tool: SC.ToolParams,
-                                 settings: SC.MachineSettings,
-                                 direction: SC.CutDirection) -> [[SC.Segment]] {
+    func facingScanlines(within contour: SC.Contour,
+                         extensionLength: Double,
+                         tool: SC.ToolParams,
+                         settings: SC.MachineSettings,
+                         direction: SC.CutDirection) -> [[SC.Segment]] {
 
         let stepover = facingStepover(for: tool, settings: settings)
-        guard stepover > 1e-6, let area = facingArea(for: contour, extensionLength: extensionLength) else {
+        guard stepover > 1e-6,
+              facingArea(for: contour, extensionLength: extensionLength).map({
+                  $0.maxX - $0.minX > 1e-9 && $0.maxY - $0.minY > 1e-9
+              }) == true,
+              let area = facingToolCenterArea(for: contour, extensionLength: extensionLength, tool: tool) else {
             return []
         }
 
+        // The tool-center span can be 0 when the tool is as wide as the footprint (one row /
+        // a zero-length row); that is still a valid, if over-wide, cut.
         let span = area.maxY - area.minY
-        guard span > 1e-9, area.maxX - area.minX > 1e-9 else {
-            return []
-        }
-
-        // Same whole-number snapping `rasterScanlines`/`calculateZPasses` use: a span
-        // that divides evenly by `stepover` shouldn't gain a spurious extra row from
-        // float drift.
-        let rawSteps = span / stepover
-        let epsilon = 1e-9
         let stepCount: Int
-        if abs(rawSteps.rounded() - rawSteps) < epsilon {
-            stepCount = max(1, Int(rawSteps.rounded()))
+        if span <= 1e-9 {
+            stepCount = 0
         } else {
-            stepCount = max(1, Int(rawSteps.rounded(.up)))
+            // Same whole-number snapping `rasterScanlines`/`calculateZPasses` use: a span
+            // that divides evenly by `stepover` shouldn't gain a spurious extra row from
+            // float drift.
+            let rawSteps = span / stepover
+            if abs(rawSteps.rounded() - rawSteps) < 1e-9 {
+                stepCount = max(1, Int(rawSteps.rounded()))
+            } else {
+                stepCount = max(1, Int(rawSteps.rounded(.up)))
+            }
         }
         let rowCount = stepCount + 1
 
