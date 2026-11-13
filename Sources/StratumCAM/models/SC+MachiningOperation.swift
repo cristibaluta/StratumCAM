@@ -27,14 +27,19 @@ extension SC {
         /// only needs to clean the area the finished part actually occupies, not
         /// whatever extra stock surrounds it.
         ///
+        /// The cutter itself never leaves that bounding box: the tool-center path is
+        /// inset by the tool radius, so the material removed ends exactly on the box
+        /// edge. To cut past it, pass an `extensionLength`.
+        ///
         /// The row spacing between facing passes is `CuttingData.stepoverPercentage` of
         /// the tool diameter (capped at one full diameter), and the depth is cut in
         /// layers of `CuttingData.stepdown`, both like a pocket's.
         ///
         /// - Parameters:
         ///   - direction: Cutting direction used for the facing passes.
-        ///   - extensionLength: Distance by which the toolpath extends beyond
-        ///     the selected contour's bounding box to ensure complete coverage.
+        ///   - extensionLength: Distance by which the *cut area* (the cutter's edge, not
+        ///     its center) extends beyond the selected contour's bounding box. Defaults
+        ///     to none at the call site (0); the user opts in to overcut explicitly.
         case facing(direction: CutDirection, extensionLength: Double)
 
         /// Cuts a linear slot or groove along a center curve or constrained by 2 walls
@@ -170,7 +175,12 @@ extension SC {
         ///   pecking.
         case drilling(peckDepth: Double?)
 
-        /// Machines a beveled edge using a chamfering tool.
+        /// Machines a beveled edge using a V-bit.
+        ///
+        /// The selected contour is either the bevel's top or bottom edge (`ChamferParams.edge`),
+        /// the bevel is cut in passes of `CuttingData.stepdown`, and `ChamferParams.tipOffset`
+        /// moves the cut up the tool's angled flank. Throws `SC.Error.chamferExceedsToolReach`
+        /// when the flank (see `ToolParams.flankHeight`) is too short for the bevel.
         ///
         /// - Parameter params: Parameters describing the desired chamfer geometry,
         ///   cutting depth, and other operation-specific settings.

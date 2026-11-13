@@ -47,6 +47,13 @@ class Demo {
         var clock = OffsetTiming.now()
         let totalStart = clock
 
+        // A chamfer's selected edge can sit below the stock top (a bottom edge): draw the reference
+        // outline at the edge's own Z.
+        var chamferEdgeZ: Double?
+        if case .chamfer(let params) = operation {
+            chamferEdgeZ = params.contourZ(for: tool)
+        }
+
         // 1. Convert each Contour to 3D simd points
         var rawPoints: [SIMD3<Float>] = []
         for contour in contours {
@@ -55,7 +62,7 @@ class Demo {
                 // `buildWaypoints` wraps the trace in a rapid to safeZ and a final retract, so
                 // drop both. The reference outline lies at Z = 0, except an island of a 3D
                 // pocket, which is drawn at its own top (`topZ`) so its height is visible.
-                let waypoints = Array(engine.buildWaypoints(for: segments, atZ: outline.topZ ?? 0, settings: settings).dropFirst().dropLast())
+                let waypoints = Array(engine.buildWaypoints(for: segments, atZ: outline.topZ ?? chamferEdgeZ ?? 0, settings: settings).dropFirst().dropLast())
                 rawPoints.append(contentsOf: tessellateForRender(waypoints))
             }
         }

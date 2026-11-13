@@ -10,24 +10,38 @@ import CoreGraphics
 
 extension SCEngine {
 
-    /// Chamfering always machines in a single pass at a depth derived from the desired
-    /// bevel width and the tool's V-bit angle (unless an explicit depth is given) --
-    /// stepping down in multiple passes would just keep widening the bevel and gouge the part.
+    /// Cuts a bevel with a V-bit's angled flank.
     ///
-    /// Throws (Step 6.3, same pattern `buildDrillingToolpath` established in 6.2) rather
-    /// than returning `nil` for either of its two failure sites: `SC.Error.toolIncompatible`
-    /// when the tool can't resolve a chamfer depth (not a V-bit, or missing `vAngle` with no
-    /// explicit depth given), and `SC.Error.invalidContour` when the contour has no usable
-    /// geometry to chamfer at all.
+    /// The tool follows ONE path around the contour, at a fixed XY offset, and only Z changes from
+    /// pass to pass. The offset is the one at which the FINAL pass puts the flank exactly on the
+    /// bevel (θ = half the V-bit angle, t = the tool's tip flat, h0 = `tipOffset`, z0 = Z of the
+    /// selected contour, zTip = the final tip Z):
+    ///
+    ///     offset = t/2 + (z0 - zTip) * tan θ
+    ///
+    /// - `.bottom` edge (contour = the wall at the bevel's lower end): zTip = z0 - h0, so with a
+    ///   sharp tip the tool center runs ON the contour; a tip flat moves it out by t/2 (the flat's
+    ///   outer corner then touches the edge), a tip offset by h0 * tan θ more. The bevel is cut
+    ///   from the top down and ends on the edge.
+    /// - `.top` edge (contour = the bevel's upper edge): the tool runs one bevel width (plus the
+    ///   same tip terms) away from the contour, toward the tool side.
+    ///
+    /// A shallower tip makes a smaller cone that sits inside the final one, so the stepdown passes
+    /// never gouge: every pass removes a wedge and the last one leaves the finished bevel.
+    /// `settings.cutting.stepdown` sets the pass depths, measured from the bevel's top.
+    ///
+    /// Throws `SC.Error.toolIncompatible` (not a V-bit with an angle), `SC.Error.invalidParameter`
+    /// (negative tip offset, tip flat not smaller than the diameter),
+    /// `SC.Error.chamferExceedsToolReach` (the bevel's depth plus `tipOffset` is taller than the
+    /// tool's angled flank) and `SC.Error.invalidContour` (no usable geometry).
     func buildChamferToolpath(for contour: SC.Contour,
                               tool: SC.ToolParams,
                               settings: SC.MachineSettings,
                               params: SC.ChamferParams,
                               operation: SC.MachiningOperation) throws -> SC.OutputToolpath {
 
-        guard let z = params.resolvedDepth(for: tool) else {
-            // Misconfigured tool (not a V-bit, or missing vAngle with no explicit depth) --
-            // bail out rather than cut at a made-up depth.
+        try params.validateReach(for: tool)
+        guard let bevel = params.resolvedBevel(for: tool), let vAngle = tool.vAngle else {
             throw SC.Error.toolIncompatible
         }
 
@@ -36,22 +50,38 @@ extension SCEngine {
             throw SC.Error.invalidContour
         }
 
-        // Orient the chain so travel direction matches the requested climb/conventional
-        // cut, same as `.contour` -- reuses the existing helper rather than duplicating
-        // the winding logic here.
-        let oriented = orientedForDirection(baseSegments, side: params.side, direction: params.direction)
+        let tanHalf = tan((vAngle / 2.0).degreesToRadians)
+        let range = params.bevelZRange(depth: bevel.depth)
+        // Z of the selected contour: the bevel's top for a top edge, its bottom for a bottom edge.
+        let contourZ = (params.edge == .top) ? range.top : range.bottom
 
-        // The bevel's horizontal reach at the resolved depth is what we offset the
-        // centerline path by, same corner-fillet/trim machinery as a profile cut.
-        let horizontalReach = abs(z) * tan(((tool.vAngle ?? 0) / 2.0).degreesToRadians)
+        // The fixed tool-center offset, taken from the final pass (the tip `tipOffset` below the
+        // bevel's bottom).
+        let finalTipZ = range.bottom - params.tipOffset
+        let centerOffset = max(tool.tipWidth / 2 + (contourZ - finalTipZ) * tanHalf, 0)
+
+        // Orient the chain so travel direction matches the requested climb/conventional cut,
+        // same as `.contour`, then offset it once for all passes.
+        let oriented = orientedForDirection(baseSegments, side: params.side, direction: params.direction)
         let toolpathSegments = offsetContour(oriented,
                                              side: params.side,
-                                             toolRadius: horizontalReach,
+                                             toolRadius: centerOffset,
                                              isClosed: contour.isClosed)
+        guard !toolpathSegments.isEmpty else {
+            throw SC.Error.geometryCollapsed
+        }
 
-        let waypoints = buildWaypoints(for: toolpathSegments, atZ: z, settings: settings)
-        let pass = SC.ToolpathPass(passIndex: 0, depthZ: z, waypoints: waypoints)
+        // Bevel-bottom Z reached by each pass, from just below the bevel's top down to its bottom;
+        // the tool tip is `tipOffset` below that.
+        let bevelBottoms = EngineTools.calculateZPasses(targetDepth: bevel.depth,
+                                                        stepdown: settings.cutting.stepdown).map { range.top + $0 }
+        let passes = bevelBottoms.enumerated().map { index, bevelBottom in
+            let tipZ = bevelBottom - params.tipOffset
+            return SC.ToolpathPass(passIndex: index,
+                                   depthZ: tipZ,
+                                   waypoints: buildWaypoints(for: toolpathSegments, atZ: tipZ, settings: settings))
+        }
 
-        return SC.OutputToolpath(operation: operation, tool: tool, settings: settings, passes: [pass])
+        return SC.OutputToolpath(operation: operation, tool: tool, settings: settings, passes: passes)
     }
 }

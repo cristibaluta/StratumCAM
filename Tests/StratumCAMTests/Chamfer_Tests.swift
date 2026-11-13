@@ -205,4 +205,161 @@ struct Chamfer_Tests {
         // Same geometry, opposite travel direction -> waypoint order should differ.
         #expect(climbPath?.passes.first?.waypoints != conventionalPath?.passes.first?.waypoints)
     }
+
+    // MARK: - Tool geometry (tip width, flank height)
+
+    @Test("A V-bit's flank height follows from diameter, tip width and angle")
+    func testFlankHeight() {
+        // 6mm, 90deg, sharp tip: radial 3, tan(45)=1 -> 3
+        #expect(SC.ToolParams(type: .vBit, diameter: 6.0, vAngle: 90.0).flankHeight! ~= 3.0)
+        // A 2mm tip flat leaves 2mm of radial flank -> 2
+        #expect(SC.ToolParams(type: .vBit, diameter: 6.0, vAngle: 90.0, tipWidth: 2.0).flankHeight! ~= 2.0)
+        // 60deg: radial 3 / tan(30)
+        #expect(SC.ToolParams(type: .vBit, diameter: 6.0, vAngle: 60.0).flankHeight! ~= 3.0 / tan(30.0 * Double.pi / 180.0))
+        // Not a V-bit
+        #expect(SC.ToolParams(type: .flatEndMill, diameter: 6.0).flankHeight == nil)
+    }
+
+    @Test("Bevel depth follows the tool angle: equal to width only at 90 degrees")
+    func testBevelDepthFollowsAngle() {
+        let params = SC.ChamferParams(width: 1.0)
+        let b90 = params.resolvedBevel(for: SC.ToolParams(type: .vBit, diameter: 6.0, vAngle: 90.0))!
+        let b60 = params.resolvedBevel(for: SC.ToolParams(type: .vBit, diameter: 6.0, vAngle: 60.0))!
+        #expect(b90.depth ~= 1.0)
+        #expect(b60.depth ~= 1.0 / tan(30.0 * Double.pi / 180.0))
+    }
+
+    // MARK: - Edge reference (top / bottom) and Z
+
+    private func tool90(tipWidth: Double = 0) -> SC.ToolParams {
+        SC.ToolParams(type: .vBit, diameter: 6.0, vAngle: 90.0, tipWidth: tipWidth)
+    }
+
+    private func settings(stepdown: Double = 1.0) -> SC.MachineSettings {
+        SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: stepdown, stepoverPercentage: 0.4), safeZ: 5.0, targetDepth: -1.0)
+    }
+
+    private func passes(_ params: SC.ChamferParams, tool: SC.ToolParams? = nil, stepdown: Double = 1.0) throws -> [SC.ToolpathPass] {
+        try SCEngine().generateToolpaths(from: [ccwSquareContour()], tool: tool ?? tool90(),
+                                         settings: settings(stepdown: stepdown),
+                                         operation: .chamfer(params: params))[0].passes
+    }
+
+    @Test("Top edge: the bevel starts at the contour's Z and descends; tip ends one depth lower")
+    func testTopEdgeStartsAtEdgeZ() throws {
+        let p = try passes(SC.ChamferParams(width: 1.0, side: .outside, edge: .top, edgeZ: -2.0))
+        #expect(p.count == 1)
+        #expect(p[0].depthZ ~= -3.0, "Test Failed: top edge at Z -2 with depth 1 should put the tip at -3")
+        let box = bbox(p[0].waypoints)
+        #expect(box.minX ~= -1.0 && box.maxX ~= 11.0, "Test Failed: tool center should sit one bevel width outside the top edge")
+    }
+
+    @Test("Bottom edge: the tool tip sits ON the contour at the bevel's bottom, the bevel rises from there")
+    func testBottomEdgeDefaultsToStockTop() throws {
+        // Default edgeZ for a bottom edge is -depth, so the bevel's top lands at Z = 0.
+        let p = try passes(SC.ChamferParams(width: 1.0, side: .outside, edge: .bottom))
+        #expect(p.count == 1)
+        #expect(p[0].depthZ ~= -1.0, "Test Failed: bottom edge at Z -1 (default) should put the tip at -1")
+        let box = bbox(p[0].waypoints)
+        #expect(box.minX ~= 0.0 && box.maxX ~= 10.0 && box.minY ~= 0.0 && box.maxY ~= 10.0,
+                "Test Failed: with a sharp tip and no tip offset the tool center follows the contour itself")
+    }
+
+    @Test("Bottom edge with an explicit Z starts at that Z and ends one depth above it")
+    func testBottomEdgeHonorsEdgeZ() throws {
+        let p = try passes(SC.ChamferParams(width: 1.0, side: .outside, edge: .bottom, edgeZ: -5.0))
+        #expect(p[0].depthZ ~= -5.0, "Test Failed: tip should be at the bottom edge's Z")
+    }
+
+    // MARK: - Tip offset and tip flat
+
+    @Test("Tip offset moves the cut up the flank: tip goes lower, tool center moves further out")
+    func testTipOffset() throws {
+        let p = try passes(SC.ChamferParams(width: 1.0, side: .outside, edge: .top, tipOffset: 1.0))
+        #expect(p[0].depthZ ~= -2.0, "Test Failed: tip should be tipOffset below the bevel's bottom")
+        let box = bbox(p[0].waypoints)
+        #expect(box.minX ~= -2.0 && box.maxX ~= 12.0, "Test Failed: flank radius grows by tipOffset, so the center moves out by it")
+    }
+
+    @Test("A tip flat widens the tool-center offset by half its width")
+    func testTipFlatOffsetsToolCenter() throws {
+        let p = try passes(SC.ChamferParams(width: 1.0, side: .outside, edge: .top), tool: tool90(tipWidth: 1.0))
+        let box = bbox(p[0].waypoints)
+        #expect(box.minX ~= -1.5 && box.maxX ~= 11.5, "Test Failed: expected width 1 + tipWidth/2 = 1.5 outside the contour")
+    }
+
+    // MARK: - Reach errors
+
+    @Test("Tip offset plus bevel depth taller than the flank throws chamferExceedsToolReach")
+    func testTipOffsetBeyondFlankThrows() {
+        // Flank is 3mm tall; depth 1 + tipOffset 3 = 4.
+        do {
+            _ = try passes(SC.ChamferParams(width: 1.0, side: .outside, tipOffset: 3.0))
+            Issue.record("Test Failed: expected chamferExceedsToolReach")
+        } catch SC.Error.chamferExceedsToolReach(let required, let available) {
+            #expect(required ~= 4.0 && available ~= 3.0)
+        } catch {
+            Issue.record("Test Failed: expected chamferExceedsToolReach, got \(error)")
+        }
+    }
+
+    @Test("A bevel deeper than the flank throws chamferExceedsToolReach, also from validate(tool:)")
+    func testBevelDeeperThanFlankThrows() {
+        let params = SC.ChamferParams(width: 4.0, side: .outside)
+        do {
+            try SC.MachiningOperation.chamfer(params: params).validate(tool: tool90())
+            Issue.record("Test Failed: expected chamferExceedsToolReach from validate")
+        } catch SC.Error.chamferExceedsToolReach(let required, let available) {
+            #expect(required ~= 4.0 && available ~= 3.0)
+        } catch {
+            Issue.record("Test Failed: expected chamferExceedsToolReach, got \(error)")
+        }
+    }
+
+    @Test("A tip flat as wide as the tool is an invalid tool parameter")
+    func testTipWidthMustBeSmallerThanDiameter() {
+        do {
+            _ = try passes(SC.ChamferParams(width: 1.0), tool: tool90(tipWidth: 6.0))
+            Issue.record("Test Failed: expected invalidParameter")
+        } catch SC.Error.invalidParameter(let name) {
+            #expect(name == "tool.tipWidth")
+        } catch {
+            Issue.record("Test Failed: expected invalidParameter, got \(error)")
+        }
+    }
+
+    // MARK: - Stepdown
+
+    @Test("Top-edge bevel is cut in stepdown passes: Z changes, the XY path stays fixed")
+    func testTopEdgeStepdownPasses() throws {
+        let p = try passes(SC.ChamferParams(width: 1.0, side: .outside, edge: .top), stepdown: 0.5)
+        #expect(p.count == 2)
+        #expect(p[0].depthZ ~= -0.5 && p[1].depthZ ~= -1.0)
+        for pass in p {
+            let box = bbox(pass.waypoints)
+            #expect(box.minX ~= -1.0 && box.maxX ~= 11.0, "Test Failed: every pass should run the same full-width-out path")
+        }
+        #expect(p[0].waypoints.map { [$0.position.x, $0.position.y] } == p[1].waypoints.map { [$0.position.x, $0.position.y] },
+                "Test Failed: passes must differ only in Z")
+    }
+
+    @Test("Bottom-edge bevel: passes go from the top down and end on the edge, with the XY path fixed on the contour")
+    func testBottomEdgeStepdownPasses() throws {
+        let p = try passes(SC.ChamferParams(width: 1.0, side: .outside, edge: .bottom), stepdown: 0.5)
+        #expect(p.count == 2)
+        // Bevel runs Z -1 (the edge) ... 0 (stock top): tip passes at -0.5 then -1.
+        #expect(p[0].depthZ ~= -0.5 && p[1].depthZ ~= -1.0, "Test Failed: expected passes from the top down, the last on the edge")
+        for pass in p {
+            let box = bbox(pass.waypoints)
+            #expect(box.minX ~= 0.0 && box.maxX ~= 10.0, "Test Failed: sharp tip -> tool center on the contour in every pass")
+        }
+    }
+
+    @Test("A bottom edge sits below the stock top; a top edge sits at it")
+    func testContourZ() {
+        let tool = tool90()
+        #expect(SC.ChamferParams(width: 1.5, edge: .top).contourZ(for: tool)! ~= 0.0)
+        #expect(SC.ChamferParams(width: 1.5, edge: .bottom).contourZ(for: tool)! ~= -1.5)
+        #expect(SC.ChamferParams(width: 1.5, edge: .bottom, edgeZ: -4.0).contourZ(for: tool)! ~= -4.0)
+    }
 }

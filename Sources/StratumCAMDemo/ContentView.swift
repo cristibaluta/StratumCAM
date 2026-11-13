@@ -270,6 +270,29 @@ struct ContentView: View {
                         show(DemoFacing().demoFacingBatch())
                     }
                 }
+                Section("Chamfer") {
+                    demoButton("Top Edge (3 passes)") {
+                        show(DemoChamfer().demoChamferTopEdge())
+                    }
+                    demoButton("Bottom Edge (wall)") {
+                        show(DemoChamfer().demoChamferBottomEdge())
+                    }
+                    demoButton("Bottom Edge at Depth (edgeZ -4)") {
+                        show(DemoChamfer().demoChamferBottomEdgeAtDepth())
+                    }
+                    demoButton("Inside Rim") {
+                        show(DemoChamfer().demoChamferInsideRim())
+                    }
+                    demoButton("60° V-bit") {
+                        show(DemoChamfer().demoChamfer60DegreeBit())
+                    }
+                    demoButton("Tip Flat + Tip Offset") {
+                        show(DemoChamfer().demoChamferTipFlatAndTipOffset())
+                    }
+                    demoButton("Single Pass") {
+                        show(DemoChamfer().demoChamferSinglePass())
+                    }
+                }
                 Section("Slotting") {
                     demoButton("Rectangle Boundary (ramp entry)") {
                         show(DemoSlotting().demoSlottingRectangleBoundary())

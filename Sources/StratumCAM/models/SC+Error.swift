@@ -30,6 +30,12 @@ extension SC {
         /// wrong kind of tool for the operation (a chamfer without a V-bit angle).
         case toolIncompatible
 
+        /// A chamfer needs more flank than the V-bit has: the bevel's depth plus the tip offset
+        /// is taller than the tool's angled part (`ToolParams.flankHeight`). Both values are
+        /// vertical distances in mm: `required` is what the chamfer needs, `available` what the
+        /// tool offers. Fix by a smaller chamfer, a smaller tip offset, or a bigger V-bit.
+        case chamferExceedsToolReach(required: Double, available: Double)
+
         /// A parameter on the operation is out of the range the operation needs to
         /// do anything meaningful (e.g. zero radial passes, zero pitch). The
         /// associated string names the parameter for the caller/log, not for

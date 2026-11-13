@@ -258,8 +258,9 @@ extension SC.MachiningOperation {
 
             case .chamfer:
                 // The depth comes from the width and the V-bit; the side and direction are part
-                // of `ChamferParams`.
+                // of `ChamferParams`. The bevel is cut in passes of `CuttingData.stepdown`.
                 return .init(usesEndZ: false,
+                             usesStepdown: true,
                              usesDirection: true,
                              usesSide: true,
                              toolTypes: [.vBit])
@@ -443,10 +444,10 @@ extension SC.MachiningOperation {
                 try require(params.width > 0, parameter: "chamfer.params.width")
                 if let depth = params.depth {
                     try require(depth > 0, parameter: "chamfer.params.depth")
-                } else if (tool.vAngle ?? 0) <= 0 {
-                    // Without a fixed depth the depth comes from the V-bit's included angle.
-                    throw SC.Error.toolIncompatible
                 }
+                // The tool must be a V-bit with an angle, and its angled flank must be tall enough
+                // for the bevel plus the tip offset (throws `chamferExceedsToolReach` otherwise).
+                try params.validateReach(for: tool)
         }
     }
 }

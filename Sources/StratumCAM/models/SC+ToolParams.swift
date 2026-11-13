@@ -18,6 +18,10 @@ extension SC {
         public var diameter: Double
         /// Included angle in degrees for V-bits (e.g., 60.0, 90.0)
         public var vAngle: Double?
+        /// Width of the flat at the very tip of a V-bit (mm), 0 for a sharp point. `diameter` is
+        /// the cutting diameter at the TOP of the angled flank, so the flank's height follows
+        /// from `diameter`, `tipWidth` and `vAngle` (see `flankHeight`).
+        public var tipWidth: Double
         /// Total cutting edge length
         public var fluteLength: Double
 
@@ -40,6 +44,7 @@ extension SC {
                     type: ToolType = .flatEndMill,
                     diameter: Double = 3.175,
                     vAngle: Double? = nil,
+                    tipWidth: Double = 0,
                     fluteLength: Double = 12,
                     number: Int = 1,
                     comment: String = "",
@@ -52,6 +57,7 @@ extension SC {
             self.type = type
             self.diameter = diameter
             self.vAngle = vAngle
+            self.tipWidth = tipWidth
             self.fluteLength = fluteLength
             self.number = number
             self.comment = comment
@@ -59,5 +65,25 @@ extension SC {
             self.shaftDiameter = shaftDiameter
             self.manualToolChange = manualToolChange
         }
+    }
+}
+
+extension SC.ToolParams {
+
+    /// Height of a V-bit's angled (cutting) flank, measured along the tool axis from the tip
+    /// up to where the flank reaches the full `diameter`:
+    /// `(diameter - tipWidth) / 2 / tan(vAngle / 2)`.
+    ///
+    /// `nil` when the tool isn't a V-bit or has no usable `vAngle`. `0` when the tip flat is as
+    /// wide as the tool (nothing left to cut with).
+    public var flankHeight: Double? {
+        guard type == .vBit, let vAngle, vAngle > 0, vAngle < 180 else {
+            return nil
+        }
+        let radial = (diameter - tipWidth) / 2
+        guard radial > 0 else {
+            return 0
+        }
+        return radial / tan((vAngle / 2).degreesToRadians)
     }
 }
