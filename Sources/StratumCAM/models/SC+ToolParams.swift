@@ -11,10 +11,11 @@ extension SC {
 
     /// Describes the physical cutting tool itself
     public struct ToolParams: Sendable, Equatable, Identifiable {
+
         public var id: UUID
         public var name: String
         public var type: ToolType
-        // Cutting diameter (mm/in)
+        // Cutting diameter (mm)
         public var diameter: Double
         /// Included angle in degrees for V-bits (e.g., 60.0, 90.0)
         public var vAngle: Double?
@@ -23,6 +24,7 @@ extension SC {
         /// from `diameter`, `tipWidth` and `vAngle` (see `flankHeight`).
         public var tipWidth: Double
         /// Total cutting edge length
+        ///  For v bits is the angled cutting part
         public var fluteLength: Double
 
         // MARK: Machine / post-processor data (used by SCMakeraGCodeEngine)
@@ -34,7 +36,7 @@ extension SC {
         public var comment: String
         /// Spindle rotation: `true` = M3 (clockwise), `false` = M4.
         public var clockwise: Bool
-        /// Shank diameter, used to pick the collet on community firmware.
+        /// Shank diameter, used to pick the collet
         public var shaftDiameter: Double?
         /// Tool must be changed by hand (pause + collet release/close + probe).
         public var manualToolChange: Bool

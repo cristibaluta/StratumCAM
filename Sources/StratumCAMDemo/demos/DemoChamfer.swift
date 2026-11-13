@@ -19,7 +19,11 @@ class DemoChamfer: Demo {
     }
 
     private func settings(stepdown: Double) -> SC.MachineSettings {
-        SC.MachineSettings(cutting: SC.CuttingData(feedRate: 800.0, plungeRate: 300.0, stepdown: stepdown), safeZ: 5.0, targetDepth: 1.0)
+        SC.MachineSettings(cutting: SC.CuttingData(feedRate: 800.0,
+                                                   plungeRate: 300.0,
+                                                   stepdown: stepdown),
+                           safeZ: 5.0,
+                           targetDepth: 1.0)
     }
 
     // MARK: - Top edge
@@ -29,10 +33,14 @@ class DemoChamfer: Demo {
     /// depth are both 1.5mm. Three stepdown passes on the SAME XY path -- only Z changes, and the
     /// bevel widens with each pass until the last one reaches the outline.
     func demoChamferTopEdge() -> Demo.DemoResult {
-        let tool = SC.ToolParams(name: "90° V-bit", type: .vBit, diameter: 6.0, vAngle: 90.0)
-        let params = SC.ChamferParams(width: 1.5, side: .outside, direction: .climb, edge: .top)
+        let fluteLength = (3.175 - 0) / 2 / tan(90 / 2) // 1.59
+        let tool = SC.ToolParams(name: "90° V-bit", type: .vBit, diameter: 3.175, vAngle: 90.0, fluteLength: fluteLength)
+        let params = SC.ChamferParams(width: 0.5, side: .outside, direction: .climb, edge: .top)
 
-        return run(contour: rectangleContour(), tool: tool, settings: settings(stepdown: 0.5), operation: .chamfer(params: params))
+        return run(contour: rectangleContour(),
+                   tool: tool,
+                   settings: settings(stepdown: 0.1),
+                   operation: .chamfer(params: params))
     }
 
     // MARK: - Bottom edge
