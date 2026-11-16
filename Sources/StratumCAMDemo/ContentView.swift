@@ -71,6 +71,15 @@ struct ContentView: View {
                     demoButton("Square with Junk Arcs (no full circles)") {
                         show(DemoDegenerateArcs().demoSquareWithJunkArcs())
                     }
+                    demoButton("Split outline - Crescent (on contour)") {
+                        show(DemoContourGaps().demoCrescentOnContour())
+                    }
+                    demoButton("Split outline - Crescent (inside)") {
+                        show(DemoContourGaps().demoCrescentInside())
+                    }
+                    demoButton("Split outline - Square flipped (outside)") {
+                        show(DemoContourGaps().demoSplitSquareOutside())
+                    }
                 }
                 Section("Pocketing") {
                     demoButton("Rect (Offset Climb)") {

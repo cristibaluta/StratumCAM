@@ -19,10 +19,16 @@ public final class SCEngine {
     /// `strategy` defaults to `.engrave`, which traces the geometry exactly at cutter-center
     /// (no tool-radius compensation) -- the classic engraving / center-line cutting case.
     ///
+    ///
+    /// `closeGaps` (default `true`) applies to `.contour`, whatever the side: before anything is calculated, a
+    /// contour made of entities that don't form one continuous outline is repaired. The
+    /// entities are put in order and orientation, each break is bridged to the closest next
+    /// point, and the outline is closed back onto its start (see `closingGaps(in:)`).
     public func generateToolpaths(from contours: [SC.Contour],
                                   tool: SC.ToolParams,
                                   settings: SC.MachineSettings,
-                                  operation: SC.MachiningOperation) throws -> [SC.OutputToolpath] {
+                                  operation: SC.MachiningOperation,
+                                  closeGaps: Bool = true) throws -> [SC.OutputToolpath] {
 
         guard settings.allowance.isFinite, settings.allowance >= 0 else {
             throw SC.Error.invalidParameter("allowance")
@@ -34,6 +40,10 @@ public final class SCEngine {
         // an island of it (and a shape inside an island is a pocket again), so the caller
         // can pass one flat list of shapes.
         var contours = contours
+        // Pass `closeGaps: false` to cut an open path as it is.
+        if case .contour = operation, closeGaps {
+            contours = closingGaps(in: contours)
+        }
         if case .pocket = operation {
             // An open outline with both ends on a wall is an island sharing the wall; islands
             // touching the wall are cut out of it, so what's left is plain pockets and islands.
