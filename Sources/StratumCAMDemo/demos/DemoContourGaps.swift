@@ -115,4 +115,25 @@ class DemoContourGaps: Demo {
 
         return self.run(contours: splitSquareContours(), tool: tool, settings: settings, operation: operation)
     }
+
+    /// A pocket whose outline is split over several open contours with a gap between them, the
+    /// way lines at different Z heights look once projected: a 40x24 rectangle in three pieces
+    /// (one drawn backwards, one with a small gap), plus a square island split in two. The
+    /// engine chains and closes each outline before it detects the island.
+    func demoSplitPocket() -> Demo.DemoResult {
+        let tool = SC.ToolParams(diameter: 4.0)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 1.0, stepoverPercentage: 0.4)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: -3.0)
+
+        let operation: SC.MachiningOperation = .pocket(direction: .climb, pattern: .offset, entry: .plunge)
+
+        let contours = [
+            SC.Contour(entities: lines([(0, 0), (40, 0)]), isClosed: false),
+            SC.Contour(entities: lines([(40, 24), (40, 0)]), isClosed: false),
+            SC.Contour(entities: lines([(40, 24), (0, 24), (0, 0.2)]), isClosed: false),
+            SC.Contour(entities: lines([(15, 8), (25, 8), (25, 16)]), isClosed: false),
+            SC.Contour(entities: lines([(15, 8), (15, 16), (25, 16)]), isClosed: false)
+        ]
+        return self.run(contours: contours, tool: tool, settings: settings, operation: operation)
+    }
 }

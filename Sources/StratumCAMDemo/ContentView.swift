@@ -80,6 +80,9 @@ struct ContentView: View {
                     demoButton("Split outline - Square flipped (outside)") {
                         show(DemoContourGaps().demoSplitSquareOutside())
                     }
+                    demoButton("Split outline - Pocket with island") {
+                        show(DemoContourGaps().demoSplitPocket())
+                    }
                 }
                 Section("Pocketing") {
                     demoButton("Rect (Offset Climb)") {

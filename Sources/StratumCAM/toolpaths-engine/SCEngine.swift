@@ -20,10 +20,13 @@ public final class SCEngine {
     /// (no tool-radius compensation) -- the classic engraving / center-line cutting case.
     ///
     ///
-    /// `closeGaps` (default `true`) applies to `.contour`, whatever the side: before anything is calculated, a
-    /// contour made of entities that don't form one continuous outline is repaired. The
-    /// entities are put in order and orientation, each break is bridged to the closest next
-    /// point, and the outline is closed back onto its start (see `closingGaps(in:)`).
+    /// `closeGaps` (default `true`) applies to `.contour`, whatever the side, and to `.pocket`: before
+    /// anything is calculated, a contour made of entities that don't form one continuous outline is
+    /// repaired. The entities are put in order and orientation, each break is bridged to the closest
+    /// next point, and the outline is closed back onto its start (see `closingGaps(in:)`). For a
+    /// pocket this also joins the open contours that make up one outline (lines at different Z
+    /// heights that only meet once projected), after the open outlines ending on a wall are closed
+    /// against it.
     public func generateToolpaths(from contours: [SC.Contour],
                                   tool: SC.ToolParams,
                                   settings: SC.MachineSettings,
@@ -48,6 +51,14 @@ public final class SCEngine {
             // An open outline with both ends on a wall is an island sharing the wall; islands
             // touching the wall are cut out of it, so what's left is plain pockets and islands.
             contours = closingOpenContours(contours)
+            // What is still open after that is an outline split over several contours (lines
+            // drawn at different Z heights only touch once projected to Z0): chain the pieces
+            // back together and close them, the same way a contour is repaired. This runs
+            // after `closingOpenContours` so an outline that ends on a wall is closed against
+            // the wall, not with a straight bridge.
+            if closeGaps {
+                contours = closingGaps(in: contours)
+            }
             contours = resolvePocketIslands(contours)
             contours = mergingTouchingIslands(contours)
         }
