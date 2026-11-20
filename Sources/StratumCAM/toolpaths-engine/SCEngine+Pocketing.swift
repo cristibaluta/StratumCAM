@@ -673,11 +673,24 @@ extension SCEngine {
     ///   stepovers depending on material and job.
     func pocketRings(from orientedBoundary: [SC.Segment], tool: SC.ToolParams, stepoverPercentage: Double) -> [[SC.Segment]] {
 
-        let firstRing = offsetContour(orientedBoundary,
-                                      side: .inside,
-                                      toolRadius: tool.diameter / 2.0,
-                                      isClosed: true)
-        guard !firstRing.isEmpty else {
+        // `offsetContours` is empty when the tool fits nowhere in the shape (e.g. a round hole
+        // narrower than the tool). `offsetContour` would hand the boundary back unchanged in
+        // that case, and the pocket would then trace the wall itself with the tool centre, so
+        // ask for the loops directly and report "nothing fits" as an empty ring stack.
+        guard let firstRing = offsetContours(orientedBoundary,
+                                             side: .inside,
+                                             toolRadius: tool.diameter / 2.0,
+                                             isClosed: true).first,
+              !firstRing.isEmpty else {
+            return []
+        }
+
+        // Sanity check: an inward offset keeps the winding and can't be bigger than the boundary.
+        // A ring that turned inside out (or grew) means the tool doesn't really fit.
+        let boundaryBox = orientedBoundary.boundingBox, firstBox = firstRing.boundingBox
+        guard OffsetTools.isCCWWinding(firstRing) == OffsetTools.isCCWWinding(orientedBoundary),
+              firstBox.maxX - firstBox.minX <= boundaryBox.maxX - boundaryBox.minX + 1e-6,
+              firstBox.maxY - firstBox.minY <= boundaryBox.maxY - boundaryBox.minY + 1e-6 else {
             return []
         }
 

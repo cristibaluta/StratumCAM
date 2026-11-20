@@ -59,6 +59,14 @@ extension SCEngine {
             return [exact]
         }
 
+        // `exactOffsetContour` hands the input back unchanged only when every segment collapsed:
+        // a closed shape made of arcs alone (a round hole) whose radius is no bigger than the
+        // tool's. The tool fits nowhere. Don't let the polygon fallback below answer instead:
+        // pushed past the centre it returns an inverted circle, which looks like a valid ring.
+        if exact == segments {
+            return []
+        }
+
         // Chord error for flattened arcs: fine enough to be invisible at the cutter, loose
         // enough to keep the point count reasonable.
         let tolerance = min(max(toolRadius * 0.001, 1e-4), 0.01)

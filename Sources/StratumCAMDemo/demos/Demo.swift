@@ -33,6 +33,10 @@ class Demo {
         /// geometry -- diameter for the marker's own diameter, `fluteLength` for
         /// how tall to draw it -- instead of a fixed, arbitrary radius.
         let tool: SC.ToolParams
+
+        /// Set when the engine refused to build (some of) the toolpaths. The UI shows it
+        /// on screen instead of leaving the preview silently empty.
+        var errorMessage: String? = nil
     }
 
     func run(contour: SC.Contour, tool: SC.ToolParams, settings: SC.MachineSettings, operation: SC.MachiningOperation) -> DemoResult {
@@ -42,7 +46,19 @@ class Demo {
     /// Same as `run(contour:tool:settings:strategy:)` but for demos with several
     /// independent contours sharing one tool/settings/strategy (e.g. a batch of
     /// drill holes) — mirrors the engine's own `generateToolpaths(from: [SC.Contour], ...)`.
-    func run(contours: [SC.Contour], tool: SC.ToolParams, settings: SC.MachineSettings, operation: SC.MachiningOperation) -> DemoResult {
+    ///
+    /// - Parameters:
+    ///   - isolatingErrors: `false` (default) generates all contours in one engine call, so one
+    ///     failing contour fails the whole batch. `true` generates each contour on its own: the
+    ///     ones that work still get their toolpath, and each failure is reported in
+    ///     `DemoResult.errorMessage`. Only meaningful for independent shapes (no islands).
+    ///   - contourLabel: Names contour `index` in an error message (only used when isolating).
+    func run(contours: [SC.Contour],
+             tool: SC.ToolParams,
+             settings: SC.MachineSettings,
+             operation: SC.MachiningOperation,
+             isolatingErrors: Bool = false,
+             contourLabel: (Int) -> String = { "Contour \($0 + 1)" }) -> DemoResult {
 
         var clock = OffsetTiming.now()
         let totalStart = clock
@@ -70,15 +86,30 @@ class Demo {
         // 2. Convert Contours to toolpaths then to 3d simd points
         // (the original explanatory comment about `generateToolpaths` throwing stays here)
         let basePointsTime = OffsetTiming.lap(&clock)
-        let toolpaths: [SC.OutputToolpath]
-        do {
-            toolpaths = try engine.generateToolpaths(from: contours,
-                                                      tool: tool,
-                                                      settings: settings,
-                                                      operation: operation)
-        } catch {
-            print("generateToolpaths failed: \(error)")
-            toolpaths = []
+        var toolpaths: [SC.OutputToolpath] = []
+        var errorLines: [String] = []
+        if isolatingErrors {
+            for (index, contour) in contours.enumerated() {
+                do {
+                    toolpaths += try engine.generateToolpaths(from: [contour],
+                                                              tool: tool,
+                                                              settings: settings,
+                                                              operation: operation)
+                } catch {
+                    print("generateToolpaths failed for \(contourLabel(index)): \(error)")
+                    errorLines.append("\(contourLabel(index)): \(Demo.describe(error, tool: tool))")
+                }
+            }
+        } else {
+            do {
+                toolpaths = try engine.generateToolpaths(from: contours,
+                                                          tool: tool,
+                                                          settings: settings,
+                                                          operation: operation)
+            } catch {
+                print("generateToolpaths failed: \(error)")
+                errorLines.append(Demo.describe(error, tool: tool))
+            }
         }
         let engineTime = OffsetTiming.lap(&clock)
         var toolpathPoints: [SIMD3<Float>] = []
@@ -116,7 +147,35 @@ class Demo {
         let totalTime = String(format: "%.2f", Double(OffsetTiming.now() &- totalStart) / 1_000_000)
         OffsetTiming.log("[demo] \(operation) | base points \(basePointsTime) ms, engine \(engineTime) ms, tessellate \(tessellateTime) ms (\(toolpathPoints.count) points), render batches \(batchesTime) ms, gcode \(gcodeTime) ms (\(gcode.count) chars), total \(totalTime) ms")
 
-        return DemoResult(batches: batches, gcode: gcode, toolpathPoints: toolpathPoints, tool: tool)
+        return DemoResult(batches: batches,
+                          gcode: gcode,
+                          toolpathPoints: toolpathPoints,
+                          tool: tool,
+                          errorMessage: errorLines.isEmpty ? nil : errorLines.joined(separator: "\n"))
+    }
+
+    /// A one-line, human-readable reason for an engine error, for showing on screen.
+    static func describe(_ error: Swift.Error, tool: SC.ToolParams) -> String {
+        guard let scError = error as? SC.Error else {
+            return error.localizedDescription
+        }
+        let toolName = String(format: "Ø%.4g mm", tool.diameter)
+        switch scError {
+            case .geometryCollapsed:
+                return "no toolpath: the \(toolName) tool doesn't fit inside the shape (geometryCollapsed)"
+            case .toolIncompatible:
+                return "the \(toolName) tool can't perform this operation (toolIncompatible)"
+            case .contourNotClosed:
+                return "the contour isn't closed (contourNotClosed)"
+            case .invalidContour:
+                return "the contour has no usable geometry (invalidContour)"
+            case .missingDrillPoint:
+                return "no drill point found (missingDrillPoint)"
+            case .chamferExceedsToolReach(let required, let available):
+                return String(format: "chamfer needs %.2f mm of flank, the tool has %.2f mm (chamferExceedsToolReach)", required, available)
+            case .invalidParameter(let name):
+                return "invalid parameter \(name) (invalidParameter)"
+        }
     }
 
     // MARK: - Stock volume (3D wireframe box)

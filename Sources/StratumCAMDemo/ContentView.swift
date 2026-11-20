@@ -19,6 +19,7 @@ struct ContentView: View {
     @State private var activeTool: SC.ToolParams = SC.ToolParams()
     @State private var scrubIndex: Double = 0
     @State private var staticBatches: [RenderBatch] = []
+    @State private var errorMessage: String? = nil
 
     private let previewDemo = Demo()
 
@@ -145,9 +146,6 @@ struct ContentView: View {
                     demoButton("Helix Entry (Circle, Centered)") {
                         show(DemoPocketing().demoHelixEntryCircle())
                     }
-                    demoButton("Helix Entry (Ø4 Hole, Ø3.175 Tool)") {
-                        show(DemoPocketing().demoHelixEntrySmallHole())
-                    }
                     Divider()
                     demoButton("Raster Rectangle (Climb)") {
                         show(DemoPocketing().demoRasterRectangle())
@@ -220,6 +218,31 @@ struct ContentView: View {
                     }
                     demoButton("Open Shape - Not Drilled") {
                         show(DemoDrilling().demoOpenShapeIsNotDrilled())
+                    }
+                }
+                Section("End Mill Drilling") {
+                    demoButton("Hole Wider Than Bit (Ø8)") {
+                        show(DemoEndMillDrilling().demoHoleWiderThanBit())
+                    }
+                    demoButton("Hole Narrower Than Bit (Ø2, Error)") {
+                        show(DemoEndMillDrilling().demoHelixEntrySmallHole())
+                    }
+                    demoButton("Multiple Holes Wider Than Bit") {
+                        show(DemoEndMillDrilling().demoMultipleHolesWiderThanBit())
+                    }
+                    Divider()
+                    demoButton("Material Left (no finishing)") {
+                        show(DemoEndMillDrilling().demoHoleMaterialLeft())
+                    }
+                    demoButton("Material Left + Finishing Pass") {
+                        show(DemoEndMillDrilling().demoHoleMaterialLeftWithFinishingPass())
+                    }
+                    demoButton("Multiple Holes + Finishing Pass") {
+                        show(DemoEndMillDrilling().demoMultipleHolesMaterialLeftWithFinishingPass())
+                    }
+                    Divider()
+                    demoButton("One Wider, One Smaller") {
+                        show(DemoEndMillDrilling().demoOneWiderOneSmaller())
                     }
                 }
                 Section("Boring") {
@@ -360,6 +383,17 @@ struct ContentView: View {
         } detail: {
             // Interactive 3D Metal Canvas
             MetalCanvasView(batches: $renderBatches)
+                .overlay(alignment: .top) {
+                    if let errorMessage {
+                        Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
+                            .font(.callout.weight(.semibold))
+                            .foregroundStyle(.white)
+                            .multilineTextAlignment(.leading)
+                            .padding(10)
+                            .background(Color.red.opacity(0.85), in: RoundedRectangle(cornerRadius: 6))
+                            .padding()
+                    }
+                }
                 .overlay(alignment: .bottomLeading) {
                     VStack(alignment: .leading, spacing: 8) {
                         if !toolpathPoints.isEmpty {
@@ -408,6 +442,7 @@ struct ContentView: View {
     }
 
     private func show(_ result: Demo.DemoResult) {
+        errorMessage = result.errorMessage
         gcodeText = result.gcode
         gcodeLines = result.gcode.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
         toolpathPoints = result.toolpathPoints
