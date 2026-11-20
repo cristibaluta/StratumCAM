@@ -245,6 +245,17 @@ struct ContentView: View {
                         show(DemoEndMillDrilling().demoOneWiderOneSmaller())
                     }
                 }
+                Section("End Mill Drilling (Inside Contour)") {
+                    demoButton("Contour: Hole Wider Than Bit (Ø8)") {
+                        show(DemoEndMillDrillingContour().demoHoleWiderThanBit())
+                    }
+                    demoButton("Contour: Hole Narrower Than Bit (Ø2, Error)") {
+                        show(DemoEndMillDrillingContour().demoHoleNarrowerThanBit())
+                    }
+                    demoButton("Contour: One Wider, One Narrower") {
+                        show(DemoEndMillDrillingContour().demoOneWiderOneNarrower())
+                    }
+                }
                 Section("Boring") {
                     demoButton("Plain Bore") {
                         show(DemoBoring().demoPlainBore())

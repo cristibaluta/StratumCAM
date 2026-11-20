@@ -43,4 +43,36 @@ struct HoleSmallerThanTool_Tests {
         let segments = hole(radius: 1.0).linearizedSegments
         #expect(engine.offsetContours(segments, side: .inside, toolRadius: 1.5875, isClosed: true).isEmpty)
     }
+
+    // MARK: - Inside contour
+
+    private let insideContour: SC.MachiningOperation = .contour(side: .inside,
+                                                                direction: .climb,
+                                                                entry: .plunge,
+                                                                leadIn: nil,
+                                                                leadOut: nil,
+                                                                tabs: [])
+
+    // An inside contour on a round hole narrower than the bit throws instead of cutting the wall.
+    @Test func insideContourOnHoleSmallerThanToolThrowsGeometryCollapsed() {
+        #expect(throws: SC.Error.geometryCollapsed) {
+            try SCEngine().generateToolpaths(from: [hole(radius: 1.0)],
+                                             tool: SC.ToolParams(diameter: 3.175),
+                                             settings: settings,
+                                             operation: insideContour)
+        }
+    }
+
+    // A hole wider than the bit is cut with the tool centre one tool radius inside the wall.
+    @Test func insideContourOnHoleWiderThanToolStaysOneToolRadiusInside() throws {
+        let tool = SC.ToolParams(diameter: 3.175)
+        let paths = try SCEngine().generateToolpaths(from: [hole(radius: 4.0)],
+                                                     tool: tool,
+                                                     settings: settings,
+                                                     operation: insideContour)
+        #expect(!paths.isEmpty)
+        let maxR = paths.flatMap { $0.passes.flatMap { $0.waypoints } }
+            .map { hypot($0.position.x, $0.position.y) }.max() ?? 0
+        #expect(abs(maxR - (4.0 - tool.diameter / 2.0)) < 1e-3)
+    }
 }
