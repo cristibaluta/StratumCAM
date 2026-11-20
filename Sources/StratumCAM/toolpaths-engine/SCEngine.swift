@@ -83,10 +83,27 @@ public final class SCEngine {
             contours = [combined]
         }
 
+        // A shape the tool is too big for (a small hole with a large bit) is left out, with a
+        // warning, instead of failing the whole job or cutting something that isn't there. Only
+        // when every shape is left out is there nothing to return, and that stays an error.
+        var skipped: [SC.Warning] = []
+        var lastCollapse: SC.Error?
         for contour in contours {
-            if let toolpath = try buildToolpath(for: contour, tool: tool, settings: settings, operation: operation) {
-                results.append(applyEntryHeight(to: toolpath))
+            do {
+                if let toolpath = try buildToolpath(for: contour, tool: tool, settings: settings, operation: operation) {
+                    results.append(applyEntryHeight(to: toolpath))
+                }
+            } catch SC.Error.geometryCollapsed {
+                lastCollapse = .geometryCollapsed
+                skipped.append(.toolDoesNotFit(shapeSize: Self.narrowestSpan(of: contour), toolDiameter: tool.diameter))
             }
+        }
+
+        if results.isEmpty, let lastCollapse {
+            throw lastCollapse
+        }
+        if !skipped.isEmpty {
+            results[0].warnings.append(contentsOf: skipped)
         }
 
         return results
@@ -270,5 +287,19 @@ public final class SCEngine {
         }
 
         return waypoints
+    }
+
+    /// The smaller side of the contour's bounding box: how tight the shape is, for a message.
+    static func narrowestSpan(of contour: SC.Contour) -> Double {
+        let points = contour.linearizedSegments.flatMap { [$0.startPoint, $0.endPoint] }
+        guard let first = points.first else {
+            return 0
+        }
+        var minX = first.x, maxX = first.x, minY = first.y, maxY = first.y
+        for p in points {
+            minX = min(minX, p.x); maxX = max(maxX, p.x)
+            minY = min(minY, p.y); maxY = max(maxY, p.y)
+        }
+        return Double(min(maxX - minX, maxY - minY))
     }
 }

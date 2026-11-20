@@ -57,6 +57,11 @@ extension SC {
         case islandBelowFloor(topZ: Double, floorZ: Double)
         /// 3D pocket: the pocket is deeper than the tool's cutting edge is long.
         case depthExceedsFluteLength(depth: Double, fluteLength: Double)
+        /// The tool is too big to fit inside this shape (a hole, or a part of one), so the shape
+        /// was left out and no toolpath was generated for it. `shapeSize` is the width of the
+        /// shape's bounding box in its narrowest direction, in mm, a hint of how small the shape
+        /// is; `toolDiameter` is the tool's cutting diameter.
+        case toolDoesNotFit(shapeSize: Double, toolDiameter: Double)
     }
 
     public struct ToolpathPass: Sendable, Equatable {

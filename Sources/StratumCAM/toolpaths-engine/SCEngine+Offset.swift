@@ -89,7 +89,17 @@ extension SCEngine {
 
         let distance = OffsetTools.offsetDistance(for: side, toolRadius: toolRadius, segments: segments)
         let loops = PolygonOffset.offset(polygon: original, distance: distance, tolerance: tolerance)
-        let result = loops
+        // The polygon offset of a tool that doesn't fit leaves slivers behind (a heavily
+        // self-crossing raw curve whose pieces still bound a small positive region). Every loop
+        // must pass the same test as the exact result: nowhere closer to the outline than the
+        // tool radius. A sliver near the middle of a hole too small for the tool fails it.
+        let fitting = loops.filter {
+            PolygonOffset.isValidOffset($0, of: original, radius: toolRadius, tolerance: tolerance)
+        }
+        if fitting.count != loops.count {
+            OffsetTiming.log("offsetContours: dropped \(loops.count - fitting.count) polygon loop(s) closer to the outline than the tool radius")
+        }
+        let result = fitting
             .sorted { abs(PolygonOffset.signedArea($0)) > abs(PolygonOffset.signedArea($1)) }
             .map { PolygonOffset.segments(from: $0) }
         OffsetTiming.log("offsetContours: polygon offset -> \(result.count) loops, \(result.map { $0.count }) segments each (\(OffsetTiming.lap(&clock)) ms)")
