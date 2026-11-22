@@ -299,6 +299,102 @@ struct Contour_Tests {
         #expect(landsAtTarget, "Test Failed: expected helix entry to land back on contour start at target depth")
     }
 
+    @Test("Helix entry is a real circle: every arc move starts on the circle it sweeps, and it stays outside the part")
+    func testHelixEntryCircleStaysOutsideThePart() throws {
+        for (angle, diameter) in [(3.0, 3.175), (30.0, 6.0)] {
+            let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 0.5, stepoverPercentage: 0.4),
+                                              safeZ: 5.0, targetDepth: -1.0)
+            for direction in [SC.CutDirection.climb, .conventional] {
+                let toolpaths = try SCEngine().generateToolpaths(
+                    from: [ccwSquareContour()], tool: SC.ToolParams(diameter: diameter), settings: settings,
+                    operation: .contour(side: .outside, direction: direction, entry: .helix(rampAngleDegrees: angle),
+                                        leadIn: nil, leadOut: nil, tabs: [])
+                )
+                let toolRadius = diameter / 2.0
+                for pass in toolpaths[0].passes {
+                    var previous: SIMD3<Double>?
+                    for wp in pass.waypoints {
+                        defer { previous = wp.position }
+                        switch wp.motion {
+                            case .arcCCW(let center), .arcCW(let center):
+                                let p = try #require(previous)
+                                let startRadius = hypot(p.x - center.x, p.y - center.y)
+                                let endRadius = hypot(wp.position.x - center.x, wp.position.y - center.y)
+                                #expect(abs(startRadius - endRadius) < 1e-6,
+                                        "Test Failed: arc to \(wp.position) starts \(startRadius) from its center but ends \(endRadius) from it")
+                            default:
+                                break
+                        }
+                        if wp.motion != .rapid {
+                            // Tool-center path never closer to the part than the tool radius.
+                            #expect(distanceOutsideSquare(wp.position) >= toolRadius - 1e-6,
+                                    "Test Failed: waypoint \(wp.position) cuts into the part")
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @Test("Helix entry starts directly with an arc and descends at the requested angle, then circles flat")
+    func testHelixEntryHonorsTheAngle() throws {
+        let angle = 3.0
+        let diameter = 6.0
+        let settings = SC.MachineSettings(cutting: SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepdown: 0.5, stepoverPercentage: 0.4),
+                                          safeZ: 5.0, targetDepth: -0.5)
+        let toolpaths = try SCEngine().generateToolpaths(
+            from: [ccwSquareContour()], tool: SC.ToolParams(diameter: diameter), settings: settings,
+            operation: .contour(side: .outside, direction: .conventional, entry: .helix(rampAngleDegrees: angle),
+                                leadIn: nil, leadOut: nil, tabs: [])
+        )
+        let waypoints = toolpaths[0].passes[0].waypoints
+        let radius = RampTools.helixRadius(forToolRadius: diameter / 2.0)
+
+        func isArc(_ motion: SC.MotionType) -> Bool {
+            switch motion {
+                case .arcCCW, .arcCW: return true
+                default: return false
+            }
+        }
+
+        // [0] rapid above the contour start, [1] rapid down to the top of the stock, [2] the first
+        // cutting move: already an arc, no straight lead along the wall.
+        #expect(isArc(waypoints[2].motion), "Test Failed: the helix should start directly with an arc")
+
+        // Circular distance travelled until the target depth is reached = drop / tan(angle).
+        var travelled = 0.0
+        var previous = waypoints[1].position
+        var landedAfter: Double?
+        var landingIndex = 2
+        for (index, wp) in waypoints.enumerated().dropFirst(2) {
+            guard isArc(wp.motion) else { break }
+            let chord = hypot(wp.position.x - previous.x, wp.position.y - previous.y)
+            travelled += 2 * radius * asin(min(1.0, chord / (2 * radius)))
+            previous = wp.position
+            if wp.position.z ~= -0.5 {
+                landedAfter = travelled
+                landingIndex = index
+                break
+            }
+        }
+        let expectedRun = 0.5 / tan(angle * .pi / 180)
+        let landed = try #require(landedAfter)
+        #expect(landed ~= expectedRun,
+                "Test Failed: expected the descent to cover exactly the run the angle needs (\(expectedRun))")
+
+        // After that it keeps circling at the same Z and ends back on the contour start.
+        let rest = waypoints[(landingIndex + 1)...].prefix { isArc($0.motion) && $0.position.z ~= -0.5 }
+        #expect(!rest.isEmpty, "Test Failed: expected flat circling after the descent")
+        let circleEnd = try #require(rest.last)
+        #expect(circleEnd.position.x ~= 0.0 && circleEnd.position.y ~= -3.0 && circleEnd.position.z ~= -0.5,
+                "Test Failed: the circle should end on the contour start at the target depth")
+    }
+
+    /// Distance from a point to the 10x10 square's outline, for a point outside it.
+    private func distanceOutsideSquare(_ p: SIMD3<Double>) -> Double {
+        hypot(max(-p.x, 0, p.x - 10), max(-p.y, 0, p.y - 10))
+    }
+
     // MARK: - Holding tabs
 
     @Test("A holding tab clamps depth locally without affecting the rest of the pass")

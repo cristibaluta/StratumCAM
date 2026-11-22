@@ -422,7 +422,8 @@ extension SCEngine {
                                                               angleDegrees: angleDegrees,
                                                               fromZ: previousZ,
                                                               toZ: z,
-                                                              settings: settings)
+                                                              settings: settings,
+                                                              contourEntry: true)
                 )
                 if let leadInMove {
                     waypoints.append(leadInMove)

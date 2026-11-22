@@ -181,7 +181,8 @@ struct RampTools {
                                     angleDegrees: Double,
                                     fromZ: Double,
                                     toZ: Double,
-                                    settings: SC.MachineSettings) -> [SC.Waypoint] {
+                                    settings: SC.MachineSettings,
+                                    contourEntry: Bool = false) -> [SC.Waypoint] {
 
         let totalDrop = fromZ - toZ
         let angleRad = angleDegrees.degreesToRadians
@@ -198,7 +199,9 @@ struct RampTools {
         // punching through whatever wall it sits on.
         let anchorEnd = firstSegment.endPoint
         let spanLength = hypot(anchorEnd.x - contourStart.x, anchorEnd.y - contourStart.y)
-        let forwardDistance = min(radius, spanLength)
+        // A contour entry has no such shift: its circle is tangent to the contour right at
+        // `contourStart`, so the move begins directly on the circle.
+        let forwardDistance = contourEntry ? 0.0 : min(radius, spanLength)
         let tangentPoint = CGPoint(x: contourStart.x + startTangent.x * forwardDistance,
                                     y: contourStart.y + startTangent.y * forwardDistance)
 
@@ -207,6 +210,42 @@ struct RampTools {
         let center = CGPoint(x: tangentPoint.x + normal.x * signedOffset, y: tangentPoint.y + normal.y * signedOffset)
         let isCCW = signedOffset > 0
         let startAngle = atan2(tangentPoint.y - center.y, tangentPoint.x - center.x)
+
+        if contourEntry {
+            // The angle is the constraint: the tool descends along the circle only for as far as
+            // `angleDegrees` needs to cover the drop, then keeps circling at `toZ` until it is back
+            // on `contourStart` (a whole number of turns in all).
+            let sign = isCCW ? 1.0 : -1.0
+            let descentRun = totalDrop / tan(angleRad)
+            let descentSweep = descentRun / radius
+            let turns = max(1, Int((descentSweep / (2 * .pi) - 1e-9).rounded(.up)))
+            let totalSweep = Double(turns) * 2 * .pi
+            let maxStep = Double.pi / 4
+
+            var contourWaypoints: [SC.Waypoint] = []
+            func addArc(sweep: Double, z: Double) {
+                let angle = startAngle + sign * sweep
+                contourWaypoints.append(
+                    SC.Waypoint(position: SIMD3(center.x + radius * cos(angle), center.y + radius * sin(angle), z),
+                                motion: isCCW ? .arcCCW(center: center) : .arcCW(center: center),
+                                feedRate: settings.cutting.plungeRate)
+                )
+            }
+
+            let descentSteps = max(1, Int((descentSweep / maxStep - 1e-9).rounded(.up)))
+            for step in 1...descentSteps {
+                let fraction = Double(step) / Double(descentSteps)
+                addArc(sweep: descentSweep * fraction, z: step == descentSteps ? toZ : fromZ - totalDrop * fraction)
+            }
+            let flatSweep = totalSweep - descentSweep
+            if flatSweep > 1e-9 {
+                let flatSteps = max(1, Int((flatSweep / maxStep - 1e-9).rounded(.up)))
+                for step in 1...flatSteps {
+                    addArc(sweep: descentSweep + flatSweep * Double(step) / Double(flatSteps), z: toZ)
+                }
+            }
+            return contourWaypoints
+        }
 
         let circumference = 2 * .pi * radius
         let horizontalRunNeeded = totalDrop / tan(angleRad)
