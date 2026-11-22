@@ -54,7 +54,7 @@ extension SCEngine {
 
         // 3. Build waypoints per pass
         var passes: [SC.ToolpathPass] = []
-        var previousZ = 0.0 // top of stock -- the first pass ramps down from here, not from safeZ.
+        var previousZ = settings.firstPassStartZ // top of stock (or `rampStartZ` above it) -- the first pass ramps down from here, not from safeZ.
         for (i, z) in zDepths.enumerated() {
             let waypoints: [SC.Waypoint]
             if case .ramp(let angleDegrees) = entry, let firstSegment = toolpathSegments.first {
@@ -181,7 +181,7 @@ extension SCEngine {
         let totalDepth = abs(settings.targetDepth)
 
         var passes: [SC.ToolpathPass] = []
-        var previousZ = 0.0 // top of stock -- pass 0 ramps/helixes down from here, not from safeZ.
+        var previousZ = settings.firstPassStartZ // top of stock (or `rampStartZ` above it) -- pass 0 ramps/helixes down from here, not from safeZ.
         for (i, z) in zDepths.enumerated() {
             // Every loop is cut at this depth before stepping down; each one starts with its own
             // rapid + entry and ends with a retract, so they chain without extra connecting moves.

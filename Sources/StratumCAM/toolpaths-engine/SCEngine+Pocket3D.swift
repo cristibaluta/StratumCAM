@@ -158,7 +158,7 @@ extension SCEngine {
         }
 
         var passes: [SC.ToolpathPass] = []
-        var previousZ = 0.0 // top of stock, like `.pocket`: the first layer ramps/helixes down from here
+        var previousZ = settings.firstPassStartZ // top of stock (or `rampStartZ` above it), like `.pocket`: the first layer ramps/helixes down from here
         var lastPlans: [PocketPlan] = []
 
         for band in layout.bands {

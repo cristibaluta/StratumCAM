@@ -92,7 +92,7 @@ extension SCEngine {
         let zDepths = EngineTools.calculateZPasses(targetDepth: depth, stepdown: settings.cutting.stepdown)
 
         var passes: [SC.ToolpathPass] = []
-        var previousZ = 0.0 // top of stock -- pass 0 ramps/helixes down from here, same convention `.pocket`/`.contour` use.
+        var previousZ = settings.firstPassStartZ // top of stock (or `rampStartZ` above it) -- pass 0 ramps/helixes down from here, same convention `.pocket`/`.contour` use.
         for (i, z) in zDepths.enumerated() {
             let waypoints = buildCounterboreWaypoints(for: toolpathSegments,
                                                        boundary: boundary,

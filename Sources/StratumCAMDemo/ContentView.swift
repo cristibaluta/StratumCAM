@@ -188,6 +188,50 @@ struct ContentView: View {
                         show(DemoPocketing().demoTrochoidalCircle())
                     }
                 }
+                Section("Entries") {
+                    demoButton("Contour: Rect Outside - Ramp") {
+                        show(DemoEntries().demoRectOutsideRamp())
+                    }
+                    demoButton("Contour: Rect Outside - Helix") {
+                        show(DemoEntries().demoRectOutsideHelix())
+                    }
+                    demoButton("Contour: Rect Inside - Ramp") {
+                        show(DemoEntries().demoRectInsideRamp())
+                    }
+                    demoButton("Contour: Rect Inside - Helix") {
+                        show(DemoEntries().demoRectInsideHelix())
+                    }
+                    Divider()
+                    demoButton("Contour: Circle Outside - Ramp") {
+                        show(DemoEntries().demoCircleOutsideRamp())
+                    }
+                    demoButton("Contour: Circle Outside - Helix") {
+                        show(DemoEntries().demoCircleOutsideHelix())
+                    }
+                    demoButton("Contour: Circle Inside - Ramp") {
+                        show(DemoEntries().demoCircleInsideRamp())
+                    }
+                    demoButton("Contour: Circle Inside - Helix") {
+                        show(DemoEntries().demoCircleInsideHelix())
+                    }
+                    Divider()
+                    demoButton("Contour: Rect Outside - Ramp from Z +2") {
+                        show(DemoEntries().demoRectOutsideRampFromCustomZ())
+                    }
+                    Divider()
+                    demoButton("Pocket: Rect - Ramp") {
+                        show(DemoEntries().demoPocketRectRamp())
+                    }
+                    demoButton("Pocket: Rect - Helix") {
+                        show(DemoEntries().demoPocketRectHelix())
+                    }
+                    demoButton("Pocket: Circle - Ramp") {
+                        show(DemoEntries().demoPocketCircleRamp())
+                    }
+                    demoButton("Pocket: Circle - Helix") {
+                        show(DemoEntries().demoPocketCircleHelix())
+                    }
+                }
                 Section("Rest Machining") {
                     demoButton("Square 20x20 (Ø6 then Ø2)") {
                         show(DemoRestMachining().demoSquare())

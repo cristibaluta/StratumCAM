@@ -54,7 +54,7 @@ extension SCEngine {
         let zDepths = EngineTools.calculateZPasses(targetDepth: settings.targetDepth, stepdown: depthPerPass)
 
         var passes: [SC.ToolpathPass] = []
-        var previousZ = 0.0 // top of stock -- pass 0 ramps/helixes down from here
+        var previousZ = settings.firstPassStartZ // top of stock (or `rampStartZ` above it) -- pass 0 ramps/helixes down from here
         for (i, z) in zDepths.enumerated() {
             let waypoints = buildSlottingWaypoints(for: segments,
                                                    firstSegment: firstSegment,

@@ -23,6 +23,20 @@ extension SC {
         /// `nil` (the default) keeps the old behaviour, where the entry feed starts at `safeZ`.
         /// Ignored when it is not below `safeZ`.
         public var entryZ: Double?
+        /// Height above the top of the stock (Z0, mm, positive) where the ramp or helix of the
+        /// FIRST pass starts, so the tool begins its angled descent in the air, above the
+        /// material, instead of at the stock surface. The slope is the entry's own angle, so a
+        /// higher start just makes the ramp longer.
+        ///
+        /// Only the first pass starts there: every following pass starts its ramp or helix from
+        /// the Z of the pass before it, which is already cut. `nil` (the default) starts the
+        /// first pass at Z0. Plunge entries ignore it. Values above `safeZ` are limited to
+        /// `safeZ`.
+        ///
+        /// Not the same as `entryZ`, which is where the tool slows from rapid to the plunge feed
+        /// on the way down to the entry; the two combine: the tool rapids to `entryZ`, feeds
+        /// down to `rampStartZ` when that is lower, and starts the ramp or helix from there.
+        public var rampStartZ: Double?
         /// Total depth of cut (positive depth into stock)
         public var targetDepth: Double
         /// What the tool does between Z layers of a multi-pass operation.
@@ -53,7 +67,8 @@ extension SC {
                     targetDepth: Double = 3.0,
                     retractPolicy: RetractPolicy = .safeZ,
                     allowance: Double = 0.0,
-                    finishingPass: Bool = false) {
+                    finishingPass: Bool = false,
+                    rampStartZ: Double? = nil) {
 
             self.cutting = cutting
             self.safeZ = safeZ
@@ -63,6 +78,17 @@ extension SC {
             self.retractPolicy = retractPolicy
             self.allowance = allowance
             self.finishingPass = finishingPass
+            self.rampStartZ = rampStartZ
+        }
+
+        /// Z where the first pass's ramp or helix starts: the stock top (Z0) by default, or
+        /// `rampStartZ` above it, never higher than `safeZ`. Later passes start from the
+        /// previous pass's Z instead.
+        public var firstPassStartZ: Double {
+            guard let rampStartZ, rampStartZ > 0 else {
+                return 0
+            }
+            return max(0, min(rampStartZ, safeZ))
         }
     }
 

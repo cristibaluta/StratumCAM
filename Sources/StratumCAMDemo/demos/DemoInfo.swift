@@ -303,6 +303,9 @@ extension DemoInfo {
         if let entryZ = settings.entryZ {
             rows.append(Row("Entry Z", num(entryZ, "mm")))
         }
+        if let rampStartZ = settings.rampStartZ {
+            rows.append(Row("Ramp start Z", "+\(num(rampStartZ)) mm (1st pass)"))
+        }
         rows.append(Row("Target depth", num(settings.targetDepth, "mm")))
         rows.append(Row("Retract policy", describe(settings.retractPolicy)))
         rows.append(Row("Allowance", num(settings.allowance, "mm")))
