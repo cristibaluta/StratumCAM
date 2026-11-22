@@ -135,13 +135,14 @@ class DemoSlotting: Demo {
         // through that shared helper (it needs two independent reference geometries --
         // the boundary for blue, the derived centerline for yellow -- see
         // `tessellateForRender`'s own doc comment on why `DemoSlotting` bypasses `run`).
+        let operation: SC.MachiningOperation = .slotting(depthPerPass: 1.0, pattern: pattern, entry: .ramp(angleDegrees: 3))
         let toolpaths: [SC.OutputToolpath]
         do {
             toolpaths = try engine.generateToolpaths(
                 from: [centerline],
                 tool: tool,
                 settings: settings,
-                operation: .slotting(depthPerPass: 1.0, pattern: pattern, entry: .ramp(angleDegrees: 3))
+                operation: operation
             )
         } catch {
             print("generateToolpaths failed: \(error)")
@@ -172,7 +173,8 @@ class DemoSlotting: Demo {
 
         let gcode = gcodeEngine.generateGCode(from: toolpaths, settings: settings)
 
-        return Demo.DemoResult(batches: batches, gcode: gcode, toolpathPoints: toolpathPoints, tool: tool)
+        return Demo.DemoResult(batches: batches, gcode: gcode, toolpathPoints: toolpathPoints, tool: tool,
+                               info: DemoInfo(operation: operation, tool: tool, settings: settings))
     }
 
     // MARK: - Open-ended boundary -> derived centerline (real-world open slot)
@@ -228,13 +230,14 @@ class DemoSlotting: Demo {
 
         // See the earlier `demoSlottingRectangleBoundary`'s own comment on why this
         // catches rather than propagating `throws`.
+        let operation: SC.MachiningOperation = .slotting(depthPerPass: 1.0, pattern: pattern, entry: .fromOpenEnd(stepoverPercentage: 0.25))
         let toolpaths: [SC.OutputToolpath]
         do {
             toolpaths = try engine.generateToolpaths(
                 from: [centerline],
                 tool: tool,
                 settings: settings,
-                operation: .slotting(depthPerPass: 1.0, pattern: pattern, entry: .fromOpenEnd(stepoverPercentage: 0.25))
+                operation: operation
             )
         } catch {
             print("generateToolpaths failed: \(error)")
@@ -274,7 +277,8 @@ class DemoSlotting: Demo {
 
         let gcode = gcodeEngine.generateGCode(from: toolpaths, settings: settings)
 
-        return Demo.DemoResult(batches: batches, gcode: gcode, toolpathPoints: toolpathPoints, tool: tool)
+        return Demo.DemoResult(batches: batches, gcode: gcode, toolpathPoints: toolpathPoints, tool: tool,
+                               info: DemoInfo(operation: operation, tool: tool, settings: settings))
     }
 
     // MARK: - Both-ends-open boundary -> derived centerline (real-world "screw head" slot)
@@ -329,13 +333,14 @@ class DemoSlotting: Demo {
 
         // See `demoSlottingRectangleBoundary`'s own comment on why this catches
         // rather than propagating `throws`.
+        let operation: SC.MachiningOperation = .slotting(depthPerPass: 1.0, pattern: pattern, entry: .fromOpenEnd(stepoverPercentage: 0.25))
         let toolpaths: [SC.OutputToolpath]
         do {
             toolpaths = try engine.generateToolpaths(
                 from: [centerline],
                 tool: tool,
                 settings: settings,
-                operation: .slotting(depthPerPass: 1.0, pattern: pattern, entry: .fromOpenEnd(stepoverPercentage: 0.25))
+                operation: operation
             )
         } catch {
             print("generateToolpaths failed: \(error)")
@@ -373,6 +378,7 @@ class DemoSlotting: Demo {
 
         let gcode = gcodeEngine.generateGCode(from: toolpaths, settings: settings)
 
-        return Demo.DemoResult(batches: batches, gcode: gcode, toolpathPoints: toolpathPoints, tool: tool)
+        return Demo.DemoResult(batches: batches, gcode: gcode, toolpathPoints: toolpathPoints, tool: tool,
+                               info: DemoInfo(operation: operation, tool: tool, settings: settings))
     }
 }

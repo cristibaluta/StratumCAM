@@ -133,6 +133,7 @@ class DemoFacing: Demo {
         return Demo.DemoResult(batches: firstResult.batches + secondResult.batches,
                                gcode: firstResult.gcode + "\n\n" + secondResult.gcode,
                                toolpathPoints: firstResult.toolpathPoints + secondResult.toolpathPoints,
-                               tool: bigTool)
+                               tool: bigTool,
+                               info: firstResult.info.labeled("1") + secondResult.info.labeled("2"))
     }
 }

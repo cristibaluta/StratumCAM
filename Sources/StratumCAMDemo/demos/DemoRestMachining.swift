@@ -99,7 +99,17 @@ class DemoRestMachining: Demo {
         }
 
         let gcode = gcodeEngine.generateGCode(from: restOutputs, settings: settings)
-        return DemoResult(batches: batches, gcode: gcode, toolpathPoints: restPoints, tool: smallTool)
+
+        // Stage 1 is the pocket with the large tool (already described by `run`); stage 2 is the
+        // rest pass with the small tool, which shares the machine settings.
+        let restOperation = DemoInfo.Block(title: "Operation", rows: [
+            DemoInfo.Row("Operation", "Rest machining"),
+            DemoInfo.Row("Rest corners", "\(corners.count)"),
+            DemoInfo.Row("Cleans up after", "Ø\(DemoInfo.num(bigTool.diameter)) mm pocket")
+        ])
+        let info = pocket.info.labeled("1") + DemoInfo(blocks: [restOperation, DemoInfo.toolBlock(smallTool)]).labeled("2")
+
+        return DemoResult(batches: batches, gcode: gcode, toolpathPoints: restPoints, tool: smallTool, info: info)
     }
 
     // MARK: - Rest areas as geometry

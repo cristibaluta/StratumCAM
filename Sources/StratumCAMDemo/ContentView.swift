@@ -20,6 +20,8 @@ struct ContentView: View {
     @State private var scrubIndex: Double = 0
     @State private var staticBatches: [RenderBatch] = []
     @State private var errorMessage: String? = nil
+    @State private var demoInfo: DemoInfo = DemoInfo()
+    @State private var showInfo: Bool = true
 
     private let previewDemo = Demo()
 
@@ -405,6 +407,20 @@ struct ContentView: View {
                             .padding()
                     }
                 }
+                .overlay(alignment: .topLeading) {
+                    if showInfo && !demoInfo.isEmpty {
+                        DemoInfoOverlay(title: selectedDemoID, info: demoInfo)
+                    }
+                }
+                .toolbar {
+                    ToolbarItem {
+                        Toggle(isOn: $showInfo) {
+                            Label("Info", systemImage: "info.circle")
+                        }
+                        .toggleStyle(.button)
+                        .help("Show operation, tool and machine settings")
+                    }
+                }
                 .overlay(alignment: .bottomLeading) {
                     VStack(alignment: .leading, spacing: 8) {
                         if !toolpathPoints.isEmpty {
@@ -458,6 +474,7 @@ struct ContentView: View {
         gcodeLines = result.gcode.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
         toolpathPoints = result.toolpathPoints
         activeTool = result.tool
+        demoInfo = result.info
         staticBatches = toolpathPoints.isEmpty ? result.batches : Array(result.batches.dropLast())
         scrubIndex = Double(max(0, toolpathPoints.count - 1))
         rebuildRenderBatches()

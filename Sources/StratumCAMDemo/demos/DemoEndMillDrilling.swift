@@ -65,7 +65,8 @@ class DemoEndMillDrilling: Demo {
                                gcode: result.gcode,
                                toolpathPoints: result.toolpathPoints,
                                tool: result.tool,
-                               errorMessage: result.errorMessage)
+                               errorMessage: result.errorMessage,
+                               info: result.info)
     }
 
     // MARK: - Holes wider than the bit

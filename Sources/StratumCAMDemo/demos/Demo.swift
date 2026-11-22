@@ -37,6 +37,11 @@ class Demo {
         /// Set when the engine refused to build (some of) the toolpaths. The UI shows it
         /// on screen instead of leaving the preview silently empty.
         var errorMessage: String? = nil
+
+        /// Operation, tool and machine settings behind this result, listed by the overlay on
+        /// the canvas. `run(...)` fills it in; a demo that builds its `DemoResult` by hand
+        /// has to pass it along itself.
+        var info: DemoInfo = DemoInfo()
     }
 
     func run(contour: SC.Contour, tool: SC.ToolParams, settings: SC.MachineSettings, operation: SC.MachiningOperation) -> DemoResult {
@@ -151,7 +156,8 @@ class Demo {
                           gcode: gcode,
                           toolpathPoints: toolpathPoints,
                           tool: tool,
-                          errorMessage: errorLines.isEmpty ? nil : errorLines.joined(separator: "\n"))
+                          errorMessage: errorLines.isEmpty ? nil : errorLines.joined(separator: "\n"),
+                          info: DemoInfo(operation: operation, tool: tool, settings: settings, contours: contours))
     }
 
     /// A one-line, human-readable reason for an engine error, for showing on screen.

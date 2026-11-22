@@ -63,7 +63,7 @@ class DemoCounterbore: Demo {
             batches.append(contentsOf: referenceBatches)
         }
 
-        return Demo.DemoResult(batches: batches, gcode: result.gcode, toolpathPoints: result.toolpathPoints, tool: result.tool)
+        return Demo.DemoResult(batches: batches, gcode: result.gcode, toolpathPoints: result.toolpathPoints, tool: result.tool, info: result.info)
     }
 
     // MARK: - Basic counterbore recess
