@@ -264,6 +264,9 @@ extension SCEngine {
                         feedRate: settings.cutting.feedRate)
         ]
 
+        // What is traced after the entry: every ring, unless a helix has already cleared the first ones.
+        var traceSegments = segments
+
         switch entry {
             case .plunge:
                 break // Handled above, before this switch.
@@ -295,26 +298,61 @@ extension SCEngine {
                 )
 
             case .helix(let angleDegrees):
-                let radius = RampTools.helixRadius(forToolRadius: toolRadius)
-                // Same reasoning as `.ramp` above: travel at safeZ, but rapid down to
-                // previousZ first so the helix itself starts from there, not from safeZ.
+                // The helix is centered on the hole, the same way a pocket that begins with a circle
+                // around its own center does it: the descent is symmetric around the hole's axis, and
+                // the cutter's edge sweeps across that axis, so no core is left standing. (It used to
+                // be a circle beside the first ring's start point, which is off-center and ended in a
+                // straight tail back to the ring.)
+                let desiredRadius = RampTools.helixRadius(forToolRadius: toolRadius)
+                // At most what fits: the tool-center path can't go past the wall ring.
+                let wallRadius = RampTools.leadingCircle(of: boundary)?.radius ?? desiredRadius
+                let helixRadius = max(1e-6, min(desiredRadius, wallRadius))
+
+                // Start and wind like the first ring, so the helix hands over to it without a turn-around.
+                let firstRing = RampTools.leadingCircle(of: segments)
+                let helixStartAngle = firstRing?.startAngle ?? atan2(startPoint.y - center.y, startPoint.x - center.x)
+                let helixIsCCW = firstRing?.isCCW ?? (RampTools.leadingCircle(of: boundary)?.isCCW ?? true)
+
+                let helixStart = CGPoint(x: center.x + helixRadius * cos(helixStartAngle),
+                                         y: center.y + helixRadius * sin(helixStartAngle))
+                // Come down over the helix start, not over the first ring's start.
+                waypoints[0] = SC.Waypoint(position: SIMD3(helixStart.x, helixStart.y, settings.safeZ),
+                                           motion: .rapid,
+                                           feedRate: settings.cutting.feedRate)
                 waypoints.append(
-                    SC.Waypoint(position: SIMD3(startPoint.x, startPoint.y, previousZ),
+                    SC.Waypoint(position: SIMD3(helixStart.x, helixStart.y, previousZ),
                                 motion: .rapid,
                                 feedRate: settings.cutting.feedRate)
                 )
                 waypoints.append(
-                    contentsOf: RampTools.helixEntryWaypoints(contourStart: startPoint,
-                                                              startTangent: startTangent,
-                                                              side: .inside,
-                                                              segments: boundary,
-                                                              firstSegment: firstSegment,
-                                                              radius: radius,
-                                                              angleDegrees: angleDegrees,
-                                                              fromZ: previousZ,
-                                                              toZ: z,
-                                                              settings: settings)
+                    contentsOf: RampTools.centeredHelixWaypoints(center: center,
+                                                                 radius: helixRadius,
+                                                                 startAngle: helixStartAngle,
+                                                                 isCCW: helixIsCCW,
+                                                                 angleDegrees: angleDegrees,
+                                                                 fromZ: previousZ,
+                                                                 toZ: z,
+                                                                 settings: settings)
                 )
+                // The floor under the last turn is still sloped: one flat full circle at depth cleans it.
+                waypoints.append(
+                    contentsOf: RampTools.flatCircleWaypoints(center: center,
+                                                              radius: helixRadius,
+                                                              startAngle: helixStartAngle,
+                                                              isCCW: helixIsCCW,
+                                                              z: z,
+                                                              feedRate: settings.cutting.feedRate)
+                )
+                // Rings that lie inside the helix are already cleared: carry on from the first ring beyond it.
+                traceSegments = RampTools.droppingCircles(upToRadius: helixRadius + 1e-6, from: segments)
+                if let next = traceSegments.first?.startPoint,
+                   hypot(next.x - helixStart.x, next.y - helixStart.y) > 1e-9 {
+                    waypoints.append(
+                        SC.Waypoint(position: SIMD3(next.x, next.y, z),
+                                    motion: .linear,
+                                    feedRate: settings.cutting.feedRate)
+                    )
+                }
 
             case .fromOpenEnd:
                 // No open end on a counterbore recess -- fall back to a plain plunge
@@ -324,7 +362,7 @@ extension SCEngine {
                 )
         }
 
-        waypoints.append(contentsOf: traceRingWaypoints(for: segments, atZ: z, settings: settings))
+        waypoints.append(contentsOf: traceRingWaypoints(for: traceSegments, atZ: z, settings: settings))
 
         return waypoints
     }
