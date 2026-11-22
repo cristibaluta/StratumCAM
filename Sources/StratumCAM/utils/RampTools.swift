@@ -284,6 +284,83 @@ struct RampTools {
         return waypoints
     }
 
+    // MARK: - Helix at an internal corner
+
+    /// A helix placed in the corner of a path: its circle, and the point where it starts.
+    struct CornerHelix {
+        let center: CGPoint
+        let radius: Double
+        /// Where on the circle the helix starts, on the outgoing wall.
+        let startAngle: Double
+        let start: CGPoint
+        let isCCW: Bool
+    }
+
+    /// Where to put a helix when the path starts at an *internal* corner: the corner of the free
+    /// area the tool is allowed to move in, so the helix's side is the one the path turns toward.
+    ///
+    /// A circle tangent to the outgoing wall right at the corner would reach back past the
+    /// incoming wall (by its whole radius, at a right angle), so the circle is instead tangent to
+    /// BOTH walls: its center sits on the corner's bisector, the same distance from each wall
+    /// (at a right angle: the same offset on both axes). The helix starts where the circle
+    /// touches the outgoing wall, `radius / tan(wedge / 2)` from the corner, and the caller
+    /// finishes with a linear move at depth from there to the corner.
+    ///
+    /// The radius is reduced when a wall is too short to hold the circle's tangent point.
+    ///
+    /// Returns `nil` when this is not an internal corner (a straight start, a turn away from the
+    /// helix's side -- an external corner, where the helix has nothing in its way -- or a curved
+    /// wall), so the caller keeps its usual helix.
+    ///
+    /// - Parameters:
+    ///   - corner: The point the path starts at, where `incoming` ends and `outgoing` begins.
+    ///   - outgoingTangent: Unit direction of `outgoing` at `corner`.
+    ///   - incomingTangent: Unit direction of `incoming` at `corner`.
+    ///   - isCCW: The helix's winding, which is also which side of `outgoing` it sits on (left when CCW).
+    static func internalCornerHelix(corner: CGPoint,
+                                    outgoing: SC.Segment,
+                                    incoming: SC.Segment,
+                                    outgoingTangent: CGPoint,
+                                    incomingTangent: CGPoint,
+                                    isCCW: Bool,
+                                    radius: Double) -> CornerHelix? {
+
+        guard case .line = outgoing, case .line = incoming, radius > 1e-9 else {
+            return nil
+        }
+
+        let cross = incomingTangent.x * outgoingTangent.y - incomingTangent.y * outgoingTangent.x
+        let dot = incomingTangent.x * outgoingTangent.x + incomingTangent.y * outgoingTangent.y
+        // How much the path turns at the corner: 0 is straight on, pi is a full turn-around.
+        let turn = atan2(abs(cross), dot)
+        guard turn > 0.01, turn < .pi - 0.01 else {
+            return nil
+        }
+        // Turning toward the helix's side means the incoming wall is on that side too.
+        guard (cross > 0) == isCCW else {
+            return nil
+        }
+
+        let tanHalfWedge = tan((.pi - turn) / 2)
+        let fitted = min(radius, min(outgoing.pathLength, incoming.pathLength) * tanHalfWedge)
+        guard fitted > 1e-6 else {
+            return nil
+        }
+
+        let leg = fitted / tanHalfWedge
+        let start = CGPoint(x: corner.x + outgoingTangent.x * leg,
+                            y: corner.y + outgoingTangent.y * leg)
+        let normal = isCCW ? CGPoint(x: -outgoingTangent.y, y: outgoingTangent.x)
+                           : CGPoint(x: outgoingTangent.y, y: -outgoingTangent.x)
+        let center = CGPoint(x: start.x + normal.x * fitted, y: start.y + normal.y * fitted)
+
+        return CornerHelix(center: center,
+                           radius: fitted,
+                           startAngle: atan2(start.y - center.y, start.x - center.x),
+                           start: start,
+                           isCCW: isCCW)
+    }
+
     // MARK: - Centered helix (pocket entry)
 
     /// Tool-center radius of a helix entry, derived from the tool: 95% of the tool radius, so

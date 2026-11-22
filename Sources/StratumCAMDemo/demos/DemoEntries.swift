@@ -110,7 +110,9 @@ class DemoEntries: Demo {
         contourDemo(rectangleContour(), side: .inside, entry: ramp)
     }
 
-    /// Same window, entered with a helix inside it.
+    /// Same window, entered with a helix inside it. The loop starts at a corner, so the helix is
+    /// centered the same distance from both walls instead of tangent to just one of them; after the
+    /// last turn the tool moves along the floor to the corner.
     func demoRectInsideHelix() -> Demo.DemoResult {
         contourDemo(rectangleContour(), side: .inside, entry: helix)
     }

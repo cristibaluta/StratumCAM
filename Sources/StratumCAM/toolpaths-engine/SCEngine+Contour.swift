@@ -402,29 +402,79 @@ extension SCEngine {
                                           end: CGPoint(x: anchor.x + anchorTangent.x * radius,
                                                        y: anchor.y + anchorTangent.y * radius))
                 }
-                waypoints.append(
-                    SC.Waypoint(position: SIMD3(anchor.x, anchor.y, settings.safeZ),
-                                motion: .rapid,
-                                feedRate: settings.cutting.feedRate)
-                )
-                waypoints.append(
-                    SC.Waypoint(position: SIMD3(anchor.x, anchor.y, previousZ),
-                                motion: .rapid,
-                                feedRate: settings.cutting.feedRate)
-                )
-                waypoints.append(
-                    contentsOf: RampTools.helixEntryWaypoints(contourStart: anchor,
-                                                              startTangent: anchorTangent,
-                                                              side: side,
-                                                              segments: segments,
-                                                              firstSegment: anchorSegment,
-                                                              radius: radius,
-                                                              angleDegrees: angleDegrees,
-                                                              fromZ: previousZ,
-                                                              toZ: z,
-                                                              settings: settings,
-                                                              contourEntry: true)
-                )
+                // At an internal corner of the loop (no lead-in moving the start away from it) a circle
+                // tangent to the first wall would reach back through the wall that arrives at the corner.
+                // The helix goes in the corner instead, tangent to both walls, and the tool then moves
+                // along the floor to the corner.
+                let helixIsCCW = OffsetTools.offsetDistance(for: side, toolRadius: radius, segments: segments) > 0
+                if side != .onContour, leadInMove == nil, isClosed, let lastSegment = segments.last,
+                   let corner = RampTools.internalCornerHelix(corner: contourStart,
+                                                              outgoing: first,
+                                                              incoming: lastSegment,
+                                                              outgoingTangent: startTangent,
+                                                              incomingTangent: direction(of: lastSegment, atEnd: true),
+                                                              isCCW: helixIsCCW,
+                                                              radius: radius) {
+                    waypoints.append(
+                        SC.Waypoint(position: SIMD3(corner.start.x, corner.start.y, settings.safeZ),
+                                    motion: .rapid,
+                                    feedRate: settings.cutting.feedRate)
+                    )
+                    waypoints.append(
+                        SC.Waypoint(position: SIMD3(corner.start.x, corner.start.y, previousZ),
+                                    motion: .rapid,
+                                    feedRate: settings.cutting.feedRate)
+                    )
+                    waypoints.append(
+                        contentsOf: RampTools.centeredHelixWaypoints(center: corner.center,
+                                                                     radius: corner.radius,
+                                                                     startAngle: corner.startAngle,
+                                                                     isCCW: corner.isCCW,
+                                                                     angleDegrees: angleDegrees,
+                                                                     fromZ: previousZ,
+                                                                     toZ: z,
+                                                                     settings: settings)
+                    )
+                    // The floor under the last turn is still sloped: one flat full circle at depth cleans it.
+                    waypoints.append(
+                        contentsOf: RampTools.flatCircleWaypoints(center: corner.center,
+                                                                  radius: corner.radius,
+                                                                  startAngle: corner.startAngle,
+                                                                  isCCW: corner.isCCW,
+                                                                  z: z,
+                                                                  feedRate: settings.cutting.feedRate)
+                    )
+                    // Then straight to the corner, where the contour itself begins.
+                    waypoints.append(
+                        SC.Waypoint(position: SIMD3(contourStart.x, contourStart.y, z),
+                                    motion: .linear,
+                                    feedRate: settings.cutting.feedRate)
+                    )
+                } else {
+                    waypoints.append(
+                        SC.Waypoint(position: SIMD3(anchor.x, anchor.y, settings.safeZ),
+                                    motion: .rapid,
+                                    feedRate: settings.cutting.feedRate)
+                    )
+                    waypoints.append(
+                        SC.Waypoint(position: SIMD3(anchor.x, anchor.y, previousZ),
+                                    motion: .rapid,
+                                    feedRate: settings.cutting.feedRate)
+                    )
+                    waypoints.append(
+                        contentsOf: RampTools.helixEntryWaypoints(contourStart: anchor,
+                                                                  startTangent: anchorTangent,
+                                                                  side: side,
+                                                                  segments: segments,
+                                                                  firstSegment: anchorSegment,
+                                                                  radius: radius,
+                                                                  angleDegrees: angleDegrees,
+                                                                  fromZ: previousZ,
+                                                                  toZ: z,
+                                                                  settings: settings,
+                                                                  contourEntry: true)
+                    )
+                }
                 if let leadInMove {
                     waypoints.append(leadInMove)
                 }
