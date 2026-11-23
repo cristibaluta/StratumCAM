@@ -50,12 +50,12 @@ extension SCEngine {
         let zDepths = EngineTools.calculateZPasses(targetDepth: settings.targetDepth, stepdown: settings.cutting.stepdown)
 
         var passes: [SC.ToolpathPass] = []
-        var previousZ = settings.firstPassStartZ // top of stock (or `rampStartZ` above it) -- pass 0 ramps/helixes down from here, same convention `.contour` uses.
+        var previousZ = settings.firstPassStartZ // where the pass before this one ended: the next pass ramps down from here (the first one from `settings.entryStartZ`)
         for (i, z) in zDepths.enumerated() {
             let waypoints = pocketPassWaypoints(plan: plan,
                                                 toolRadius: tool.diameter / 2.0,
                                                 atZ: z,
-                                                previousZ: previousZ,
+                                                previousZ: settings.entryStartZ(passZ: z, previousZ: previousZ),
                                                 settings: settings,
                                                 entry: entry)
             passes.append(SC.ToolpathPass(passIndex: i, depthZ: z, waypoints: waypoints))

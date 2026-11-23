@@ -17,17 +17,23 @@ extension SC {
         public var safeZ: Double
         /// Short lift clearance between close cuts
         public var retractZ: Double
-        /// Height above the top of the stock (Z0, mm, positive) where the entry starts: the tool
-        /// rapids from `safeZ` down to here and enters from there, so the slow part of the
-        /// descent happens in the air, above the material.
-        /// - ramp / helix: the FIRST pass starts its angled descent here instead of at Z0 (the
-        ///   slope is the entry's own angle, so a higher start just makes the ramp longer). Every
+        /// Where the cut begins (mm, Z0 = top of the stock, 0 or negative): the surface the first
+        /// pass that is kept starts from. The engine plans its passes from Z0 down and the caller
+        /// drops the ones above this, so this is only needed to start the entry in the right place:
+        /// see `startOffset`. 0 (the default) is the top of the stock.
+        public var startZ: Double
+        /// How far above `startZ` (mm, positive) the entry starts, so the tool begins its way into
+        /// the material in the air instead of at the surface. The tool rapids from `safeZ` down to
+        /// `startZ + startOffset`, then:
+        /// - ramp / helix: the FIRST pass that is kept starts its angled descent there (the slope
+        ///   is the entry's own angle, so a bigger offset just makes the ramp longer). Every
         ///   following pass starts from the Z of the pass before it, which is already cut.
-        /// - plunge: every plunge rapids to here, then feeds down at the plunge rate.
+        /// - plunge: every plunge feeds down from there at the plunge rate.
         ///
-        /// `nil` (the default) or 0 starts the entry at Z0 (ramp/helix) or at `safeZ`
-        /// (plunge). Values above `safeZ` are limited to `safeZ`.
-        public var rampStartZ: Double?
+        /// Relative to `startZ`, so it keeps meaning "this far above where I start cutting" when
+        /// the start moves. `nil` (the default) or 0 starts the entry at `startZ` (ramp/helix) or
+        /// at `safeZ` (plunge). The start is never higher than `safeZ`.
+        public var startOffset: Double?
         /// Total depth of cut (positive depth into stock)
         public var targetDepth: Double
         /// What the tool does between Z layers of a multi-pass operation.
@@ -58,7 +64,8 @@ extension SC {
                     retractPolicy: RetractPolicy = .safeZ,
                     allowance: Double = 0.0,
                     finishingPass: Bool = false,
-                    rampStartZ: Double? = nil) {
+                    startZ: Double = 0,
+                    startOffset: Double? = nil) {
 
             self.cutting = cutting
             self.safeZ = safeZ
@@ -67,17 +74,26 @@ extension SC {
             self.retractPolicy = retractPolicy
             self.allowance = allowance
             self.finishingPass = finishingPass
-            self.rampStartZ = rampStartZ
+            self.startZ = min(startZ, 0)
+            self.startOffset = startOffset
         }
 
-        /// Z where the first pass's ramp or helix starts: the stock top (Z0) by default, or
-        /// `rampStartZ` above it, never higher than `safeZ`. Later passes start from the
-        /// previous pass's Z instead.
+        /// Z where the first kept pass's entry starts: `startOffset` above `startZ`, never higher
+        /// than `safeZ`. Later passes start from the previous pass's Z instead.
         public var firstPassStartZ: Double {
-            guard let rampStartZ, rampStartZ > 0 else {
-                return 0
+            let offset = max(startOffset ?? 0, 0)
+            return min(startZ + offset, max(safeZ, startZ))
+        }
+
+        /// Z a pass at `passZ` starts its ramp or helix from, given where the pass before it
+        /// (`previousZ`) ended: `firstPassStartZ` for the first pass that is kept (the first one
+        /// at or below `startZ`), the previous pass's Z for all others. The passes above
+        /// `startZ` are dropped by the caller, so they are never the first one kept.
+        public func entryStartZ(passZ: Double, previousZ: Double) -> Double {
+            guard passZ <= startZ + 1e-9, previousZ > startZ + 1e-9 else {
+                return previousZ
             }
-            return max(0, min(rampStartZ, safeZ))
+            return firstPassStartZ
         }
     }
 

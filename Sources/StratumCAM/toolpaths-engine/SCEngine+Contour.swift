@@ -54,14 +54,14 @@ extension SCEngine {
 
         // 3. Build waypoints per pass
         var passes: [SC.ToolpathPass] = []
-        var previousZ = settings.firstPassStartZ // top of stock (or `rampStartZ` above it) -- the first pass ramps down from here, not from safeZ.
+        var previousZ = settings.firstPassStartZ // where the pass before this one ended: the next pass ramps down from here (the first one from `settings.entryStartZ`)
         for (i, z) in zDepths.enumerated() {
             let waypoints: [SC.Waypoint]
             if case .ramp(let angleDegrees) = entry, let firstSegment = toolpathSegments.first {
                 waypoints = buildRampedTraceWaypoints(for: toolpathSegments,
                                                       firstSegment: firstSegment,
                                                       atZ: z,
-                                                      previousZ: previousZ,
+                                                      previousZ: settings.entryStartZ(passZ: z, previousZ: previousZ),
                                                       angleDegrees: angleDegrees,
                                                       settings: settings)
             } else {
@@ -181,7 +181,7 @@ extension SCEngine {
         let totalDepth = abs(settings.targetDepth)
 
         var passes: [SC.ToolpathPass] = []
-        var previousZ = settings.firstPassStartZ // top of stock (or `rampStartZ` above it) -- pass 0 ramps/helixes down from here, not from safeZ.
+        var previousZ = settings.firstPassStartZ // where the pass before this one ended: the next pass ramps down from here (the first one from `settings.entryStartZ`)
         for (i, z) in zDepths.enumerated() {
             // Every loop is cut at this depth before stepping down; each one starts with its own
             // rapid + entry and ends with a retract, so they chain without extra connecting moves.
@@ -192,7 +192,7 @@ extension SCEngine {
                         for: loop,
                         firstSegment: loop[0],
                         atZ: z,
-                        previousZ: previousZ,
+                        previousZ: settings.entryStartZ(passZ: z, previousZ: previousZ),
                         totalDepth: totalDepth,
                         side: side,
                         settings: settings,

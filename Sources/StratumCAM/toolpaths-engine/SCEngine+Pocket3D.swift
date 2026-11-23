@@ -158,7 +158,7 @@ extension SCEngine {
         }
 
         var passes: [SC.ToolpathPass] = []
-        var previousZ = settings.firstPassStartZ // top of stock (or `rampStartZ` above it), like `.pocket`: the first layer ramps/helixes down from here
+        var previousZ = settings.firstPassStartZ // where the pass before this one ended: the next pass ramps down from here (the first one from `settings.entryStartZ`)
         var lastPlans: [PocketPlan] = []
 
         for band in layout.bands {
@@ -191,7 +191,7 @@ extension SCEngine {
                     waypoints.append(contentsOf: pocketPassWaypoints(plan: plan,
                                                                      toolRadius: toolRadius,
                                                                      atZ: z,
-                                                                     previousZ: previousZ,
+                                                                     previousZ: settings.entryStartZ(passZ: z, previousZ: previousZ),
                                                                      settings: settings,
                                                                      entry: entry))
                 }
