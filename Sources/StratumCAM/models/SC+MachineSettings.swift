@@ -17,25 +17,16 @@ extension SC {
         public var safeZ: Double
         /// Short lift clearance between close cuts
         public var retractZ: Double
-        /// Height above the top of the stock (Z0, mm, positive) where the tool slows down from
-        /// rapid to the entry feed: it rapids from `safeZ` down to here, then feeds in at the
-        /// plunge rate and the entry strategy (plunge, ramp, helix) is applied from there.
-        /// `nil` (the default) keeps the old behaviour, where the entry feed starts at `safeZ`.
-        /// Ignored when it is not below `safeZ`.
-        public var entryZ: Double?
-        /// Height above the top of the stock (Z0, mm, positive) where the ramp or helix of the
-        /// FIRST pass starts, so the tool begins its angled descent in the air, above the
-        /// material, instead of at the stock surface. The slope is the entry's own angle, so a
-        /// higher start just makes the ramp longer.
+        /// Height above the top of the stock (Z0, mm, positive) where the entry starts: the tool
+        /// rapids from `safeZ` down to here and enters from there, so the slow part of the
+        /// descent happens in the air, above the material.
+        /// - ramp / helix: the FIRST pass starts its angled descent here instead of at Z0 (the
+        ///   slope is the entry's own angle, so a higher start just makes the ramp longer). Every
+        ///   following pass starts from the Z of the pass before it, which is already cut.
+        /// - plunge: every plunge rapids to here, then feeds down at the plunge rate.
         ///
-        /// Only the first pass starts there: every following pass starts its ramp or helix from
-        /// the Z of the pass before it, which is already cut. `nil` (the default) starts the
-        /// first pass at Z0. Plunge entries ignore it. Values above `safeZ` are limited to
-        /// `safeZ`.
-        ///
-        /// Not the same as `entryZ`, which is where the tool slows from rapid to the plunge feed
-        /// on the way down to the entry; the two combine: the tool rapids to `entryZ`, feeds
-        /// down to `rampStartZ` when that is lower, and starts the ramp or helix from there.
+        /// `nil` (the default) or 0 starts the entry at Z0 (ramp/helix) or at `safeZ`
+        /// (plunge). Values above `safeZ` are limited to `safeZ`.
         public var rampStartZ: Double?
         /// Total depth of cut (positive depth into stock)
         public var targetDepth: Double
@@ -63,7 +54,6 @@ extension SC {
         public init(cutting: CuttingData = CuttingData(),
                     safeZ: Double = 5.0,
                     retractZ: Double = 1.0,
-                    entryZ: Double? = nil,
                     targetDepth: Double = 3.0,
                     retractPolicy: RetractPolicy = .safeZ,
                     allowance: Double = 0.0,
@@ -73,7 +63,6 @@ extension SC {
             self.cutting = cutting
             self.safeZ = safeZ
             self.retractZ = retractZ
-            self.entryZ = entryZ
             self.targetDepth = targetDepth
             self.retractPolicy = retractPolicy
             self.allowance = allowance

@@ -334,7 +334,17 @@ extension SCEngine {
                 )
 
                 let leadSegment = leadInMove.map { Self.segment(of: $0, from: anchor) }
-                let path = (leadSegment.map { [$0] } ?? []) + segments
+                // A closed loop is gone round again and again if the ramp needs more than one
+                // lap to get down (a steep drop at a shallow angle on a small circle): the ramp
+                // winds several turns instead of giving up for lack of length. Only as many
+                // laps as it needs, so what is left over is never more than one lap.
+                var loopPasses = 1
+                if isClosed, loopLength > 1e-9, totalRampRun(angleDegrees: angleDegrees, fromZ: previousZ, toZ: z) > 0 {
+                    let run = totalRampRun(angleDegrees: angleDegrees, fromZ: previousZ, toZ: z)
+                    let leadLength = leadSegment?.pathLength ?? 0
+                    loopPasses = max(1, Int(((run - leadLength) / loopLength - 1e-9).rounded(.up)))
+                }
+                let path = (leadSegment.map { [$0] } ?? []) + Array(repeating: segments, count: loopPasses).flatMap { $0 }
 
                 if let ramped = RampTools.pathRampWaypoints(path: path,
                                                             angleDegrees: angleDegrees,
@@ -354,8 +364,10 @@ extension SCEngine {
 
                     // The ramp already went over the start of the loop, at a sloping depth: cut
                     // the rest first and finish with that start at full depth.
+                    // (A ramp that ended exactly on a whole number of laps is already back at the
+                    // start: nothing to rotate.)
                     let rampedLength = loopLength - rest.pathLength
-                    if rampedLength > 1e-6, loopLength > 1e-9 {
+                    if rampedLength > 1e-6, rampedLength < loopLength - 1e-6, loopLength > 1e-9 {
                         traceSegments = Self.rotated(segments, by: rampedLength)
                         traceOrigin = origin + rampedLength
                     }
@@ -542,6 +554,16 @@ extension SCEngine {
     // MARK: - Loop helpers
 
     /// A chain that ends where it starts.
+    /// Horizontal distance a ramp at `angleDegrees` needs to drop from `fromZ` to `toZ`; 0 when
+    /// there is nothing to ramp or the angle is unusable.
+    private func totalRampRun(angleDegrees: Double, fromZ: Double, toZ: Double) -> Double {
+        let drop = fromZ - toZ
+        guard drop > 1e-9, angleDegrees > 0, angleDegrees < 90 else {
+            return 0
+        }
+        return drop / tan(angleDegrees.degreesToRadians)
+    }
+
     private static func isClosedLoop(_ segments: [SC.Segment]) -> Bool {
         guard let first = segments.first, let last = segments.last else {
             return false
