@@ -183,12 +183,13 @@ public final class SCEngine {
                                           entry: entry,
                                           operation: operation)
 
-            case .facing(let direction, let extensionLength):
+            case .facing(let direction, let extensionLength, let angle):
                 try buildFacingToolpath(for: contour,
                                         tool: tool,
                                         settings: settings,
                                         direction: direction,
                                         extensionLength: extensionLength,
+                                        angle: angle,
                                         operation: operation)
 
             case .slotting(let depthPerPass, let pattern, let entry):

@@ -352,6 +352,9 @@ struct ContentView: View {
                     demoButton("Rectangle with Extension") {
                         show(DemoFacing().demoFacingRectangleWithExtension())
                     }
+                    demoButton("Rectangle (45° Angle)") {
+                        show(DemoFacing().demoFacingRectangleAngled45())
+                    }
                     demoButton("Large Stock, Small Tool") {
                         show(DemoFacing().demoFacingLargeStockSmallTool())
                     }

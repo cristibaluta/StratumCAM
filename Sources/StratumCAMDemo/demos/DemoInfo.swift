@@ -73,10 +73,11 @@ extension DemoInfo {
         var rows: [Row] = []
 
         switch operation {
-            case .facing(let direction, let extensionLength):
+            case .facing(let direction, let extensionLength, let angle):
                 rows.append(Row("Operation", "Facing"))
                 rows.append(Row("Direction", direction.rawValue))
                 rows.append(Row("Extension", num(extensionLength, "mm")))
+                rows.append(Row("Angle", num(angle, "°")))
 
             case .slotting(let depthPerPass, let pattern, let entry):
                 rows.append(Row("Operation", "Slotting"))
@@ -300,11 +301,8 @@ extension DemoInfo {
         }
         rows.append(Row("Safe Z", num(settings.safeZ, "mm")))
         rows.append(Row("Retract Z", num(settings.retractZ, "mm")))
-        if let entryZ = settings.entryZ {
-            rows.append(Row("Entry Z", num(entryZ, "mm")))
-        }
-        if let rampStartZ = settings.rampStartZ {
-            rows.append(Row("Ramp start Z", "+\(num(rampStartZ)) mm (1st pass)"))
+        if let rampStartZ = settings.startOffset {
+            rows.append(Row("Ramp start offset", "+\(num(rampStartZ)) mm (1st pass)"))
         }
         rows.append(Row("Target depth", num(settings.targetDepth, "mm")))
         rows.append(Row("Retract policy", describe(settings.retractPolicy)))

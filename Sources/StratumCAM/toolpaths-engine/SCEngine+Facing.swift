@@ -20,6 +20,7 @@ extension SCEngine {
                              settings: SC.MachineSettings,
                              direction: SC.CutDirection,
                              extensionLength: Double,
+                             angle: Double = 0,
                              operation: SC.MachiningOperation) throws -> SC.OutputToolpath {
 
         guard let area = facingArea(for: contour, extensionLength: extensionLength),
@@ -32,7 +33,8 @@ extension SCEngine {
                                    extensionLength: extensionLength,
                                    tool: tool,
                                    settings: settings,
-                                   direction: direction)
+                                   direction: direction,
+                                   angle: angle)
         guard !rows.isEmpty else {
             throw SC.Error.geometryCollapsed
         }
@@ -150,7 +152,8 @@ extension SCEngine {
                          extensionLength: Double,
                          tool: SC.ToolParams,
                          settings: SC.MachineSettings,
-                         direction: SC.CutDirection) -> [[SC.Segment]] {
+                         direction: SC.CutDirection,
+                         angle: Double = 0) -> [[SC.Segment]] {
 
         let stepover = facingStepover(for: tool, settings: settings)
         guard stepover > 1e-6,
@@ -180,6 +183,20 @@ extension SCEngine {
         }
         let rowCount = stepCount + 1
 
+        // A rotated raster only makes sense when the tool-center area is a real rectangle;
+        // if the tool is as wide as the footprint on either axis the path has collapsed to
+        // a line and the angle has nothing to rotate, so those fall back to the straight rows.
+        let normalizedAngle = angle.truncatingRemainder(dividingBy: 360)
+        let isAxisAligned = abs(normalizedAngle) < 1e-9 || abs(abs(normalizedAngle) - 360) < 1e-9
+        if !isAxisAligned,
+           area.maxX - area.minX > 1e-9,
+           area.maxY - area.minY > 1e-9 {
+            return angledFacingScanlines(area: area,
+                                         stepover: stepover,
+                                         direction: direction,
+                                         angleDegrees: normalizedAngle)
+        }
+
         var rows: [[SC.Segment]] = []
         var leftToRight = (direction == .climb)
 
@@ -191,6 +208,87 @@ extension SCEngine {
 
             rows.append([row])
             leftToRight.toggle()
+        }
+
+        return rows
+    }
+
+    /// The `facingScanlines` raster rotated by `angleDegrees` (counter-clockwise from +X).
+    ///
+    /// The rows run along `u = (cos a, sin a)` and are spaced `stepover` apart along the
+    /// perpendicular `v = (-sin a, cos a)`, from the area corner with the lowest `v` to the
+    /// one with the highest, so the first and last rows always touch a corner and the pass
+    /// count follows the same whole-number snapping as the straight version. Each row is
+    /// clipped to `area` (the tool-center rectangle), which keeps the cutter inside the cut
+    /// area at any angle. Rows alternate direction like the straight raster; the first one
+    /// runs along +u for `.climb`, so a rotated path is the 0 degree path rotated by `a`.
+    private func angledFacingScanlines(area: (minX: Double, maxX: Double, minY: Double, maxY: Double),
+                                       stepover: Double,
+                                       direction: SC.CutDirection,
+                                       angleDegrees: Double) -> [[SC.Segment]] {
+        let radians = angleDegrees * Double.pi / 180
+        let ux = cos(radians), uy = sin(radians)
+        let vx = -uy, vy = ux
+
+        let corners = [(area.minX, area.minY), (area.maxX, area.minY),
+                       (area.maxX, area.maxY), (area.minX, area.maxY)]
+        let vValues = corners.map { $0.0 * vx + $0.1 * vy }
+        guard let vMin = vValues.min(), let vMax = vValues.max() else {
+            return []
+        }
+
+        let span = vMax - vMin
+        guard span > 1e-9 else {
+            return []
+        }
+        let rawSteps = span / stepover
+        let stepCount = abs(rawSteps.rounded() - rawSteps) < 1e-9
+            ? max(1, Int(rawSteps.rounded()))
+            : max(1, Int(rawSteps.rounded(.up)))
+        let rowCount = stepCount + 1
+
+        /// The `t` range over which `origin + t * (ux, uy)` stays inside `area` (Liang-Barsky),
+        /// or `nil` when the line misses it or only grazes a corner.
+        func clippedRange(originX: Double, originY: Double) -> (Double, Double)? {
+            var tMin = -Double.infinity, tMax = Double.infinity
+
+            func clip(origin: Double, delta: Double, lo: Double, hi: Double) -> Bool {
+                if abs(delta) < 1e-12 {
+                    return origin >= lo - 1e-9 && origin <= hi + 1e-9
+                }
+                var t0 = (lo - origin) / delta
+                var t1 = (hi - origin) / delta
+                if t0 > t1 {
+                    swap(&t0, &t1)
+                }
+                tMin = Swift.max(tMin, t0)
+                tMax = Swift.min(tMax, t1)
+                return tMin <= tMax
+            }
+
+            guard clip(origin: originX, delta: ux, lo: area.minX, hi: area.maxX),
+                  clip(origin: originY, delta: uy, lo: area.minY, hi: area.maxY),
+                  tMax - tMin > 1e-9 else {
+                return nil
+            }
+            return (tMin, tMax)
+        }
+
+        var rows: [[SC.Segment]] = []
+        var forward = (direction == .climb)
+
+        for i in 0..<rowCount {
+            let v = (i == rowCount - 1) ? vMax : vMin + stepover * Double(i)
+            guard let range = clippedRange(originX: v * vx, originY: v * vy) else {
+                continue
+            }
+            let from = forward ? range.0 : range.1
+            let to = forward ? range.1 : range.0
+            let start = CGPoint(x: v * vx + from * ux, y: v * vy + from * uy)
+            let end = CGPoint(x: v * vx + to * ux, y: v * vy + to * uy)
+
+            rows.append([.line(start: start, end: end)])
+            forward.toggle()
         }
 
         return rows

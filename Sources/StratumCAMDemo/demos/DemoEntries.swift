@@ -148,7 +148,7 @@ class DemoEntries: Demo {
     /// of travel, so the first ramp spans most of the first lap.
     func demoRectOutsideRampFromCustomZ() -> Demo.DemoResult {
         var custom = settings
-        custom.rampStartZ = 2.0
+        custom.startOffset = 2.0
         return contourDemo(rectangleContour(), side: .outside, entry: ramp, settings: custom)
     }
 

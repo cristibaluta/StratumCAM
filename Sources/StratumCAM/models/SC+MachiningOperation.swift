@@ -40,7 +40,13 @@ extension SC {
         ///   - extensionLength: Distance by which the *cut area* (the cutter's edge, not
         ///     its center) extends beyond the selected contour's bounding box. Defaults
         ///     to none at the call site (0); the user opts in to overcut explicitly.
-        case facing(direction: CutDirection, extensionLength: Double)
+        ///   - angle: Angle of the facing passes in degrees, counter-clockwise from the
+        ///     +X axis. 0 (the default) runs the rows parallel to X, 90 parallel to Y, and
+        ///     anything else is the same raster rotated by that angle. The rows stay
+        ///     inside the same tool-center area, so the cutter never leaves the cut area
+        ///     whatever the angle; at an angle other than a multiple of 90 the corners
+        ///     and edges can keep small cusps between the row ends.
+        case facing(direction: CutDirection, extensionLength: Double, angle: Double = 0)
 
         /// Cuts a linear slot or groove along a center curve or constrained by 2 walls
         ///

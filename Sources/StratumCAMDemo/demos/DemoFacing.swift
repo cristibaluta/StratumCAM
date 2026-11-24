@@ -69,6 +69,20 @@ class DemoFacing: Demo {
         return self.run(contour: contour, tool: tool, settings: settings, operation: .facing(direction: .climb, extensionLength: 4.0))
     }
 
+    // MARK: - Angled rows
+
+    /// Same 20x10 part and 6mm tool as `demoFacingRectangleClimb`, with the rows rotated 45
+    /// degrees. The diagonal rows are clipped to the same tool-center rectangle, so the
+    /// cutter still stays inside the [0,20]x[0,10] footprint.
+    func demoFacingRectangleAngled45() -> Demo.DemoResult {
+        let tool = SC.ToolParams(type: .ballEndMill, diameter: 3.175)
+        let cutting = SC.CuttingData(feedRate: 1000.0, plungeRate: 300.0, stepoverPercentage: 0.1)
+        let settings = SC.MachineSettings(cutting: cutting, safeZ: 5.0, targetDepth: 0.1)
+        let contour = rectangleContour(width: 50, height: 30)
+
+        return self.run(contour: contour, tool: tool, settings: settings, operation: .facing(direction: .climb, extensionLength: 1, angle: 45))
+    }
+
     // MARK: - Smaller tool, tighter rows
 
     /// Faces a larger 60x40 part shape with a smaller 4mm tool -- since row spacing now

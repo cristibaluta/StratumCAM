@@ -287,7 +287,7 @@ extension SC.MachiningOperation {
     public var direction: SC.CutDirection? {
         get {
             switch self {
-                case .facing(let direction, _): return direction
+                case .facing(let direction, _, _): return direction
                 case .contour(_, let direction, _, _, _, _): return direction
                 case .pocket(let direction, _, _): return direction
                 case .pocket3D(let direction, _, _): return direction
@@ -301,8 +301,8 @@ extension SC.MachiningOperation {
                 return
             }
             switch self {
-                case .facing(_, let extensionLength):
-                    self = .facing(direction: newValue, extensionLength: extensionLength)
+                case .facing(_, let extensionLength, let angle):
+                    self = .facing(direction: newValue, extensionLength: extensionLength, angle: angle)
                 case .contour(let side, _, let entry, let leadIn, let leadOut, let tabs):
                     self = .contour(side: side, direction: newValue, entry: entry, leadIn: leadIn, leadOut: leadOut, tabs: tabs)
                 case .pocket(_, let pattern, let entry):
@@ -411,8 +411,9 @@ extension SC.MachiningOperation {
                         break
                 }
 
-            case .facing(_, let extensionLength):
+            case .facing(_, let extensionLength, let angle):
                 try require(extensionLength >= 0, parameter: "facing.extensionLength")
+                try require(angle.isFinite, parameter: "facing.angle")
 
             case .slotting(let depthPerPass, _, _):
                 try require(depthPerPass > 0, parameter: "slotting.depthPerPass")
