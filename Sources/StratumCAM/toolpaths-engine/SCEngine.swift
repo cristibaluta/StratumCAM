@@ -91,7 +91,7 @@ public final class SCEngine {
         for contour in contours {
             do {
                 if let toolpath = try buildToolpath(for: contour, tool: tool, settings: settings, operation: operation) {
-                    results.append(applyEntryHeight(to: toolpath))
+                    results.append(applyEntryDescent(to: applyEntryHeight(to: toolpath)))
                 }
             } catch SC.Error.geometryCollapsed {
                 lastCollapse = .geometryCollapsed
